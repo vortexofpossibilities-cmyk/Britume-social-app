@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "BRITUME",
+    "slug": "britume",
+    "scheme": "britume",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "android": {
+      "package": "com.britume.app",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true
+    }
+  }
+}
