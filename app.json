@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "BRITUME",
@@ -6,7 +7,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "plugins": ["expo-router", "expo-secure-store"],
+    "icon": "./assets/icon.png",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#06152F"
+        }
+      ]
+    ],
     "android": {
       "package": "com.britume.app",
       "versionCode": 1,
@@ -14,14 +28,3 @@
     }
   }
 }
-"plugins": [
-  [
-    "expo-splash-screen",
-    {
-      "image": "./assets/splash.png",
-      "imageWidth": 280,
-      "resizeMode": "contain",
-      "backgroundColor": "#06152F"
-    }
-  ]
-]
