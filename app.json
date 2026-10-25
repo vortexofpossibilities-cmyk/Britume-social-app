@@ -14,3 +14,14 @@
     }
   }
 }
+"plugins": [
+  [
+    "expo-splash-screen",
+    {
+      "image": "./assets/splash.png",
+      "imageWidth": 280,
+      "resizeMode": "contain",
+      "backgroundColor": "#06152F"
+    }
+  ]
+]
