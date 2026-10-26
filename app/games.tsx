@@ -1,2 +1,2 @@
 
-export { default } from '../src/games';
+export { default } from './games-hub';
