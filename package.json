@@ -1,3 +1,4 @@
+
 {
   "name": "britume",
   "version": "0.1.0",
@@ -8,12 +9,10 @@
     "android": "expo start --android",
     "typecheck": "tsc --noEmit"
   },
-  
-"dependencies": {
-  "@expo/vector-icons": "^14.0.0"
-}
-  "@react-native-async-storage/async-storage": "2.2.0",
-  "@supabase/supabase-js": "^2.57.4",
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.57.4",
     "expo": "~54.0.0",
     "expo-router": "~6.0.0",
     "expo-secure-store": "~15.0.0",
