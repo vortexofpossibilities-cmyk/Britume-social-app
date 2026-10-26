@@ -38,3 +38,11 @@ Expo + React Native + TypeScript + Expo Router + Supabase.
 
 ## Android release
 Before release, confirm the Android package ID, configure EAS Build, create a signed Android App Bundle, test on real devices, publish a privacy policy, complete Play Console Data safety/content declarations, and implement user safety/moderation requirements. Google Play review and any required testing period are separate from generating the build.
+
+
+## Feature screens
+The `app/` folder also contains dedicated route foundations for Stories, Communities, Messages, Notifications, BRITUME AI, Studio, Games, Competitions, Dashboard, and Privacy & Safety. These are not all backend-connected yet. See `FEATURE-STATUS.md` and `BUILD-NEXT.md`.
+
+
+## Feature screens
+The `app/` folder also contains dedicated route foundations for Stories, Communities, Messages, Notifications, BRITUME AI, Studio, Games, Competitions, Dashboard, and Privacy & Safety. These are not all backend-connected yet. See `FEATURE-STATUS.md` and `BUILD-NEXT.md`.

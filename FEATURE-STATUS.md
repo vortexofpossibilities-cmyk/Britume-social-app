@@ -1,33 +1,22 @@
-# BRITUME starter feature status
+# BRITUME feature status (audit baseline)
 
-Status describes the included source code, not a guarantee of end-to-end operation. Configuration and testing are still required.
+## Existing project structure
+- Expo Router + React Native + TypeScript project
+- Email sign-in and sign-up screen routes
+- Home feed queries public posts from Supabase when environment variables are configured
+- Create, Discover, Offline Library, Profile, and Settings screens
+- Supabase client helper, `.env.example`, and initial `supabase/schema.sql`
+- App icon and splash screen are stored in `assets/` in the current GitHub repository; add those files to this ZIP if they are not present in the extracted copy.
 
-## Starter screens / foundations
-- [x] Expo / React Native project structure
-- [x] Email sign-up and sign-in screens
-- [x] Home/feed screen foundation
-- [x] Discover screen foundation
-- [x] Create text-post screen foundation
-- [x] Profile and settings screen foundation
-- [x] Supabase client integration point
-- [x] Initial SQL schema and row-level security policy draft
+## Screens added in this bundle
+- Feature hub, Stories, Communities, Messages, Notifications, BRITUME AI, Studio, Games, Competitions, Dashboard, Privacy & Safety.
+- These are navigable feature foundations, not claims that every service is already live.
 
-## Requires configuration and real testing
-- [ ] Hosted backend project and correct environment variables
-- [ ] Run SQL schema and validate policies with multiple test accounts
-- [ ] Install dependencies and pass TypeScript checks
-- [ ] Android device testing, including sign-up, sign-in, sign-out and post creation
-- [ ] Production privacy/security review
+## Still needs implementation/integration
+- Verify all existing routes and Supabase SQL against the current GitHub main branch before replacing files.
+- Supabase project URL/anon key configuration, SQL migration run, RLS testing and auth email settings.
+- Photo/video upload, likes/comments/follows, stories expiry, communities, realtime messaging, notifications, AI provider, audio/video calling, music licensing/offline rights, games, creator Studio engine and moderation/reporting.
+- Build and test Android package and web deployment.
 
-## Not represented as complete
-- [ ] AI assistant service
-- [ ] Actual two-day weather forecast
-- [ ] Stories, image/video cloud uploads, comments, likes and follows
-- [ ] Groups with verified official organizations
-- [ ] Private messaging, calls, notifications and live streaming
-- [ ] Music recording/beat studio with durable cloud saves
-- [ ] Online multiplayer games and competitions
-- [ ] Moderation/reporting/blocking tools and production analytics
-- [ ] Google Play release package and release checks
-
-Do not use demo/sample content as if it were real users or real activity.
+## Important
+Do not put service-role keys or AI provider secrets in the mobile app. Public sample/demo content is not proof of real users or live backend functionality.
