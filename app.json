@@ -2,7 +2,7 @@
 {
   "expo": {
     "name": "BRITUME",
-    "slug": "britume",
+    "slug":  "britume-reql-social-app",
     "scheme": "britume",
     "version": "0.1.0",
     "orientation": "portrait",
