@@ -1,22 +1,85 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-type AuthState = { session: Session | null; loading: boolean };
-const AuthContext = createContext<AuthState>({ session: null, loading: true });
+type AuthState = {
+  session: Session | null;
+  loading: boolean;
+};
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+const AuthContext = createContext<AuthState>({
+  session: null,
+  loading: true,
+});
+
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    if (!supabase) {
+      setSession(null);
       setLoading(false);
-    }).catch(() => setLoading(false));
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => data.subscription.unsubscribe();
+      return;
+    }
+
+    let mounted = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) {
+        setSession(nextSession);
+        setLoading(false);
+      }
+    });
+
+    const loadSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.warn('BRITUME session check failed:', error.message);
+          return;
+        }
+
+        if (mounted) {
+          setSession(data.session);
+        }
+      } catch (error) {
+        console.warn('BRITUME session check failed:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
-  return <AuthContext.Provider value={{ session, loading }}>{children}</AuthContext.Provider>;
+
+  return (
+    <AuthContext.Provider value={{ session, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
-export function useAuth() { return useContext(AuthContext); }
+
+export function useAuth(): AuthState {
+  return useContext(AuthContext);
+}
