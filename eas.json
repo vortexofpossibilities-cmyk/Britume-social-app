@@ -1,7 +1,7 @@
 
 {
   "cli": {
-    "appVersionSource": "remote"
+    "version": ">= 5.9.0"
   },
   "build": {
     "internal": {
@@ -10,13 +10,6 @@
         "buildType": "apk",
         "image": "latest"
       }
-    },
-    "production": {
-      "android": {
-        "buildType": "app-bundle",
-        "image": "latest"
-      },
-      "autoIncrement": true
     }
   }
 }
