@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -27,7 +26,8 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setSession(null);
       setLoading(false);
       return;
@@ -37,7 +37,7 @@ export function AuthProvider({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) {
         setSession(nextSession);
         setLoading(false);
@@ -46,7 +46,7 @@ export function AuthProvider({
 
     const loadSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await client.auth.getSession();
 
         if (error) {
           console.warn('BRITUME session check failed:', error.message);
