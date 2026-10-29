@@ -31,7 +31,12 @@ export default function HomeScreen() {
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
 
   const loadPosts = useCallback(async (refresh = false) => {
-    refresh ? setRefreshing(true) : setLoading(true);
+    if (refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     setError('');
 
     try {
@@ -54,6 +59,7 @@ export default function HomeScreen() {
 
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     if (!q) return posts;
 
     return posts.filter((post) =>
@@ -100,6 +106,7 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Notifications"
           style={styles.topButton}
           onPress={() => router.push('/notifications')}
@@ -111,7 +118,18 @@ export default function HomeScreen() {
           />
         </Pressable>
 
+        {/* BRITUME AI BUTTON */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open BRITUME AI"
+          style={styles.topButton}
+          onPress={() => router.push('/(tabs)/britume-ai')}
+        >
+          <Text style={styles.aiIcon}>✨</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Create"
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/create')}
@@ -122,7 +140,12 @@ export default function HomeScreen() {
 
       {/* SEARCH ABOVE STORIES */}
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={21} color={theme.muted} />
+        <Ionicons
+          name="search-outline"
+          size={21}
+          color={theme.muted}
+        />
+
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -132,7 +155,9 @@ export default function HomeScreen() {
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
+
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Open Discover"
           onPress={() => router.push('/(tabs)/discover')}
         >
@@ -147,7 +172,9 @@ export default function HomeScreen() {
       {/* STORIES */}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Stories</Text>
+
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Add a story"
           style={styles.addButton}
           onPress={() => router.push('/stories')}
@@ -182,7 +209,9 @@ export default function HomeScreen() {
       {/* FEED HEADING */}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Posts</Text>
+
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Create a post"
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
@@ -206,7 +235,9 @@ export default function HomeScreen() {
     <View style={styles.videoSection}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Videos</Text>
+
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Add a video"
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
@@ -222,9 +253,16 @@ export default function HomeScreen() {
         <View style={styles.videoArtwork}>
           <Ionicons name="play-circle" size={58} color={BLUE} />
         </View>
+
         <View style={styles.videoBottom}>
-          <Text style={styles.videoCaption}>Explore moments on BRITUME</Text>
-          <Ionicons name="chevron-forward" size={22} color={BLUE} />
+          <Text style={styles.videoCaption}>
+            Explore moments on BRITUME
+          </Text>
+          <Ionicons
+            name="chevron-forward"
+            size={22}
+            color={BLUE}
+          />
         </View>
       </Pressable>
     </View>
@@ -262,14 +300,17 @@ export default function HomeScreen() {
             size={36}
             color={BLUE}
           />
+
           <Text style={styles.emptyTitle}>
             {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
           </Text>
+
           <Text style={styles.emptyText}>
             {search.trim()
               ? 'Try searching for something else.'
               : 'Create a post to start sharing with the community.'}
           </Text>
+
           {!search.trim() && (
             <Pressable
               style={styles.primaryButton}
@@ -295,15 +336,23 @@ export default function HomeScreen() {
             </View>
 
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="More post options"
               onPress={() =>
                 Alert.alert('Post options', 'Choose an action.', [
-                  { text: 'Share', onPress: () => void sharePost(item.content ?? '') },
+                  {
+                    text: 'Share',
+                    onPress: () => void sharePost(item.content ?? ''),
+                  },
                   { text: 'Cancel', style: 'cancel' },
                 ])
               }
             >
-              <Ionicons name="ellipsis-vertical" size={19} color={theme.muted} />
+              <Ionicons
+                name="ellipsis-vertical"
+                size={19}
+                color={theme.muted}
+              />
             </Pressable>
           </View>
 
@@ -311,20 +360,30 @@ export default function HomeScreen() {
             {item.content}
           </Text>
 
-          {/* ALL POST ACTIONS IN ONE ROW; ICONS ONLY */}
+          {/* POST ACTIONS IN ONE ROW */}
           <View style={styles.postActions}>
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Like post"
               onPress={() => toggleLike(item.id)}
             >
               <Ionicons
-                name={likedPosts.includes(item.id) ? 'heart' : 'heart-outline'}
+                name={
+                  likedPosts.includes(item.id)
+                    ? 'heart'
+                    : 'heart-outline'
+                }
                 size={21}
-                color={likedPosts.includes(item.id) ? '#E84C75' : theme.muted}
+                color={
+                  likedPosts.includes(item.id)
+                    ? '#E84C75'
+                    : theme.muted
+                }
               />
             </Pressable>
 
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Comment on post"
               onPress={() =>
                 Alert.alert(
@@ -333,28 +392,45 @@ export default function HomeScreen() {
                 )
               }
             >
-              <Ionicons name="chatbubble-outline" size={21} color={theme.muted} />
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Share post"
-              onPress={() => void sharePost(item.content ?? '')}
-            >
-              <Ionicons name="share-social-outline" size={21} color={theme.muted} />
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Save post"
-              onPress={() => toggleSave(item.id)}
-            >
               <Ionicons
-                name={savedPosts.includes(item.id) ? 'bookmark' : 'bookmark-outline'}
+                name="chatbubble-outline"
                 size={21}
-                color={savedPosts.includes(item.id) ? BLUE : theme.muted}
+                color={theme.muted}
               />
             </Pressable>
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share post"
+              onPress={() => void sharePost(item.content ?? '')}
+            >
+              <Ionicons
+                name="share-social-outline"
+                size={21}
+                color={theme.muted}
+              />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save post"
+              onPress={() => toggleSave(item.id)}
+            >
+              <Ionicons
+                name={
+                  savedPosts.includes(item.id)
+                    ? 'bookmark'
+                    : 'bookmark-outline'
+                }
+                size={21}
+                color={
+                  savedPosts.includes(item.id) ? BLUE : theme.muted
+                }
+              />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Download post"
               onPress={() =>
                 Alert.alert(
@@ -363,7 +439,11 @@ export default function HomeScreen() {
                 )
               }
             >
-              <Ionicons name="download-outline" size={21} color={theme.muted} />
+              <Ionicons
+                name="download-outline"
+                size={21}
+                color={theme.muted}
+              />
             </Pressable>
           </View>
         </View>
@@ -373,9 +453,20 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.bg },
-  content: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 18 },
-  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  screen: {
+    flex: 1,
+    backgroundColor: theme.bg,
+  },
+  content: {
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 18,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   brandMark: {
     width: 43,
     height: 43,
@@ -384,12 +475,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandLetter: { color: '#FFFFFF', fontSize: 25, fontWeight: '900' },
-  brandText: { flex: 1, marginLeft: 9 },
-  brandName: { color: theme.text, fontSize: 18, fontWeight: '900' },
-  tagline: { color: theme.muted, fontSize: 10 },
-  byline: { color: theme.muted, fontSize: 10 },
-  topButton: { padding: 5, marginLeft: 5 },
+  brandLetter: {
+    color: '#FFFFFF',
+    fontSize: 25,
+    fontWeight: '900',
+  },
+  brandText: {
+    flex: 1,
+    marginLeft: 9,
+  },
+  brandName: {
+    color: theme.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  tagline: {
+    color: theme.muted,
+    fontSize: 10,
+  },
+  byline: {
+    color: theme.muted,
+    fontSize: 10,
+  },
+  topButton: {
+    padding: 5,
+    marginLeft: 5,
+  },
+  aiIcon: {
+    color: BLUE,
+    fontSize: 22,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,10 +528,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  sectionTitle: { color: theme.text, fontSize: 19, fontWeight: '800' },
-  addButton: { paddingHorizontal: 3, paddingVertical: 1 },
-  storyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 21 },
-  storyItem: { alignItems: 'center', marginRight: 12 },
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 19,
+    fontWeight: '800',
+  },
+  addButton: {
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  storyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 21,
+  },
+  storyItem: {
+    alignItems: 'center',
+    marginRight: 12,
+  },
   storyCircle: {
     width: 58,
     height: 58,
@@ -426,8 +555,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  myStory: { backgroundColor: BLUE },
-  storyLabel: { color: theme.text, fontSize: 10, marginTop: 5 },
+  myStory: {
+    backgroundColor: BLUE,
+  },
+  storyLabel: {
+    color: theme.text,
+    fontSize: 10,
+    marginTop: 5,
+  },
   storyEmpty: {
     flex: 1,
     minHeight: 68,
@@ -438,8 +573,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  storyEmptyText: { flex: 1, color: theme.muted, fontSize: 11, lineHeight: 16 },
-  postRow: { justifyContent: 'space-between', gap: 8 },
+  storyEmptyText: {
+    flex: 1,
+    color: theme.muted,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  postRow: {
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   postCard: {
     flex: 1,
     minWidth: 0,
@@ -450,7 +593,11 @@ const styles = StyleSheet.create({
     padding: 9,
     marginBottom: 10,
   },
-  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   avatar: {
     width: 29,
     height: 29,
@@ -459,10 +606,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  postAuthor: { flex: 1, marginLeft: 6 },
-  authorName: { color: theme.text, fontWeight: '800', fontSize: 10 },
-  postDate: { color: theme.muted, fontSize: 9, marginTop: 2 },
-  postContent: { color: theme.text, fontSize: 13, lineHeight: 19, minHeight: 55 },
+  postAuthor: {
+    flex: 1,
+    marginLeft: 6,
+  },
+  authorName: {
+    color: theme.text,
+    fontWeight: '800',
+    fontSize: 10,
+  },
+  postDate: {
+    color: theme.muted,
+    fontSize: 9,
+    marginTop: 2,
+  },
+  postContent: {
+    color: theme.text,
+    fontSize: 13,
+    lineHeight: 19,
+    minHeight: 55,
+  },
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -472,7 +635,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 10,
   },
-  videoSection: { marginTop: 13 },
+  videoSection: {
+    marginTop: 13,
+  },
   videoCard: {
     backgroundColor: theme.panel,
     borderRadius: 17,
@@ -493,7 +658,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
   },
-  videoCaption: { color: theme.text, fontWeight: '700', fontSize: 13 },
+  videoCaption: {
+    color: theme.text,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   emptyBox: {
     backgroundColor: theme.panel,
     borderWidth: 1,
@@ -503,8 +672,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  emptyTitle: { color: theme.text, fontSize: 16, fontWeight: '800', marginTop: 9 },
-  emptyText: { color: theme.muted, textAlign: 'center', lineHeight: 19, marginTop: 6 },
+  emptyTitle: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 9,
+  },
+  emptyText: {
+    color: theme.muted,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 6,
+  },
   primaryButton: {
     backgroundColor: BLUE,
     width: 43,
@@ -514,8 +693,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 13,
   },
-  errorBox: { backgroundColor: '#FFF0F0', padding: 12, borderRadius: 12, marginBottom: 12 },
-  errorText: { color: theme.danger, marginBottom: 5 },
-  retryText: { color: BLUE, fontWeight: '800' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg },
+  errorBox: {
+    backgroundColor: '#FFF0F0',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: theme.danger,
+    marginBottom: 5,
+  },
+  retryText: {
+    color: BLUE,
+    fontWeight: '800',
+  },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.bg,
+  },
 });
