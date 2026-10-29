@@ -1,46 +1,44 @@
-
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
   ActivityIndicator,
-  RefreshControl,
-  TextInput,
+  Alert,
+  FlatList,
   Pressable,
+  RefreshControl,
   Share,
   StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   fetchPublicPosts,
   type FeedPost,
 } from '../../src/lib/posts';
 import { theme } from '../../src/lib/theme';
 
+const BLUE = '#168BFF';
+
 export default function HomeScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [likedPosts, setLikedPosts] = useState<string[]>([]);
+  const [savedPosts, setSavedPosts] = useState<string[]>([]);
 
-  const loadPosts = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
+  const loadPosts = useCallback(async (refresh = false) => {
+    refresh ? setRefreshing(true) : setLoading(true);
     setError('');
 
     try {
-      const results = await fetchPublicPosts();
-      setPosts(results);
+      setPosts(await fetchPublicPosts());
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : 'Unable to load posts.'
+        e instanceof Error ? e.message : 'Could not load posts.',
       );
     } finally {
       setLoading(false);
@@ -51,29 +49,45 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadPosts();
-    }, [loadPosts])
+    }, [loadPosts]),
   );
 
   const filteredPosts = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) return posts;
+    const q = search.trim().toLowerCase();
+    if (!q) return posts;
 
     return posts.filter((post) =>
-      (post.content ?? '').toLowerCase().includes(query)
+      (post.content ?? '').toLowerCase().includes(q),
     );
   }, [posts, search]);
+
+  const toggleLike = (id: string) => {
+    setLikedPosts((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
+
+  const toggleSave = (id: string) => {
+    setSavedPosts((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
 
   const sharePost = async (content: string) => {
     try {
       await Share.share({ message: content });
     } catch {
-      // Sharing was cancelled or unavailable.
+      Alert.alert('Sharing unavailable', 'Please try again.');
     }
   };
 
   const Header = (
     <View>
+      {/* BRAND AND TOP ICONS */}
       <View style={styles.topBar}>
         <View style={styles.brandMark}>
           <Text style={styles.brandLetter}>B</Text>
@@ -81,77 +95,99 @@ export default function HomeScreen() {
 
         <View style={styles.brandText}>
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>
-            Vortex of Possibilities
-          </Text>
+          <Text style={styles.tagline}>Vortex of Possibilities</Text>
           <Text style={styles.byline}>by brilliant mere</Text>
         </View>
 
         <Pressable
-          accessibilityLabel="Create a post"
-          style={styles.topIcon}
-          onPress={() => router.push('/(tabs)/create')}
+          accessibilityLabel="Notifications"
+          style={styles.topButton}
+          onPress={() => router.push('/notifications')}
         >
-          <Ionicons name="add-circle-outline" size={25} color={theme.text} />
+          <Ionicons
+            name="notifications-outline"
+            size={25}
+            color={theme.text}
+          />
         </Pressable>
 
         <Pressable
-          accessibilityLabel="Discover people and posts"
-          style={styles.topIcon}
-          onPress={() => router.push('/(tabs)/discover')}
+          accessibilityLabel="Create"
+          style={styles.topButton}
+          onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons name="people-outline" size={23} color={theme.text} />
+          <Ionicons name="add-circle" size={27} color={BLUE} />
         </Pressable>
       </View>
 
+      {/* SEARCH ABOVE STORIES */}
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={20} color={theme.muted} />
+        <Ionicons name="search-outline" size={21} color={theme.muted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search posts..."
+          placeholder="Search people, posts and communities..."
           placeholderTextColor={theme.muted}
           style={styles.searchInput}
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
+        <Pressable
+          accessibilityLabel="Open Discover"
+          onPress={() => router.push('/(tabs)/discover')}
+        >
+          <Ionicons
+            name="options-outline"
+            size={21}
+            color={theme.muted}
+          />
+        </Pressable>
       </View>
 
+      {/* STORIES */}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Stories</Text>
-        <Text style={styles.sectionNote}>Share a moment</Text>
+        <Pressable
+          accessibilityLabel="Add a story"
+          style={styles.addButton}
+          onPress={() => router.push('/stories')}
+        >
+          <Ionicons name="add-circle" size={25} color={BLUE} />
+        </Pressable>
       </View>
 
       <View style={styles.storyRow}>
         <Pressable
           style={styles.storyItem}
-          onPress={() => router.push('/(tabs)/create')}
+          onPress={() => router.push('/stories')}
         >
-          <View style={[styles.storyCircle, styles.createStory]}>
-            <Ionicons name="add" size={30} color="#FFFFFF" />
+          <View style={[styles.storyCircle, styles.myStory]}>
+            <Ionicons name="add" size={29} color="#FFFFFF" />
           </View>
-          <Text style={styles.storyLabel}>Your story</Text>
+          <Text style={styles.storyLabel}>Add story</Text>
         </Pressable>
 
         <View style={styles.storyEmpty}>
           <Ionicons
-            name="people-circle-outline"
-            size={27}
+            name="people-outline"
+            size={25}
             color={theme.muted}
           />
           <Text style={styles.storyEmptyText}>
-            Stories from people you follow will appear here.
+            Stories from people you follow appear here.
           </Text>
         </View>
       </View>
 
-      <View style={styles.feedHeading}>
-        <Text style={styles.sectionTitle}>Your feed</Text>
+      {/* FEED HEADING */}
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>Posts</Text>
         <Pressable
-          onPress={() => void loadPosts(true)}
-          accessibilityLabel="Refresh feed"
+          accessibilityLabel="Create a post"
+          style={styles.addButton}
+          onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons name="refresh-outline" size={22} color={theme.cyan} />
+          <Ionicons name="add-circle" size={25} color={BLUE} />
         </Pressable>
       </View>
 
@@ -166,11 +202,38 @@ export default function HomeScreen() {
     </View>
   );
 
+  const VideoSection = (
+    <View style={styles.videoSection}>
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>Videos</Text>
+        <Pressable
+          accessibilityLabel="Add a video"
+          style={styles.addButton}
+          onPress={() => router.push('/(tabs)/create')}
+        >
+          <Ionicons name="add-circle" size={25} color={BLUE} />
+        </Pressable>
+      </View>
+
+      <Pressable
+        style={styles.videoCard}
+        onPress={() => router.push('/stories')}
+      >
+        <View style={styles.videoArtwork}>
+          <Ionicons name="play-circle" size={58} color={BLUE} />
+        </View>
+        <View style={styles.videoBottom}>
+          <Text style={styles.videoCaption}>Explore moments on BRITUME</Text>
+          <Ionicons name="chevron-forward" size={22} color={BLUE} />
+        </View>
+      </Pressable>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={theme.cyan} />
-        <Text style={styles.loadingText}>Loading BRITUME...</Text>
+        <ActivityIndicator size="large" color={BLUE} />
       </View>
     );
   }
@@ -178,38 +241,41 @@ export default function HomeScreen() {
   return (
     <FlatList
       style={styles.screen}
+      contentContainerStyle={styles.content}
       data={filteredPosts}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.content}
+      numColumns={2}
+      columnWrapperStyle={styles.postRow}
       ListHeaderComponent={Header}
+      ListFooterComponent={VideoSection}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={() => void loadPosts(true)}
-          tintColor={theme.cyan}
+          tintColor={BLUE}
         />
       }
       ListEmptyComponent={
         <View style={styles.emptyBox}>
           <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={35}
-            color={theme.cyan}
+            name="chatbubbles-outline"
+            size={36}
+            color={BLUE}
           />
           <Text style={styles.emptyTitle}>
-            {search.trim() ? 'No matching posts' : 'Your feed starts here'}
+            {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
           </Text>
           <Text style={styles.emptyText}>
             {search.trim()
-              ? 'Try a different search.'
-              : 'When posts are available, they will appear here. You can create the first post.'}
+              ? 'Try searching for something else.'
+              : 'Create a post to start sharing with the community.'}
           </Text>
           {!search.trim() && (
             <Pressable
               style={styles.primaryButton}
               onPress={() => router.push('/(tabs)/create')}
             >
-              <Text style={styles.primaryButtonText}>Create a post</Text>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
             </Pressable>
           )}
         </View>
@@ -218,62 +284,86 @@ export default function HomeScreen() {
         <View style={styles.postCard}>
           <View style={styles.postHeader}>
             <View style={styles.avatar}>
-              <Ionicons
-                name="person-outline"
-                size={21}
-                color={theme.cyan}
-              />
+              <Ionicons name="person" size={20} color={BLUE} />
             </View>
+
             <View style={styles.postAuthor}>
-              <Text style={styles.authorName}>BRITUME post</Text>
+              <Text style={styles.authorName}>BRITUME member</Text>
               <Text style={styles.postDate}>
-                {new Date(item.created_at).toLocaleString()}
+                {new Date(item.created_at).toLocaleDateString()}
               </Text>
             </View>
+
             <Pressable
-              accessibilityLabel="Share post"
-              onPress={() => void sharePost(item.content ?? '')}
-              style={styles.actionIcon}
+              accessibilityLabel="More post options"
+              onPress={() =>
+                Alert.alert('Post options', 'Choose an action.', [
+                  { text: 'Share', onPress: () => void sharePost(item.content ?? '') },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
+              }
             >
-              <Ionicons
-                name="share-social-outline"
-                size={21}
-                color={theme.text}
-              />
+              <Ionicons name="ellipsis-vertical" size={19} color={theme.muted} />
             </Pressable>
           </View>
 
-          <Text style={styles.postContent}>{item.content}</Text>
+          <Text style={styles.postContent} numberOfLines={8}>
+            {item.content}
+          </Text>
 
+          {/* ALL POST ACTIONS IN ONE ROW; ICONS ONLY */}
           <View style={styles.postActions}>
-            <View style={styles.notConnectedAction}>
-              <Ionicons
-                name="heart-outline"
-                size={20}
-                color={theme.muted}
-              />
-              <Text style={styles.actionLabel}>Like</Text>
-            </View>
-
-            <View style={styles.notConnectedAction}>
-              <Ionicons
-                name="chatbubble-outline"
-                size={20}
-                color={theme.muted}
-              />
-              <Text style={styles.actionLabel}>Comment</Text>
-            </View>
-
             <Pressable
-              style={styles.actionButton}
-              onPress={() => void sharePost(item.content ?? '')}
+              accessibilityLabel="Like post"
+              onPress={() => toggleLike(item.id)}
             >
               <Ionicons
-                name="paper-plane-outline"
-                size={20}
-                color={theme.cyan}
+                name={likedPosts.includes(item.id) ? 'heart' : 'heart-outline'}
+                size={21}
+                color={likedPosts.includes(item.id) ? '#E84C75' : theme.muted}
               />
-              <Text style={styles.shareLabel}>Share</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Comment on post"
+              onPress={() =>
+                Alert.alert(
+                  'Comments',
+                  'The comment form needs to be connected to the comments database.',
+                )
+              }
+            >
+              <Ionicons name="chatbubble-outline" size={21} color={theme.muted} />
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Share post"
+              onPress={() => void sharePost(item.content ?? '')}
+            >
+              <Ionicons name="share-social-outline" size={21} color={theme.muted} />
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Save post"
+              onPress={() => toggleSave(item.id)}
+            >
+              <Ionicons
+                name={savedPosts.includes(item.id) ? 'bookmark' : 'bookmark-outline'}
+                size={21}
+                color={savedPosts.includes(item.id) ? BLUE : theme.muted}
+              />
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Download post"
+              onPress={() =>
+                Alert.alert(
+                  'Download',
+                  'Downloading media will be available when media posts are connected.',
+                )
+              }
+            >
+              <Ionicons name="download-outline" size={21} color={theme.muted} />
             </Pressable>
           </View>
         </View>
@@ -283,260 +373,149 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  content: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 28,
-    flexGrow: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  screen: { flex: 1, backgroundColor: theme.bg },
+  content: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 18 },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   brandMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    backgroundColor: theme.cyan,
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandLetter: {
-    color: '#FFFFFF',
-    fontSize: 25,
-    fontWeight: '900',
-  },
-  brandText: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  brandName: {
-    color: theme.text,
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  tagline: {
-    color: theme.muted,
-    fontSize: 11,
-  },
-  byline: {
-    color: theme.muted,
-    fontSize: 10,
-  },
-  topIcon: {
-    padding: 7,
-    marginLeft: 3,
-  },
+  brandLetter: { color: '#FFFFFF', fontSize: 25, fontWeight: '900' },
+  brandText: { flex: 1, marginLeft: 9 },
+  brandName: { color: theme.text, fontSize: 18, fontWeight: '900' },
+  tagline: { color: theme.muted, fontSize: 10 },
+  byline: { color: theme.muted, fontSize: 10 },
+  topButton: { padding: 5, marginLeft: 5 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 15,
+    borderRadius: 18,
     paddingHorizontal: 12,
-    marginBottom: 20,
+    marginBottom: 19,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 9,
     color: theme.text,
-    fontSize: 15,
+    paddingHorizontal: 9,
+    paddingVertical: 12,
+    fontSize: 13,
   },
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 11,
+    marginBottom: 10,
   },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: theme.text,
-  },
-  sectionNote: {
-    color: theme.muted,
-    fontSize: 12,
-  },
-  storyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 22,
-  },
-  storyItem: {
-    alignItems: 'center',
-    marginRight: 13,
-  },
+  sectionTitle: { color: theme.text, fontSize: 19, fontWeight: '800' },
+  addButton: { paddingHorizontal: 3, paddingVertical: 1 },
+  storyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 21 },
+  storyItem: { alignItems: 'center', marginRight: 12 },
   storyCircle: {
     width: 58,
     height: 58,
     borderRadius: 29,
+    borderWidth: 2,
+    borderColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.cyan,
   },
-  createStory: {
-    backgroundColor: theme.cyan,
-  },
-  storyLabel: {
-    color: theme.text,
-    fontSize: 11,
-    marginTop: 5,
-  },
+  myStory: { backgroundColor: BLUE },
+  storyLabel: { color: theme.text, fontSize: 10, marginTop: 5 },
   storyEmpty: {
     flex: 1,
-    minHeight: 67,
-    borderRadius: 15,
+    minHeight: 68,
+    borderRadius: 16,
+    backgroundColor: theme.panel2,
     padding: 10,
-    backgroundColor: theme.panel2,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  storyEmptyText: {
-    flex: 1,
-    color: theme.muted,
-    fontSize: 12,
-    marginLeft: 7,
-  },
-  feedHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  errorBox: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#FFF0F0',
-    marginBottom: 12,
-  },
-  errorText: {
-    color: theme.danger,
-    marginBottom: 6,
-  },
-  retryText: {
-    color: theme.cyan,
-    fontWeight: '800',
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.bg,
-  },
-  loadingText: {
-    color: theme.muted,
-    marginTop: 10,
-  },
-  emptyBox: {
-    backgroundColor: theme.panel,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: theme.border,
-    padding: 22,
-    alignItems: 'center',
-    marginTop: 5,
-  },
-  emptyTitle: {
-    color: theme.text,
-    fontSize: 17,
-    fontWeight: '800',
-    marginTop: 10,
-  },
-  emptyText: {
-    color: theme.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 7,
-  },
-  primaryButton: {
-    backgroundColor: theme.cyan,
-    paddingVertical: 11,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    marginTop: 15,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
+  storyEmptyText: { flex: 1, color: theme.muted, fontSize: 11, lineHeight: 16 },
+  postRow: { justifyContent: 'space-between', gap: 8 },
   postCard: {
+    flex: 1,
+    minWidth: 0,
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 18,
-    padding: 15,
-    marginBottom: 13,
+    borderRadius: 16,
+    padding: 9,
+    marginBottom: 10,
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 13,
-  },
+  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 29,
+    height: 29,
+    borderRadius: 15,
     backgroundColor: theme.panel2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  postAuthor: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  authorName: {
-    color: theme.text,
-    fontWeight: '800',
-  },
-  postDate: {
-    color: theme.muted,
-    fontSize: 11,
-    marginTop: 3,
-  },
-  actionIcon: {
-    padding: 7,
-  },
-  postContent: {
-    color: theme.text,
-    fontSize: 16,
-    lineHeight: 23,
-  },
+  postAuthor: { flex: 1, marginLeft: 6 },
+  authorName: { color: theme.text, fontWeight: '800', fontSize: 10 },
+  postDate: { color: theme.muted, fontSize: 9, marginTop: 2 },
+  postContent: { color: theme.text, fontSize: 13, lineHeight: 19, minHeight: 55 },
   postActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: theme.border,
-    marginTop: 15,
-    paddingTop: 12,
+    paddingTop: 10,
+    marginTop: 10,
   },
-  notConnectedAction: {
+  videoSection: { marginTop: 13 },
+  videoCard: {
+    backgroundColor: theme.panel,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 9,
+  },
+  videoArtwork: {
+    height: 155,
+    borderRadius: 12,
+    backgroundColor: theme.panel2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 4,
+    justifyContent: 'space-between',
+    paddingTop: 10,
   },
-  actionButton: {
-    flexDirection: 'row',
+  videoCaption: { color: theme.text, fontWeight: '700', fontSize: 13 },
+  emptyBox: {
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 17,
+    padding: 20,
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 4,
+    marginBottom: 12,
   },
-  actionLabel: {
-    color: theme.muted,
-    fontSize: 12,
+  emptyTitle: { color: theme.text, fontSize: 16, fontWeight: '800', marginTop: 9 },
+  emptyText: { color: theme.muted, textAlign: 'center', lineHeight: 19, marginTop: 6 },
+  primaryButton: {
+    backgroundColor: BLUE,
+    width: 43,
+    height: 43,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 13,
   },
-  shareLabel: {
-    color: theme.cyan,
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  errorBox: { backgroundColor: '#FFF0F0', padding: 12, borderRadius: 12, marginBottom: 12 },
+  errorText: { color: theme.danger, marginBottom: 5 },
+  retryText: { color: BLUE, fontWeight: '800' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg },
 });
