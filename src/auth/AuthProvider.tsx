@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -10,12 +11,11 @@ import { supabase } from '../lib/supabase';
 type AuthState = {
   session: Session | null;
   loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthState>({
-  session: null,
-  loading: true,
-});
+const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({
   children,
@@ -26,8 +26,7 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) {
+    if (!supabase) {
       setSession(null);
       setLoading(false);
       return;
@@ -37,7 +36,7 @@ export function AuthProvider({
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) {
         setSession(nextSession);
         setLoading(false);
@@ -46,7 +45,7 @@ export function AuthProvider({
 
     const loadSession = async () => {
       try {
-        const { data, error } = await client.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
 
         if (error) {
           console.warn('BRITUME session check failed:', error.message);
@@ -73,13 +72,48 @@ export function AuthProvider({
     };
   }, []);
 
+  const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      throw new Error('Authentication is not configured. Please check the Supabase environment variables.');
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    if (!supabase) {
+      throw new Error('Authentication is not configured. Please check the Supabase environment variables.');
+    }
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, loading }}>
+    <AuthContext.Provider
+      value={{ session, loading, signIn, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth(): AuthState {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used inside AuthProvider.');
+  }
+
+  return context;
 }
