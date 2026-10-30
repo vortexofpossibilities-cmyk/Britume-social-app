@@ -12,7 +12,7 @@ import { theme } from '../../src/lib/theme';
 const items = [
 { icon: 'camera-outline' as const, route: '/(tabs)/create', name: 'Camera' },
 { icon: 'game-controller-outline' as const, route: '/games-hub', name: 'Games' },
-{ icon: 'people-outline' as const, route: '/communities', name: 'Community' },
+{ icon: 'people-outline' as const, route: '/(tabs)/communities' name: 'Community' },
 { icon: 'menu-outline' as const, route: '/(tabs)/more', name: 'More' },
 { icon: 'home-outline' as const, route: '/(tabs)', name: 'Home' },
 { icon: 'chatbubble-ellipses-outline' as const, route: '/messages', name: 'Messages' },
