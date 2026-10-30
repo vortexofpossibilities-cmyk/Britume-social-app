@@ -1,10 +1,10 @@
-
 import React, {
   createContext,
   useContext,
   useEffect,
   useState,
 } from 'react';
+
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -15,7 +15,19 @@ type AuthState = {
   signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthState | undefined>(undefined);
+const AuthContext = createContext<AuthState | undefined>(
+  undefined
+);
+
+function getSupabaseClient() {
+  if (!supabase) {
+    throw new Error(
+      'Supabase is not configured. Check your environment variables.'
+    );
+  }
+
+  return supabase;
+}
 
 export function AuthProvider({
   children,
@@ -26,15 +38,15 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const client = supabase;
+    let mounted = true;
 
-    if (!client) {
+    if (!supabase) {
       setSession(null);
       setLoading(false);
       return;
     }
 
-    let mounted = true;
+    const client = getSupabaseClient();
 
     const {
       data: { subscription },
@@ -45,7 +57,7 @@ export function AuthProvider({
       }
     });
 
-    const loadSession = async () => {
+    async function loadSession() {
       try {
         const { data, error } = await client.auth.getSession();
 
@@ -61,13 +73,16 @@ export function AuthProvider({
           setSession(data.session);
         }
       } catch (error) {
-        console.warn('BRITUME session check failed:', error);
+        console.warn(
+          'BRITUME session check failed:',
+          error
+        );
       } finally {
         if (mounted) {
           setLoading(false);
         }
       }
-    };
+    }
 
     void loadSession();
 
@@ -81,13 +96,7 @@ export function AuthProvider({
     email: string,
     password: string
   ): Promise<void> => {
-    const client = supabase;
-
-    if (!client) {
-      throw new Error(
-        'Supabase is not configured. Check your environment variables.'
-      );
-    }
+    const client = getSupabaseClient();
 
     const { error } = await client.auth.signInWithPassword({
       email: email.trim(),
@@ -100,19 +109,15 @@ export function AuthProvider({
   };
 
   const signOut = async (): Promise<void> => {
-    const client = supabase;
-
-    if (!client) {
-      throw new Error(
-        'Supabase is not configured. Check your environment variables.'
-      );
-    }
+    const client = getSupabaseClient();
 
     const { error } = await client.auth.signOut();
 
     if (error) {
       throw error;
     }
+
+    setSession(null);
   };
 
   return (
