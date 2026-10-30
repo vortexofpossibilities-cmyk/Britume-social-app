@@ -1,392 +1,405 @@
-import { supabase, supabaseConfigured } from '../../src/lib/supabase';
 
-export type ProfileSummary = {
-  user_id: string;
-  display_name: string | null;
-  username: string | null;
-  is_public: boolean;
-};
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useAuth } from '../src/auth/AuthProvider';
+import {
+  fetchCurrentUserProfile,
+  updateOwnProfile,
+  type ProfileRecord,
+} from '../src/lib/profile';
+import { theme } from '../src/lib/theme';
 
-export type FeedPost = {
-  id: string;
-  user_id: string;
-  content: string;
-  visibility: 'public' | 'private';
-  created_at: string;
-  author?: ProfileSummary | null;
-};
+export default function ProfileEditScreen() {
+  const { session } = useAuth();
 
-export type PostComment = {
-  id: string;
-  post_id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  author?: ProfileSummary | null;
-};
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-function attachAuthorProfiles<T extends { user_id: string }>(rows: T[], profileMap: Map<string, ProfileSummary>) {
-  return rows.map((row) => ({
-    ...row,
-    author: profileMap.get(row.user_id) ?? null,
-  }));
-}
+  useEffect(() => {
+    let mounted = true;
 
-export async function fetchPublicPosts(): Promise<FeedPost[]> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
+    async function loadProfile() {
+      if (!session?.user?.id) {
+        setLoading(false);
+        return;
+      }
 
-  const { data: postsData, error: postsError } = await supabase
-    .from('posts')
-    .select('id, user_id, content, visibility, created_at')
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .limit(50);
+      try {
+        const result = await fetchCurrentUserProfile(session.user.id);
 
-  if (postsError) {
-    throw new Error(`Could not load feed: ${postsError.message}`);
-  }
+        if (!mounted) return;
 
-  const posts = (postsData ?? []) as FeedPost[];
-
-  if (posts.length === 0) {
-    return [];
-  }
-
-  const authorIds = [...new Set(posts.map((post) => post.user_id))];
-
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .in('user_id', authorIds);
-
-  if (profilesError) {
-    throw new Error(`Could not load post authors: ${profilesError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  for (const profile of profilesData ?? []) {
-    profileMap.set(profile.user_id, profile as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(posts, profileMap) as FeedPost[];
-}
-
-export async function fetchPostsForUser(
-  userId: string,
-  options?: { includePrivate?: boolean }
-): Promise<FeedPost[]> {
-  if (!supabaseConfigured || !supabase) {
-    return [];
-  }
-
-  let query = supabase
-    .from('posts')
-    .select('id, user_id, content, visibility, created_at')
-    .eq('user_id', userId);
-
-  if (!options?.includePrivate) {
-    query = query.eq('visibility', 'public');
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`Could not load posts for user: ${error.message}`);
-  }
-
-  const posts = (data ?? []) as FeedPost[];
-  if (posts.length === 0) {
-    return [];
-  }
-
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (profileError) {
-    throw new Error(`Could not load profile for posts: ${profileError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  if (profileData) {
-    profileMap.set(profileData.user_id, profileData as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(posts, profileMap) as FeedPost[];
-}
-
-export async function fetchCommentsForPost(postId: string): Promise<PostComment[]> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const { data, error } = await supabase
-    .from('comments')
-    .select('id, post_id, user_id, content, created_at')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    throw new Error(`Could not load comments: ${error.message}`);
-  }
-
-  const comments = (data ?? []) as PostComment[];
-  if (comments.length === 0) return [];
-
-  const authorIds = [...new Set(comments.map((comment) => comment.user_id))];
-
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .in('user_id', authorIds);
-
-  if (profilesError) {
-    throw new Error(`Could not load comment authors: ${profilesError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  for (const profile of profilesData ?? []) {
-    profileMap.set(profile.user_id, profile as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(comments, profileMap) as PostComment[];
-}
-
-export async function createComment(
-  postId: string,
-  userId: string,
-  content: string
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const text = content.trim();
-  if (!text) {
-    throw new Error('Comment cannot be empty.');
-  }
-
-  const { error } = await supabase.from('comments').insert({
-    post_id: postId,
-    user_id: userId,
-    content: text,
-  });
-
-  if (error) {
-    throw new Error(`Could not create comment: ${error.message}`);
-  }
-}
-
-export async function deleteComment(commentId: string, userId: string): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const { error } = await supabase
-    .from('comments')
-    .delete()
-    .eq('id', commentId)
-    .eq('user_id', userId);
-
-  if (error) {
-    throw new Error(`Could not delete comment: ${error.message}`);
-  }
-}
-
-export async function fetchPostInteractions(postId: string | string[], userId?: string): Promise<Record<string, {
-  liked: boolean;
-  saved: boolean;
-  likesCount: number;
-  commentsCount: number;
-}>> {
-  if (!supabaseConfigured || !supabase) {
-    return {};
-  }
-
-  const ids = Array.isArray(postId) ? postId : [postId];
-  if (ids.length === 0) {
-    return {};
-  }
-
-  const aggregate = {} as Record<string, { liked: boolean; saved: boolean; likesCount: number; commentsCount: number }>;
-
-  const [likesResult, savesResult, commentsResult] = await Promise.all([
-    supabase
-      .from('post_likes')
-      .select('post_id, user_id')
-      .in('post_id', ids),
-    supabase
-      .from('post_saves')
-      .select('post_id, user_id')
-      .in('post_id', ids),
-    supabase
-      .from('comments')
-      .select('post_id, id')
-      .in('post_id', ids),
-  ]);
-
-  if (likesResult.error) {
-    throw new Error(`Could not load likes: ${likesResult.error.message}`);
-  }
-
-  if (savesResult.error) {
-    throw new Error(`Could not load saves: ${savesResult.error.message}`);
-  }
-
-  if (commentsResult.error) {
-    throw new Error(`Could not load comments: ${commentsResult.error.message}`);
-  }
-
-  for (const id of ids) {
-    const likes = (likesResult.data ?? []).filter((entry) => entry.post_id === id);
-    const saves = (savesResult.data ?? []).filter((entry) => entry.post_id === id);
-    const comments = (commentsResult.data ?? []).filter((entry) => entry.post_id === id);
-
-    let liked = false;
-    let saved = false;
-
-    if (userId) {
-      liked = likes.some((entry) => entry.user_id === userId);
-      saved = saves.some((entry) => entry.user_id === userId);
+        setProfile(result);
+        setUsername(result?.username ?? '');
+        setDisplayName(result?.display_name ?? '');
+        setBio(result?.bio ?? '');
+        setIsPublic(result?.is_public ?? true);
+      } catch (error) {
+        Alert.alert(
+          'Profile error',
+          error instanceof Error ? error.message : 'Could not load profile.'
+        );
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
-    aggregate[id] = {
-      liked,
-      saved,
-      likesCount: likes.length,
-      commentsCount: comments.length,
+    void loadProfile();
+
+    return () => {
+      mounted = false;
     };
-  }
+  }, [session?.user?.id]);
 
-  return aggregate;
-}
-
-export async function toggleLike(
-  postId: string,
-  userId: string,
-  currentlyLiked: boolean
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  if (currentlyLiked) {
-    const { error } = await supabase
-      .from('post_likes')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new Error(`Could not unlike post: ${error.message}`);
+  const handleSave = async () => {
+    if (!session?.user?.id) {
+      Alert.alert('Sign in required', 'Please sign in first.');
+      return;
     }
-    return;
-  }
 
-  const { error } = await supabase.from('post_likes').insert({
-    post_id: postId,
-    user_id: userId,
-  });
-
-  if (error) {
-    throw new Error(`Could not like post: ${error.message}`);
-  }
-}
-
-export async function toggleSave(
-  postId: string,
-  userId: string,
-  currentlySaved: boolean
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  if (currentlySaved) {
-    const { error } = await supabase
-      .from('post_saves')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new Error(`Could not remove save: ${error.message}`);
+    if (!username.trim()) {
+      Alert.alert('Username required', 'Please enter a username.');
+      return;
     }
-    return;
-  }
 
-  const { error } = await supabase.from('post_saves').insert({
-    post_id: postId,
-    user_id: userId,
-  });
+    setSaving(true);
 
-  if (error) {
-    throw new Error(`Could not save post: ${error.message}`);
-  }
-}
+    try {
+      const updated = await updateOwnProfile({
+        userId: session.user.id,
+        username: username.trim(),
+        display_name: displayName.trim() || null,
+        bio: bio.trim(),
+        is_public: isPublic,
+      });
 
-export async function fetchPostInteractionsLegacy(postId: string, userId?: string): Promise<{
-  likes: number;
-  saves: number;
-  comments: number;
-  isLiked: boolean;
-  isSaved: boolean;
-}> {
-  if (!supabaseConfigured || !supabase) {
-    return { likes: 0, saves: 0, comments: 0, isLiked: false, isSaved: false };
-  }
+      setProfile(updated);
 
-  const [likeResult, saveResult, commentResult] = await Promise.all([
-    supabase
-      .from('post_likes')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-    supabase
-      .from('post_saves')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-    supabase
-      .from('comments')
-      .select('id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-  ]);
-
-  const likeCount = likeResult.count ?? 0;
-  const saveCount = saveResult.count ?? 0;
-  const commentCount = commentResult.count ?? 0;
-
-  let isLiked = false;
-  let isSaved = false;
-
-  if (userId) {
-    const [likedCheck, savedCheck] = await Promise.all([
-      supabase
-        .from('post_likes')
-        .select('post_id')
-        .eq('post_id', postId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase
-        .from('post_saves')
-        .select('post_id')
-        .eq('post_id', postId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-    ]);
-
-    isLiked = Boolean(likedCheck.data);
-    isSaved = Boolean(savedCheck.data);
-  }
-
-  return {
-    likes: likeCount,
-    saves: saveCount,
-    comments: commentCount,
-    isLiked,
-    isSaved,
+      Alert.alert('Success', 'Your BRITUME profile has been updated.', [
+        {
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert(
+        'Could not save profile',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={theme.cyan} />
+        <Text style={styles.muted}>Loading your profile...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={23} color={theme.text} />
+          </Pressable>
+
+          <Text style={styles.title}>Edit profile</Text>
+          <View style={styles.headerSpace} />
+        </View>
+
+        <View style={styles.avatar}>
+          <Ionicons name="person" size={43} color={theme.cyan} />
+        </View>
+
+        <Text style={styles.avatarCaption}>Your BRITUME profile</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.label}>Display name</Text>
+          <TextInput
+            style={styles.input}
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Your name"
+            placeholderTextColor={theme.muted}
+            maxLength={60}
+          />
+
+          <Text style={styles.label}>Username</Text>
+          <View style={styles.usernameInput}>
+            <Text style={styles.atSign}>@</Text>
+            <TextInput
+              style={styles.usernameText}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="your_username"
+              placeholderTextColor={theme.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={30}
+            />
+          </View>
+          <Text style={styles.hint}>
+            Use 3–30 letters, numbers or underscores.
+          </Text>
+
+          <Text style={styles.label}>Bio</Text>
+          <TextInput
+            style={[styles.input, styles.bioInput]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell people something about yourself..."
+            placeholderTextColor={theme.muted}
+            multiline
+            textAlignVertical="top"
+            maxLength={300}
+          />
+          <Text style={styles.counter}>{bio.length}/300</Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.visibilityRow}>
+            <View style={styles.visibilityInfo}>
+              <Ionicons name="globe-outline" size={22} color={theme.cyan} />
+              <View style={styles.visibilityText}>
+                <Text style={styles.visibilityTitle}>Public profile</Text>
+                <Text style={styles.hint}>
+                  Allow people to discover your profile.
+                </Text>
+              </View>
+            </View>
+
+            <Switch
+              value={isPublic}
+              onValueChange={setIsPublic}
+              trackColor={{
+                false: theme.border,
+                true: theme.cyan,
+              }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
+
+        <Pressable
+          style={[styles.saveButton, saving && styles.disabledButton]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.saveText}>Save changes</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={styles.cancelButton}
+          onPress={() => router.back()}
+          disabled={saving}
+        >
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.bg,
+  },
+  content: {
+    padding: 18,
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 22,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+  },
+  title: {
+    color: theme.text,
+    fontSize: 21,
+    fontWeight: '800',
+  },
+  headerSpace: {
+    width: 40,
+  },
+  avatar: {
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.panel,
+    borderWidth: 2,
+    borderColor: theme.cyan,
+  },
+  avatarCaption: {
+    color: theme.muted,
+    textAlign: 'center',
+    marginTop: 9,
+    marginBottom: 22,
+    fontSize: 13,
+  },
+  card: {
+    backgroundColor: theme.panel,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 16,
+    marginBottom: 14,
+  },
+  label: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 13,
+  },
+  input: {
+    backgroundColor: theme.panel2,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 11,
+    color: theme.text,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  usernameInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.panel2,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 11,
+    paddingHorizontal: 13,
+  },
+  atSign: {
+    color: theme.cyan,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  usernameText: {
+    flex: 1,
+    color: theme.text,
+    paddingVertical: 12,
+    paddingLeft: 5,
+    fontSize: 15,
+  },
+  hint: {
+    color: theme.muted,
+    fontSize: 12,
+    marginTop: 6,
+  },
+  bioInput: {
+    minHeight: 105,
+  },
+  counter: {
+    color: theme.muted,
+    textAlign: 'right',
+    fontSize: 11,
+    marginTop: 5,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  visibilityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 11,
+  },
+  visibilityText: {
+    flex: 1,
+  },
+  visibilityTitle: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  saveButton: {
+    minHeight: 49,
+    borderRadius: 13,
+    backgroundColor: theme.cyan,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    marginTop: 7,
+  },
+  saveText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  cancelButton: {
+    alignItems: 'center',
+    padding: 15,
+  },
+  cancelText: {
+    color: theme.muted,
+    fontWeight: '700',
+  },
+  loading: {
+    flex: 1,
+    backgroundColor: theme.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  muted: {
+    color: theme.muted,
+  },
+});
