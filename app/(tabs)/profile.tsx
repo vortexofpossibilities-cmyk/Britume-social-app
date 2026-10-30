@@ -1,395 +1,277 @@
-import { supabase, supabaseConfigured } from './supabase';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useAuth } from '../../src/auth/AuthProvider';
+import { fetchCurrentUserProfile, updateOwnProfile, type ProfileRecord } from '../../src/lib/profile';
+import { theme } from '../../src/lib/theme';
 
-export type ProfileSummary = {
-  user_id: string;
-  display_name: string | null;
-  username: string | null;
-  is_public: boolean;
-};
+export default function ProfileEditScreen() {
+  const { session } = useAuth();
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
 
-export type FeedPost = {
-  id: string;
-  user_id: string;
-  content: string;
-  visibility: 'public' | 'private';
-  created_at: string;
-  author?: ProfileSummary | null;
-};
-
-export type PostComment = {
-  id: string;
-  post_id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  author?: ProfileSummary | null;
-};
-
-function attachAuthorProfiles<T extends { user_id: string }>(rows: T[], profileMap: Map<string, ProfileSummary>) {
-  return rows.map((row) => ({
-    ...row,
-    author: profileMap.get(row.user_id) ?? null,
-  }));
-}
-
-export async function fetchPublicPosts(): Promise<FeedPost[]> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const { data: postsData, error: postsError } = await supabase
-    .from('posts')
-    .select('id, user_id, content, visibility, created_at')
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  if (postsError) {
-    throw new Error(`Could not load feed: ${postsError.message}`);
-  }
-
-  const posts = (postsData ?? []) as FeedPost[];
-
-  if (posts.length === 0) {
-    return [];
-  }
-
-  const authorIds = [...new Set(posts.map((post) => post.user_id))];
-
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .in('user_id', authorIds);
-
-  if (profilesError) {
-    throw new Error(`Could not load post authors: ${profilesError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  for (const profile of profilesData ?? []) {
-    profileMap.set(profile.user_id, profile as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(posts, profileMap) as FeedPost[];
-}
-
-export async function fetchPostsForUser(
-  userId: string,
-  options?: { includePrivate?: boolean }
-): Promise<FeedPost[]> {
-  if (!supabaseConfigured || !supabase) {
-    return [];
-  }
-
-  let query = supabase
-    .from('posts')
-    .select('id, user_id, content, visibility, created_at')
-    .eq('user_id', userId);
-
-  if (!options?.includePrivate) {
-    query = query.eq('visibility', 'public');
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`Could not load posts for user: ${error.message}`);
-  }
-
-  const posts = (data ?? []) as FeedPost[];
-  if (posts.length === 0) {
-    return [];
-  }
-
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (profileError) {
-    throw new Error(`Could not load profile for posts: ${profileError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  if (profileData) {
-    profileMap.set(profileData.user_id, profileData as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(posts, profileMap) as FeedPost[];
-}
-
-export async function fetchCommentsForPost(postId: string): Promise<PostComment[]> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const { data, error } = await supabase
-    .from('comments')
-    .select('id, post_id, user_id, content, created_at')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    throw new Error(`Could not load comments: ${error.message}`);
-  }
-
-  const comments = (data ?? []) as PostComment[];
-  if (comments.length === 0) return [];
-
-  const authorIds = [...new Set(comments.map((comment) => comment.user_id))];
-
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, username, is_public')
-    .in('user_id', authorIds);
-
-  if (profilesError) {
-    throw new Error(`Could not load comment authors: ${profilesError.message}`);
-  }
-
-  const profileMap = new Map<string, ProfileSummary>();
-  for (const profile of profilesData ?? []) {
-    profileMap.set(profile.user_id, profile as ProfileSummary);
-  }
-
-  return attachAuthorProfiles(comments, profileMap) as PostComment[];
-}
-
-export async function createComment(
-  postId: string,
-  userId: string,
-  content: string
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const text = content.trim();
-  if (!text) {
-    throw new Error('Comment cannot be empty.');
-  }
-
-  const { error } = await supabase.from('comments').insert({
-    post_id: postId,
-    user_id: userId,
-    content: text,
-  });
-
-  if (error) {
-    throw new Error(`Could not create comment: ${error.message}`);
-  }
-}
-
-export async function deleteComment(commentId: string, userId: string): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  const { error } = await supabase
-    .from('comments')
-    .delete()
-    .eq('id', commentId)
-    .eq('user_id', userId);
-
-  if (error) {
-    throw new Error(`Could not delete comment: ${error.message}`);
-  }
-}
-
-export async function fetchPostInteractions(postId: string | string[], userId?: string): Promise<Record<string, {
-  liked: boolean;
-  saved: boolean;
-  likesCount: number;
-  commentsCount: number;
-}>> {
-  if (!supabaseConfigured || !supabase) {
-    return {};
-  }
-
-  const ids = Array.isArray(postId) ? postId : [postId];
-  if (ids.length === 0) {
-    return {};
-  }
-
-  const aggregate = {} as Record<string, { liked: boolean; saved: boolean; likesCount: number; commentsCount: number }>;
-
-  const [likesResult, savesResult, commentsResult] = await Promise.all([
-    supabase
-      .from('post_likes')
-      .select('post_id, user_id')
-      .in('post_id', ids),
-    supabase
-      .from('post_saves')
-      .select('post_id, user_id')
-      .in('post_id', ids),
-    supabase
-      .from('comments')
-      .select('post_id, id')
-      .in('post_id', ids),
-  ]);
-
-  if (likesResult.error) {
-    throw new Error(`Could not load likes: ${likesResult.error.message}`);
-  }
-
-  if (savesResult.error) {
-    throw new Error(`Could not load saves: ${savesResult.error.message}`);
-  }
-
-  if (commentsResult.error) {
-    throw new Error(`Could not load comments: ${commentsResult.error.message}`);
-  }
-
-  for (const id of ids) {
-    const likes = (likesResult.data ?? []).filter((entry) => entry.post_id === id);
-    const saves = (savesResult.data ?? []).filter((entry) => entry.post_id === id);
-    const comments = (commentsResult.data ?? []).filter((entry) => entry.post_id === id);
-
-    let liked = false;
-    let saved = false;
-
-    if (userId) {
-      liked = likes.some((entry) => entry.user_id === userId);
-      saved = saves.some((entry) => entry.user_id === userId);
+  const loadProfile = useCallback(async () => {
+    if (!session?.user?.id) {
+      setLoading(false);
+      return;
     }
 
-    aggregate[id] = {
-      liked,
-      saved,
-      likesCount: likes.length,
-      commentsCount: comments.length,
-    };
-  }
-
-  return aggregate;
-}
-
-export async function toggleLike(
-  postId: string,
-  userId: string,
-  currentlyLiked: boolean
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  if (currentlyLiked) {
-    const { error } = await supabase
-      .from('post_likes')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new Error(`Could not unlike post: ${error.message}`);
+    try {
+      setLoading(true);
+      const nextProfile = await fetchCurrentUserProfile(session.user.id);
+      setProfile(nextProfile);
+      setDisplayName(nextProfile?.display_name ?? '');
+      setUsername(nextProfile?.username ?? '');
+      setBio(nextProfile?.bio ?? '');
+      setIsPublic(Boolean(nextProfile?.is_public ?? true));
+    } catch (error) {
+      Alert.alert('Profile could not load', error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setLoading(false);
     }
-    return;
-  }
+  }, [session?.user?.id]);
 
-  const { error } = await supabase.from('post_likes').insert({
-    post_id: postId,
-    user_id: userId,
-  });
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
-  if (error) {
-    throw new Error(`Could not like post: ${error.message}`);
-  }
-}
-
-export async function toggleSave(
-  postId: string,
-  userId: string,
-  currentlySaved: boolean
-): Promise<void> {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured. Check your .env variables.');
-  }
-
-  if (currentlySaved) {
-    const { error } = await supabase
-      .from('post_saves')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new Error(`Could not remove save: ${error.message}`);
+  const handleSave = async () => {
+    if (!session?.user?.id) {
+      Alert.alert('Sign in required', 'Please sign in to edit your profile.');
+      return;
     }
-    return;
-  }
 
-  const { error } = await supabase.from('post_saves').insert({
-    post_id: postId,
-    user_id: userId,
-  });
+    setSaving(true);
 
-  if (error) {
-    throw new Error(`Could not save post: ${error.message}`);
-  }
-}
+    try {
+      const nextProfile = await updateOwnProfile({
+        userId: session.user.id,
+        username,
+        display_name: displayName,
+        bio,
+        is_public: isPublic,
+      });
+      setProfile(nextProfile);
+      const targetUsername = nextProfile.username?.trim();
 
-export async function fetchPostInteractionsLegacy(postId: string, userId?: string): Promise<{
-  likes: number;
-  saves: number;
-  comments: number;
-  isLiked: boolean;
-  isSaved: boolean;
-}> {
-  if (!supabaseConfigured || !supabase) {
-    return { likes: 0, saves: 0, comments: 0, isLiked: false, isSaved: false };
-  }
+      if (targetUsername) {
+        router.replace({ pathname: '/profile/[username]', params: { username: targetUsername } });
+        return;
+      }
 
-  const [likeResult, saveResult, commentResult] = await Promise.all([
-    supabase
-      .from('post_likes')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-    supabase
-      .from('post_saves')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-    supabase
-      .from('comments')
-      .select('id', { count: 'exact', head: true })
-      .eq('post_id', postId),
-  ]);
-
-  const likeCount = likeResult.count ?? 0;
-  const saveCount = saveResult.count ?? 0;
-  const commentCount = commentResult.count ?? 0;
-
-  let isLiked = false;
-  let isSaved = false;
-
-  if (userId) {
-    const [likedCheck, savedCheck] = await Promise.all([
-      supabase
-        .from('post_likes')
-        .select('post_id')
-        .eq('post_id', postId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase
-        .from('post_saves')
-        .select('post_id')
-        .eq('post_id', postId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-    ]);
-
-    isLiked = Boolean(likedCheck.data);
-    isSaved = Boolean(savedCheck.data);
-  }
-
-  return {
-    likes: likeCount,
-    saves: saveCount,
-    comments: commentCount,
-    isLiked,
-    isSaved,
+      router.back();
+    } catch (error) {
+      Alert.alert(
+        'Could not save profile',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (!session) {
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="person-circle-outline" size={52} color={theme.cyan} />
+        <Text style={styles.emptyText}>Sign in to edit your profile.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Pressable accessibilityLabel="Go back" onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color={theme.text} />
+        </Pressable>
+        <Text style={styles.title}>Edit profile</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="small" color={theme.cyan} />
+        </View>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.label}>Display name</Text>
+          <TextInput
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Your name"
+            placeholderTextColor={theme.muted}
+            style={styles.input}
+            maxLength={60}
+          />
+
+          <Text style={styles.label}>Username</Text>
+          <TextInput
+            value={username}
+            onChangeText={setUsername}
+            placeholder="yourname"
+            placeholderTextColor={theme.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+            maxLength={30}
+          />
+
+          <Text style={styles.label}>Bio</Text>
+          <TextInput
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell people about yourself"
+            placeholderTextColor={theme.muted}
+            multiline
+            numberOfLines={5}
+            style={[styles.input, styles.textArea]}
+            maxLength={500}
+          />
+
+          <View style={styles.publicRow}>
+            <Text style={styles.publicLabel}>Public profile</Text>
+            <Switch
+              value={isPublic}
+              onValueChange={setIsPublic}
+              trackColor={{ false: theme.border, true: theme.cyan }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={theme.border}
+            />
+          </View>
+
+          <Pressable
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            disabled={saving}
+            onPress={() => {
+              void handleSave();
+            }}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save profile</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
+    </ScrollView>
+  );
 }
 
-export { fetchPostInteractionsLegacy as fetchPostInteractions };
-
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.bg,
+  },
+  content: {
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+    gap: 10,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  title: {
+    color: theme.text,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  card: {
+    backgroundColor: theme.panel,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+  },
+  label: {
+    color: theme.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: theme.bg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    color: theme.text,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    fontSize: 14,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  publicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  publicLabel: {
+    color: theme.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  saveButton: {
+    backgroundColor: theme.cyan,
+    borderRadius: 12,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  loadingBox: {
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.bg,
+    padding: 20,
+  },
+  emptyText: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+});

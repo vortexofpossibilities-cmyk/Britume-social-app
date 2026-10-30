@@ -9,10 +9,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../src/auth/AuthProvider';
-import { fetchPostsForUser } from '../../src/lib/posts';
-import { fetchPublicProfileByUsername, getProfileName } from '../../src/lib/profile';
-import { theme } from '../../src/lib/theme';
+import { useAuth } from '../src/auth/AuthProvider';
+import { fetchPostsForUser } from '../src/lib/posts';
+import { fetchPublicProfileByUsername, getProfileName } from '../src/lib/profile';
+import { theme } from '../src/lib/theme';
 
 export default function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username?: string }>();
@@ -311,4 +311,3 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
-
