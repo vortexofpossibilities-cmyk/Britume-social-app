@@ -66,6 +66,7 @@ sceneStyle: { backgroundColor: theme.bg },
   <Tabs.Screen name="settings" options={{ href: null }} />
   <Tabs.Screen name="more" options={{ href: null }} />
 </Tabs>
+  <Tabs.Screen name="communities" options={{ href: null }} />
 
 );
 }
