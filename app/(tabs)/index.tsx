@@ -13,22 +13,38 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useAuth } from '../../src/auth/AuthProvider';
 import {
+  createComment,
+  deleteComment,
+  fetchCommentsForPost,
+  fetchPostInteractions,
   fetchPublicPosts,
+  toggleLike,
+  toggleSave,
   type FeedPost,
+  type PostComment,
 } from '../../src/lib/posts';
+import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/lib/theme';
 
 const BLUE = '#168BFF';
 
 export default function HomeScreen() {
+  const { session } = useAuth();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [likedPosts, setLikedPosts] = useState<string[]>([]);
-  const [savedPosts, setSavedPosts] = useState<string[]>([]);
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, PostComment[]>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentOpen, setCommentOpen] = useState<Record<string, boolean>>({});
+  const [commentBusy, setCommentBusy] = useState<Record<string, boolean>>({});
 
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -40,7 +56,43 @@ export default function HomeScreen() {
     setError('');
 
     try {
-      setPosts(await fetchPublicPosts());
+      const freshPosts = await fetchPublicPosts();
+      setPosts(freshPosts);
+
+      if (freshPosts.length > 0) {
+        const engagements = await fetchPostInteractions(
+          freshPosts.map((post) => post.id),
+          session?.user.id,
+        );
+
+        const nextLiked: Record<string, boolean> = {};
+        const nextSaved: Record<string, boolean> = {};
+        const nextLikeCounts: Record<string, number> = {};
+        const nextCommentCounts: Record<string, number> = {};
+
+        for (const post of freshPosts) {
+          const engagement = engagements[post.id] ?? {
+            liked: false,
+            saved: false,
+            likesCount: 0,
+            commentsCount: 0,
+          };
+          nextLiked[post.id] = engagement.liked;
+          nextSaved[post.id] = engagement.saved;
+          nextLikeCounts[post.id] = engagement.likesCount;
+          nextCommentCounts[post.id] = engagement.commentsCount;
+        }
+
+        setLikedPosts(nextLiked);
+        setSavedPosts(nextSaved);
+        setLikeCounts(nextLikeCounts);
+        setCommentCounts(nextCommentCounts);
+      } else {
+        setLikedPosts({});
+        setSavedPosts({});
+        setLikeCounts({});
+        setCommentCounts({});
+      }
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Could not load posts.',
@@ -49,7 +101,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [session?.user.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,21 +119,133 @@ export default function HomeScreen() {
     );
   }, [posts, search]);
 
-  const toggleLike = (id: string) => {
-    setLikedPosts((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
+  const loadComments = useCallback(async (postId: string) => {
+    if (!supabase) {
+      return;
+    }
 
-  const toggleSave = (id: string) => {
-    setSavedPosts((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
+    try {
+      const comments = await fetchCommentsForPost(postId);
+      setCommentsByPost((current) => ({ ...current, [postId]: comments }));
+    } catch (error) {
+      Alert.alert(
+        'Comments unavailable',
+        error instanceof Error ? error.message : 'Could not load comments.',
+      );
+    }
+  }, []);
+
+  const toggleLikeForPost = useCallback(
+    async (postId: string) => {
+      if (!session) {
+        Alert.alert('Sign in required', 'Please sign in to like BRITUME posts.');
+        return;
+      }
+
+      const currentlyLiked = Boolean(likedPosts[postId]);
+
+      try {
+        await toggleLike(postId, session.user.id, currentlyLiked);
+        setLikedPosts((current) => ({
+          ...current,
+          [postId]: !currentlyLiked,
+        }));
+        setLikeCounts((current) => ({
+          ...current,
+          [postId]: Math.max(0, (current[postId] ?? 0) + (currentlyLiked ? -1 : 1)),
+        }));
+      } catch (error) {
+        Alert.alert(
+          'Like failed',
+          error instanceof Error ? error.message : 'Could not update the like.',
+        );
+      }
+    },
+    [likedPosts, session],
+  );
+
+  const toggleSaveForPost = useCallback(
+    async (postId: string) => {
+      if (!session) {
+        Alert.alert('Sign in required', 'Please sign in to save BRITUME posts.');
+        return;
+      }
+
+      const currentlySaved = Boolean(savedPosts[postId]);
+
+      try {
+        await toggleSave(postId, session.user.id, currentlySaved);
+        setSavedPosts((current) => ({
+          ...current,
+          [postId]: !currentlySaved,
+        }));
+      } catch (error) {
+        Alert.alert(
+          'Save failed',
+          error instanceof Error ? error.message : 'Could not update the save.',
+        );
+      }
+    },
+    [savedPosts, session],
+  );
+
+  const submitComment = useCallback(
+    async (postId: string) => {
+      if (!session) {
+        Alert.alert('Sign in required', 'Please sign in to comment on BRITUME posts.');
+        return;
+      }
+
+      const draft = (commentDrafts[postId] ?? '').trim();
+      if (!draft) {
+        Alert.alert('Write a comment', 'Your comment cannot be empty.');
+        return;
+      }
+
+      setCommentBusy((current) => ({ ...current, [postId]: true }));
+
+      try {
+        await createComment(postId, session.user.id, draft);
+        setCommentDrafts((current) => ({ ...current, [postId]: '' }));
+        setCommentOpen((current) => ({ ...current, [postId]: true }));
+        await loadComments(postId);
+        const comments = await fetchCommentsForPost(postId);
+        setCommentCounts((current) => ({
+          ...current,
+          [postId]: comments.length,
+        }));
+      } catch (error) {
+        Alert.alert(
+          'Comment failed',
+          error instanceof Error ? error.message : 'Could not post the comment.',
+        );
+      } finally {
+        setCommentBusy((current) => ({ ...current, [postId]: false }));
+      }
+    },
+    [commentDrafts, loadComments, session],
+  );
+
+  const deleteCommentForPost = useCallback(
+    async (postId: string, commentId: string) => {
+      if (!session) {
+        return;
+      }
+
+      try {
+        await deleteComment(commentId, session.user.id);
+        const comments = await fetchCommentsForPost(postId);
+        setCommentsByPost((current) => ({ ...current, [postId]: comments }));
+        setCommentCounts((current) => ({ ...current, [postId]: comments.length }));
+      } catch (error) {
+        Alert.alert(
+          'Delete failed',
+          error instanceof Error ? error.message : 'Could not delete the comment.',
+        );
+      }
+    },
+    [session],
+  );
 
   const sharePost = async (content: string) => {
     try {
@@ -93,7 +257,6 @@ export default function HomeScreen() {
 
   const Header = (
     <View>
-      {/* BRAND AND TOP ICONS */}
       <View style={styles.topBar}>
         <View style={styles.brandMark}>
           <Text style={styles.brandLetter}>B</Text>
@@ -118,12 +281,11 @@ export default function HomeScreen() {
           />
         </Pressable>
 
-        {/* BRITUME AI BUTTON */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open BRITUME AI"
           style={styles.topButton}
-          onPress={() => router.push('/(tabs)/britume-ai')}
+          onPress={() => router.push('/ai')}
         >
           <Text style={styles.aiIcon}>✨</Text>
         </Pressable>
@@ -138,13 +300,8 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* SEARCH ABOVE STORIES */}
       <View style={styles.searchBox}>
-        <Ionicons
-          name="search-outline"
-          size={21}
-          color={theme.muted}
-        />
+        <Ionicons name="search-outline" size={21} color={theme.muted} />
 
         <TextInput
           value={search}
@@ -161,15 +318,10 @@ export default function HomeScreen() {
           accessibilityLabel="Open Discover"
           onPress={() => router.push('/(tabs)/discover')}
         >
-          <Ionicons
-            name="options-outline"
-            size={21}
-            color={theme.muted}
-          />
+          <Ionicons name="options-outline" size={21} color={theme.muted} />
         </Pressable>
       </View>
 
-      {/* STORIES */}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Stories</Text>
 
@@ -184,10 +336,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.storyRow}>
-        <Pressable
-          style={styles.storyItem}
-          onPress={() => router.push('/stories')}
-        >
+        <Pressable style={styles.storyItem} onPress={() => router.push('/stories')}>
           <View style={[styles.storyCircle, styles.myStory]}>
             <Ionicons name="add" size={29} color="#FFFFFF" />
           </View>
@@ -195,18 +344,13 @@ export default function HomeScreen() {
         </Pressable>
 
         <View style={styles.storyEmpty}>
-          <Ionicons
-            name="people-outline"
-            size={25}
-            color={theme.muted}
-          />
+          <Ionicons name="people-outline" size={25} color={theme.muted} />
           <Text style={styles.storyEmptyText}>
             Stories from people you follow appear here.
           </Text>
         </View>
       </View>
 
-      {/* FEED HEADING */}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Posts</Text>
 
@@ -246,23 +390,14 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      <Pressable
-        style={styles.videoCard}
-        onPress={() => router.push('/stories')}
-      >
+      <Pressable style={styles.videoCard} onPress={() => router.push('/stories')}>
         <View style={styles.videoArtwork}>
           <Ionicons name="play-circle" size={58} color={BLUE} />
         </View>
 
         <View style={styles.videoBottom}>
-          <Text style={styles.videoCaption}>
-            Explore moments on BRITUME
-          </Text>
-          <Ionicons
-            name="chevron-forward"
-            size={22}
-            color={BLUE}
-          />
+          <Text style={styles.videoCaption}>Explore moments on BRITUME</Text>
+          <Ionicons name="chevron-forward" size={22} color={BLUE} />
         </View>
       </Pressable>
     </View>
@@ -295,11 +430,7 @@ export default function HomeScreen() {
       }
       ListEmptyComponent={
         <View style={styles.emptyBox}>
-          <Ionicons
-            name="chatbubbles-outline"
-            size={36}
-            color={BLUE}
-          />
+          <Ionicons name="chatbubbles-outline" size={36} color={BLUE} />
 
           <Text style={styles.emptyTitle}>
             {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
@@ -321,133 +452,177 @@ export default function HomeScreen() {
           )}
         </View>
       }
-      renderItem={({ item }) => (
-        <View style={styles.postCard}>
-          <View style={styles.postHeader}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={20} color={BLUE} />
+      renderItem={({ item }) => {
+        const isLiked = Boolean(likedPosts[item.id]);
+        const isSaved = Boolean(savedPosts[item.id]);
+        const likeTotal = likeCounts[item.id] ?? 0;
+        const commentTotal = commentCounts[item.id] ?? 0;
+        const openComments = Boolean(commentOpen[item.id]);
+        const postComments = commentsByPost[item.id] ?? [];
+
+        return (
+          <View style={styles.postCard}>
+            <View style={styles.postHeader}>
+              <View style={styles.avatar}>
+                <Ionicons name="person" size={20} color={BLUE} />
+              </View>
+
+              <View style={styles.postAuthor}>
+                <Text style={styles.authorName}>BRITUME member</Text>
+                <Text style={styles.postDate}>
+                  {new Date(item.created_at).toLocaleDateString()}
+                </Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="More post options"
+                onPress={() =>
+                  Alert.alert('Post options', 'Choose an action.', [
+                    {
+                      text: 'Share',
+                      onPress: () => void sharePost(item.content ?? ''),
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                  ])
+                }
+              >
+                <Ionicons
+                  name="ellipsis-vertical"
+                  size={19}
+                  color={theme.muted}
+                />
+              </Pressable>
             </View>
 
-            <View style={styles.postAuthor}>
-              <Text style={styles.authorName}>BRITUME member</Text>
-              <Text style={styles.postDate}>
-                {new Date(item.created_at).toLocaleDateString()}
-              </Text>
+            <Text style={styles.postContent} numberOfLines={8}>
+              {item.content}
+            </Text>
+
+            <View style={styles.postActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Like post"
+                onPress={() => void toggleLikeForPost(item.id)}
+              >
+                <View style={styles.actionWrap}>
+                  <Ionicons
+                    name={isLiked ? 'heart' : 'heart-outline'}
+                    size={21}
+                    color={isLiked ? '#E84C75' : theme.muted}
+                  />
+                  {likeTotal > 0 ? <Text style={styles.actionText}>{likeTotal}</Text> : null}
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Comment on post"
+                onPress={async () => {
+                  setCommentOpen((current) => ({
+                    ...current,
+                    [item.id]: !current[item.id],
+                  }));
+                  if (!commentsByPost[item.id]) {
+                    await loadComments(item.id);
+                  }
+                }}
+              >
+                <View style={styles.actionWrap}>
+                  <Ionicons name="chatbubble-outline" size={21} color={theme.muted} />
+                  {commentTotal > 0 ? <Text style={styles.actionText}>{commentTotal}</Text> : null}
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Share post"
+                onPress={() => void sharePost(item.content ?? '')}
+              >
+                <Ionicons name="share-social-outline" size={21} color={theme.muted} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save post"
+                onPress={() => void toggleSaveForPost(item.id)}
+              >
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={21}
+                  color={isSaved ? BLUE : theme.muted}
+                />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Download post"
+                onPress={() =>
+                  Alert.alert(
+                    'Download',
+                    'Downloading media is a coming soon feature.',
+                  )
+                }
+              >
+                <Ionicons name="download-outline" size={21} color={theme.muted} />
+              </Pressable>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="More post options"
-              onPress={() =>
-                Alert.alert('Post options', 'Choose an action.', [
-                  {
-                    text: 'Share',
-                    onPress: () => void sharePost(item.content ?? ''),
-                  },
-                  { text: 'Cancel', style: 'cancel' },
-                ])
-              }
-            >
-              <Ionicons
-                name="ellipsis-vertical"
-                size={19}
-                color={theme.muted}
-              />
-            </Pressable>
+            {openComments ? (
+              <View style={styles.commentSection}>
+                {postComments.length > 0 ? (
+                  postComments.map((comment) => (
+                    <View key={comment.id} style={styles.commentRow}>
+                      <View style={styles.commentBody}>
+                        <Text style={styles.commentUser}>BRITUME member</Text>
+                        <Text style={styles.commentText}>{comment.content}</Text>
+                      </View>
+                      {session?.user.id === comment.user_id ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Delete comment"
+                          onPress={() => void deleteCommentForPost(item.id, comment.id)}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={theme.danger} />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.commentEmpty}>No comments yet. Start the conversation.</Text>
+                )}
+
+                <View style={styles.commentComposer}>
+                  <TextInput
+                    value={commentDrafts[item.id] ?? ''}
+                    onChangeText={(text) =>
+                      setCommentDrafts((current) => ({ ...current, [item.id]: text }))
+                    }
+                    placeholder="Write a comment..."
+                    placeholderTextColor={theme.muted}
+                    style={styles.commentInput}
+                    multiline
+                    maxLength={500}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Send comment"
+                    disabled={Boolean(commentBusy[item.id])}
+                    onPress={() => void submitComment(item.id)}
+                    style={styles.commentSendButton}
+                  >
+                    {commentBusy[item.id] ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Ionicons name="send" size={16} color="#FFFFFF" />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </View>
-
-          <Text style={styles.postContent} numberOfLines={8}>
-            {item.content}
-          </Text>
-
-          {/* POST ACTIONS IN ONE ROW */}
-          <View style={styles.postActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Like post"
-              onPress={() => toggleLike(item.id)}
-            >
-              <Ionicons
-                name={
-                  likedPosts.includes(item.id)
-                    ? 'heart'
-                    : 'heart-outline'
-                }
-                size={21}
-                color={
-                  likedPosts.includes(item.id)
-                    ? '#E84C75'
-                    : theme.muted
-                }
-              />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Comment on post"
-              onPress={() =>
-                Alert.alert(
-                  'Comments',
-                  'The comment form needs to be connected to the comments database.',
-                )
-              }
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={21}
-                color={theme.muted}
-              />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Share post"
-              onPress={() => void sharePost(item.content ?? '')}
-            >
-              <Ionicons
-                name="share-social-outline"
-                size={21}
-                color={theme.muted}
-              />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Save post"
-              onPress={() => toggleSave(item.id)}
-            >
-              <Ionicons
-                name={
-                  savedPosts.includes(item.id)
-                    ? 'bookmark'
-                    : 'bookmark-outline'
-                }
-                size={21}
-                color={
-                  savedPosts.includes(item.id) ? BLUE : theme.muted
-                }
-              />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Download post"
-              onPress={() =>
-                Alert.alert(
-                  'Download',
-                  'Downloading media will be available when media posts are connected.',
-                )
-              }
-            >
-              <Ionicons
-                name="download-outline"
-                size={21}
-                color={theme.muted}
-              />
-            </Pressable>
-          </View>
-        </View>
-      )}
+        );
+      }}
     />
   );
 }
@@ -635,6 +810,16 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 10,
   },
+  actionWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  actionText: {
+    color: theme.muted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
   videoSection: {
     marginTop: 13,
   },
@@ -712,5 +897,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.bg,
+  },
+  commentSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    gap: 8,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  commentBody: {
+    flex: 1,
+    backgroundColor: theme.bg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    padding: 8,
+  },
+  commentUser: {
+    color: theme.cyan,
+    fontWeight: '700',
+    fontSize: 10,
+    marginBottom: 3,
+  },
+  commentText: {
+    color: theme.text,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  commentEmpty: {
+    color: theme.muted,
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  commentComposer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  commentInput: {
+    flex: 1,
+    minHeight: 42,
+    maxHeight: 88,
+    backgroundColor: theme.bg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    color: theme.text,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+  },
+  commentSendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: BLUE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
