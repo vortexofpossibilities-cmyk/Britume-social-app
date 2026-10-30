@@ -1,11 +1,20 @@
 import { supabase, supabaseConfigured } from './supabase';
 
+export type ProfileSummary = {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  is_public: boolean;
+};
+
 export type FeedPost = {
   id: string;
   user_id: string;
   content: string;
   visibility: 'public' | 'private';
   created_at: string;
+  author?: ProfileSummary | null;
 };
 
 export type PostComment = {
@@ -14,107 +23,51 @@ export type PostComment = {
   user_id: string;
   content: string;
   created_at: string;
-};
-
-export type PostEngagement = {
-  liked: boolean;
-  saved: boolean;
-  likesCount: number;
-  commentsCount: number;
+  author?: ProfileSummary | null;
 };
 
 export async function fetchPublicPosts(): Promise<FeedPost[]> {
   if (!supabaseConfigured || !supabase) {
-    throw new Error(
-      'Supabase is not configured. Check your .env variables.'
-    );
+    throw new Error('Supabase is not configured. Check your .env variables.');
   }
 
-  const { data, error } = await supabase
+  const { data: postsData, error: postsError } = await supabase
     .from('posts')
     .select('id, user_id, content, visibility, created_at')
     .eq('visibility', 'public')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(50);
 
-  if (error) {
-    throw new Error(`Could not load feed: ${error.message}`);
+  if (postsError) {
+    throw new Error(`Could not load feed: ${postsError.message}`);
   }
 
-  return (data ?? []) as FeedPost[];
-}
+  const posts = (postsData ?? []) as FeedPost[];
 
-export async function fetchPostInteractions(
-  postIds: string[],
-  userId?: string,
-): Promise<Record<string, PostEngagement>> {
-  const normalizedIds = [...new Set(postIds.filter(Boolean))];
-  const result: Record<string, PostEngagement> = {};
-
-  for (const postId of normalizedIds) {
-    result[postId] = {
-      liked: false,
-      saved: false,
-      likesCount: 0,
-      commentsCount: 0,
-    };
+  if (posts.length === 0) {
+    return [];
   }
 
-  if (!supabaseConfigured || !supabase || normalizedIds.length === 0) {
-    return result;
+  const authorIds = [...new Set(posts.map((post) => post.user_id))];
+
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('profiles')
+    .select('user_id, display_name, username, avatar_url, is_public')
+    .in('user_id', authorIds);
+
+  if (profilesError) {
+    throw new Error(`Could not load post authors: ${profilesError.message}`);
   }
 
-  const [likesResponse, savesResponse, commentsResponse] = await Promise.all([
-    supabase
-      .from('post_likes')
-      .select('post_id, user_id')
-      .in('post_id', normalizedIds),
-    supabase
-      .from('post_saves')
-      .select('post_id, user_id')
-      .in('post_id', normalizedIds),
-    supabase
-      .from('comments')
-      .select('post_id')
-      .in('post_id', normalizedIds),
-  ]);
-
-  if (likesResponse.error) {
-    throw new Error(`Could not load likes: ${likesResponse.error.message}`);
+  const profileMap = new Map<string, ProfileSummary>();
+  for (const profile of profilesData ?? []) {
+    profileMap.set(profile.user_id, profile as ProfileSummary);
   }
 
-  if (savesResponse.error) {
-    throw new Error(`Could not load saves: ${savesResponse.error.message}`);
-  }
-
-  if (commentsResponse.error) {
-    throw new Error(`Could not load comments: ${commentsResponse.error.message}`);
-  }
-
-  for (const like of likesResponse.data ?? []) {
-    const postId = like.post_id as string;
-    if (!result[postId]) continue;
-    result[postId].likesCount += 1;
-    if (userId && like.user_id === userId) {
-      result[postId].liked = true;
-    }
-  }
-
-  for (const save of savesResponse.data ?? []) {
-    const postId = save.post_id as string;
-    if (!result[postId]) continue;
-    if (userId && save.user_id === userId) {
-      result[postId].saved = true;
-    }
-  }
-
-  for (const comment of commentsResponse.data ?? []) {
-    const postId = comment.post_id as string;
-    if (!result[postId]) continue;
-    result[postId].commentsCount += 1;
-  }
-
-  return result;
+  return posts.map((post) => ({
+    ...post,
+    author: profileMap.get(post.user_id) ?? null,
+  }));
 }
 
 export async function fetchCommentsForPost(postId: string): Promise<PostComment[]> {
@@ -132,28 +85,49 @@ export async function fetchCommentsForPost(postId: string): Promise<PostComment[
     throw new Error(`Could not load comments: ${error.message}`);
   }
 
-  return (data ?? []) as PostComment[];
+  const comments = (data ?? []) as PostComment[];
+  if (comments.length === 0) return [];
+
+  const authorIds = [...new Set(comments.map((comment) => comment.user_id))];
+
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('profiles')
+    .select('user_id, display_name, username, avatar_url, is_public')
+    .in('user_id', authorIds);
+
+  if (profilesError) {
+    throw new Error(`Could not load comment authors: ${profilesError.message}`);
+  }
+
+  const profileMap = new Map<string, ProfileSummary>();
+  for (const profile of profilesData ?? []) {
+    profileMap.set(profile.user_id, profile as ProfileSummary);
+  }
+
+  return comments.map((comment) => ({
+    ...comment,
+    author: profileMap.get(comment.user_id) ?? null,
+  }));
 }
 
 export async function createComment(
   postId: string,
   userId: string,
-  content: string,
+  content: string
 ): Promise<void> {
-  const cleanContent = content.trim();
-
   if (!supabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured. Check your .env variables.');
   }
 
-  if (!cleanContent) {
+  const text = content.trim();
+  if (!text) {
     throw new Error('Comment cannot be empty.');
   }
 
   const { error } = await supabase.from('comments').insert({
     post_id: postId,
     user_id: userId,
-    content: cleanContent,
+    content: text,
   });
 
   if (error) {
@@ -177,16 +151,78 @@ export async function deleteComment(commentId: string, userId: string): Promise<
   }
 }
 
+export async function fetchPostInteractions(postId: string, userId?: string): Promise<{
+  likes: number;
+  saves: number;
+  comments: number;
+  isLiked: boolean;
+  isSaved: boolean;
+}> {
+  if (!supabaseConfigured || !supabase) {
+    return { likes: 0, saves: 0, comments: 0, isLiked: false, isSaved: false };
+  }
+
+  const [likeResult, saveResult, commentResult] = await Promise.all([
+    supabase
+      .from('post_likes')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('post_id', postId),
+    supabase
+      .from('post_saves')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('post_id', postId),
+    supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('post_id', postId),
+  ]);
+
+  const likeCount = likeResult.count ?? 0;
+  const saveCount = saveResult.count ?? 0;
+  const commentCount = commentResult.count ?? 0;
+
+  let isLiked = false;
+  let isSaved = false;
+
+  if (userId) {
+    const [likedCheck, savedCheck] = await Promise.all([
+      supabase
+        .from('post_likes')
+        .select('post_id')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase
+        .from('post_saves')
+        .select('post_id')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ]);
+
+    isLiked = Boolean(likedCheck.data);
+    isSaved = Boolean(savedCheck.data);
+  }
+
+  return {
+    likes: likeCount,
+    saves: saveCount,
+    comments: commentCount,
+    isLiked,
+    isSaved,
+  };
+}
+
 export async function toggleLike(
   postId: string,
   userId: string,
-  liked: boolean,
+  currentlyLiked: boolean
 ): Promise<void> {
   if (!supabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured. Check your .env variables.');
   }
 
-  if (liked) {
+  if (currentlyLiked) {
     const { error } = await supabase
       .from('post_likes')
       .delete()
@@ -196,7 +232,6 @@ export async function toggleLike(
     if (error) {
       throw new Error(`Could not unlike post: ${error.message}`);
     }
-
     return;
   }
 
@@ -206,9 +241,6 @@ export async function toggleLike(
   });
 
   if (error) {
-    if (error.code === '23505') {
-      return;
-    }
     throw new Error(`Could not like post: ${error.message}`);
   }
 }
@@ -216,13 +248,13 @@ export async function toggleLike(
 export async function toggleSave(
   postId: string,
   userId: string,
-  saved: boolean,
+  currentlySaved: boolean
 ): Promise<void> {
   if (!supabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured. Check your .env variables.');
   }
 
-  if (saved) {
+  if (currentlySaved) {
     const { error } = await supabase
       .from('post_saves')
       .delete()
@@ -230,9 +262,8 @@ export async function toggleSave(
       .eq('user_id', userId);
 
     if (error) {
-      throw new Error(`Could not unsave post: ${error.message}`);
+      throw new Error(`Could not remove save: ${error.message}`);
     }
-
     return;
   }
 
@@ -242,9 +273,6 @@ export async function toggleSave(
   });
 
   if (error) {
-    if (error.code === '23505') {
-      return;
-    }
     throw new Error(`Could not save post: ${error.message}`);
   }
 }
