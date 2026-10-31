@@ -29,7 +29,6 @@ import {
   toggleLike,
   toggleSave,
   type FeedPost,
-  type PostMedia,
   type PostComment,
 } from '../../src/lib/posts';
 
@@ -59,25 +58,6 @@ function MediaVideo({ uri }: { uri: string }) {
       allowsFullscreen
       allowsPictureInPicture
     />
-  );
-}
-
-function MediaGallery({ media }: { media: PostMedia[] }) {
-  if (!media.length) return null;
-
-  const images = media.filter(item => item.media_type === 'image');
-
-  return (
-    <View style={styles.mediaGallery}>
-      {images.map(item => (
-        <Image
-          key={item.id}
-          source={{ uri: item.url }}
-          style={styles.postImage}
-          resizeMode="cover"
-        />
-      ))}
-    </View>
   );
 }
 
@@ -205,16 +185,12 @@ export default function HomeScreen() {
   );
 
   const videoPosts = useMemo(
-    () => filteredPosts.filter(post =>
-      post.post_type === 'video'
-    ),
+    () => filteredPosts.filter(post => post.post_type === 'video'),
     [filteredPosts],
   );
 
   const reelPosts = useMemo(
-    () => filteredPosts.filter(post =>
-      post.post_type === 'reel'
-    ),
+    () => filteredPosts.filter(post => post.post_type === 'reel'),
     [filteredPosts],
   );
 
@@ -664,9 +640,7 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : (
-        data.map(post => (
-          <VideoPost key={post.id} post={post} />
-        ))
+        data.map(post => <VideoPost key={post.id} post={post} />)
       )}
     </View>
   );
@@ -704,11 +678,7 @@ export default function HomeScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Ionicons
-                name="images-outline"
-                size={40}
-                color={BLUE}
-              />
+              <Ionicons name="images-outline" size={40} color={BLUE} />
               <Text style={styles.emptyTitle}>
                 {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
               </Text>
@@ -939,6 +909,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginHorizontal: 3,
     backgroundColor: theme.panel2,
+  },
+  mediaGallery: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 7,
   },
   postActions: {
     flexDirection: 'row',
