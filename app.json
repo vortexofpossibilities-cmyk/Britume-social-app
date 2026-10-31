@@ -15,6 +15,9 @@
       "bundler": "metro",
       "output": "single"
     },
+    "experiments": {
+      "baseUrl": "/Britume-social-app"
+    },
     "android": {
       "package": "com.britume.app",
       "versionCode": 1,
