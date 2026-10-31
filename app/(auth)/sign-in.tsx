@@ -1,40 +1,42 @@
 
 import React, { useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
-import { Link, router } from 'expo-router';
 import {
-  Action,
-  Copy,
-  Field,
-  Heading,
-  Page,
-} from '../../src/components/UI';
+  ActivityIndicator,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, router } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
-import { theme } from '../../src/lib/theme';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const submit = async () => {
     if (busy) return;
+    setMessage('');
+    setSuccess(false);
 
     if (!supabase) {
-      Alert.alert(
-        'Setup required',
-        'BRITUME authentication is not configured. Please check the Supabase URL and key.'
-      );
+      setMessage('BRITUME cannot connect to Supabase. Please try again later.');
       return;
     }
 
-    const cleanEmail = email.trim();
-
-    if (!cleanEmail || !password) {
-      Alert.alert(
-        'Missing details',
-        'Enter your email address and password.'
-      );
+    if (!email.trim() || !password) {
+      setMessage('Please enter your email and password.');
       return;
     }
 
@@ -42,77 +44,236 @@ export default function SignIn() {
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
+        email: email.trim(),
         password,
       });
 
       if (error) {
-        Alert.alert(
-          'Sign in failed',
-          error.message
-        );
+        setMessage(error.message);
         return;
       }
 
       router.replace('/(tabs)');
-    } catch {
-      Alert.alert(
-        'Connection problem',
-        'Could not reach Supabase. Check your internet connection and project configuration, then try again.'
-      );
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Page>
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <Text
-          style={{
-            color: theme.cyan,
-            letterSpacing: 4,
-            fontWeight: '900',
-            marginBottom: 20,
-          }}
+    <ImageBackground
+      source={require('../../assets/splash.png')}
+      style={styles.background}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.keyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          BRITUME
-        </Text>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.cardWrapper}>
+              <BlurView intensity={75} tint="light" style={styles.glass}>
+                <View style={styles.card}>
+                  <View style={styles.logoCircle}>
+                    <Text style={styles.logoLetter}>B</Text>
+                  </View>
 
-        <Heading>Welcome back</Heading>
-        <Copy>Sign in to your BRITUME account.</Copy>
+                  <Text style={styles.brand}>BRITUME</Text>
+                  <Text style={styles.tagline}>Vortex of Possibilities</Text>
 
-        <Field
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+                  <Text style={styles.heading}>Welcome back</Text>
+                  <Text style={styles.description}>
+                    Sign in and continue your journey.
+                  </Text>
 
-        <Field
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+                  <Text style={styles.label}>Email address</Text>
+                  <View style={styles.inputBox}>
+                    <Ionicons name="mail-outline" size={21} color="#66829B" />
+                    <TextInput
+                      style={styles.input}
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Enter your email"
+                      placeholderTextColor="#66829B"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="email"
+                    />
+                  </View>
 
-        <Action
-          title={busy ? 'Signing in…' : 'Sign in'}
-          onPress={submit}
-          disabled={busy}
-        />
+                  <Text style={styles.label}>Password</Text>
+                  <View style={styles.inputBox}>
+                    <Ionicons name="lock-closed-outline" size={21} color="#66829B" />
+                    <TextInput
+                      style={styles.input}
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#66829B"
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(value => !value)}
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={23}
+                        color="#168BFF"
+                      />
+                    </Pressable>
+                  </View>
 
-        <Link
-          href="/(auth)/sign-up"
-          style={{
-            color: theme.cyan,
-            marginTop: 20,
-          }}
-        >
-          Create a new account
-        </Link>
-      </ScrollView>
-    </Page>
+                  {message ? (
+                    <View style={[styles.message, success && styles.successMessage]}>
+                      <Text style={[styles.messageText, success && styles.successText]}>
+                        {message}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Pressable
+                    style={[styles.mainButton, busy && styles.disabled]}
+                    onPress={submit}
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Text style={styles.buttonText}>SIGN IN</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                      </>
+                    )}
+                  </Pressable>
+
+                  <View style={styles.bottomRow}>
+                    <Text style={styles.bottomText}>New to BRITUME?</Text>
+                    <Link href="/(auth)/sign-up" style={styles.link}>
+                      Create account
+                    </Link>
+                  </View>
+
+                  <Text style={styles.footer}>A world of possibilities begins here.</Text>
+                </View>
+              </BlurView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </ImageBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  background: { flex: 1, width: '100%', minHeight: '100%' },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 21, 45, 0.30)',
+  },
+  keyboard: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  cardWrapper: { width: '100%', maxWidth: 430, borderRadius: 28, overflow: 'hidden' },
+  glass: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.75)',
+  },
+  card: {
+    padding: 28,
+    backgroundColor: 'rgba(242,248,255,0.76)',
+    alignItems: 'stretch',
+  },
+  logoCircle: {
+    width: 55,
+    height: 55,
+    borderRadius: 19,
+    backgroundColor: '#168BFF',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  logoLetter: { color: '#FFFFFF', fontSize: 34, fontWeight: '900' },
+  brand: {
+    color: '#168BFF',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 6,
+    textAlign: 'center',
+  },
+  tagline: {
+    color: '#526D87',
+    textAlign: 'center',
+    fontSize: 11,
+    marginTop: 3,
+    marginBottom: 25,
+  },
+  heading: { color: '#19334D', fontSize: 27, fontWeight: '900', textAlign: 'center' },
+  description: {
+    color: '#526D87',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 7,
+    marginBottom: 23,
+  },
+  label: { color: '#19334D', fontWeight: '800', fontSize: 12, marginBottom: 7, marginTop: 12 },
+  inputBox: {
+    minHeight: 53,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(102,130,155,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    gap: 10,
+  },
+  input: { flex: 1, color: '#19334D', fontSize: 14, paddingVertical: 13, outlineStyle: 'none' } as any,
+  message: {
+    marginTop: 14,
+    padding: 11,
+    borderRadius: 11,
+    backgroundColor: '#FDE8E8',
+  },
+  successMessage: { backgroundColor: '#E4F8EC' },
+  messageText: { color: '#B42318', fontSize: 12, lineHeight: 18 },
+  successText: { color: '#167344' },
+  mainButton: {
+    minHeight: 54,
+    borderRadius: 15,
+    backgroundColor: '#168BFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 23,
+    elevation: 4,
+  },
+  disabled: { opacity: 0.6 },
+  buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 23,
+  },
+  bottomText: { color: '#526D87', fontSize: 12 },
+  link: { color: '#0879E8', fontSize: 12, fontWeight: '900' },
+  footer: { color: '#66829B', fontSize: 10, textAlign: 'center', marginTop: 22 },
+});
