@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,8 +14,26 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { theme } from '../src/lib/theme';
 import { askBritumeAI } from '../src/lib/britumeAI';
+
+const C = {
+  background: '#070B1B',
+  background2: '#0B1430',
+  panel: '#111C38',
+  panel2: '#182747',
+  blue: '#168BFF',
+  blueLight: '#45B5FF',
+  purple: '#895CFF',
+  purpleLight: '#B18BFF',
+  gold: '#FFD447',
+  goldDark: '#DCA923',
+  text: '#F6F8FF',
+  muted: '#A9B4CC',
+  border: '#29385E',
+  userBubble: '#153D70',
+  assistantBubble: '#172342',
+  danger: '#FF626F',
+};
 
 type Chip = {
   label: string;
@@ -50,7 +70,9 @@ export default function BritumeAIScreen() {
   const [loading, setLoading] = useState(false);
 
   const sendMessage = async (customMessage?: string) => {
-    const message = (customMessage ?? (reply.trim() || question.trim())).trim();
+    const message = (
+      customMessage ?? (reply.trim() || question.trim())
+    ).trim();
 
     if (!message) {
       Alert.alert('Write a message', 'Type what you would like help with first.');
@@ -59,18 +81,21 @@ export default function BritumeAIScreen() {
 
     if (loading) return;
 
-    const userMessage: Message = {
-      id: `${Date.now()}-user`,
-      role: 'user',
-      content: message,
-    };
+    setMessages(previous => [
+      ...previous,
+      {
+        id: `${Date.now()}-user`,
+        role: 'user',
+        content: message,
+      },
+    ]);
 
-    setMessages(previous => [...previous, userMessage]);
     setReply('');
     setQuestion('');
     setLoading(true);
 
     try {
+      // Keep the existing Supabase Edge Function connection.
       const response = await askBritumeAI(message);
 
       setMessages(previous => [
@@ -123,62 +148,93 @@ export default function BritumeAIScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backGlyph}>‹</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={21} color={C.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Britume AI</Text>
-          <Text style={styles.headerSparkle}>✨</Text>
-        </View>
 
-        <View style={styles.greetingCard}>
-          <View style={styles.greetingTop}>
-            <View style={styles.greetingBadge}>
-              <Text style={styles.greetingB}>B</Text>
-            </View>
-            <View style={styles.greetingCopy}>
-              <Text style={styles.greetingTitle}>
-                Hey! I'm Brilliant T. Mere.
-              </Text>
-              <Text style={styles.greetingSubtitle}>
-                Your creative and learning partner
-              </Text>
-            </View>
-            <Text style={styles.smallSparkle}>✦</Text>
+          <View style={styles.headerBrand}>
+            <Text style={styles.headerTitle}>BRITUME AI</Text>
+            <Text style={styles.headerSubtitle}>VORTEX INTELLIGENCE</Text>
           </View>
 
-          <View style={styles.questionBox}>
+          <View style={styles.onlineBadge}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>AI</Text>
+          </View>
+        </View>
+
+        {/* AI introduction */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.eyebrow}>YOUR CREATIVE PARTNER</Text>
+              <Text style={styles.heroTitle}>
+                Hey! I'm Brilliant T. Mere.
+              </Text>
+              <Text style={styles.heroSubtitle}>
+                Think bigger. Create more. Discover possibilities.
+              </Text>
+            </View>
+
+            <View style={styles.miniOrb}>
+              <Text style={styles.miniOrbB}>B</Text>
+              <View style={styles.miniOrbDot} />
+            </View>
+          </View>
+
+          <View style={styles.heroQuestion}>
             <TextInput
               value={question}
               onChangeText={setQuestion}
               placeholder="How can I help you?"
-              placeholderTextColor={theme.muted}
-              style={styles.questionInput}
+              placeholderTextColor={C.muted}
+              style={styles.heroInput}
               returnKeyType="send"
               onSubmitEditing={() => sendMessage()}
               editable={!loading}
             />
+
             <Pressable
               onPress={() => sendMessage()}
               disabled={loading}
-              style={styles.questionSend}
+              style={styles.heroSend}
             >
-              <Ionicons name="send" size={17} color="#FFFFFF" />
+              <Ionicons name="send" size={18} color={C.background} />
             </Pressable>
           </View>
         </View>
 
+        {/* Conversation */}
         {messages.length > 0 && (
           <View style={styles.conversation}>
-            <View style={styles.conversationHeader}>
-              <Text style={styles.conversationTitle}>Conversation</Text>
-              <Pressable onPress={clearConversation}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Your conversation</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Your AI discussion
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={clearConversation}
+                style={styles.clearButton}
+              >
+                <Ionicons name="trash-outline" size={15} color={C.gold} />
                 <Text style={styles.clearText}>Clear</Text>
               </Pressable>
             </View>
@@ -190,19 +246,41 @@ export default function BritumeAIScreen() {
                   styles.messageBubble,
                   item.role === 'user'
                     ? styles.userBubble
-                    : styles.aiBubble,
+                    : styles.assistantBubble,
                 ]}
               >
-                <Text style={styles.messageRole}>
-                  {item.role === 'user' ? 'You' : 'BRITUME AI'}
-                </Text>
+                <View style={styles.messageHeading}>
+                  <View
+                    style={[
+                      styles.messageAvatar,
+                      item.role === 'user'
+                        ? styles.userAvatar
+                        : styles.aiAvatar,
+                    ]}
+                  >
+                    {item.role === 'user' ? (
+                      <Ionicons
+                        name="person"
+                        size={13}
+                        color={C.text}
+                      />
+                    ) : (
+                      <Text style={styles.messageB}>B</Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.messageRole}>
+                    {item.role === 'user' ? 'YOU' : 'BRITUME AI'}
+                  </Text>
+                </View>
+
                 <Text style={styles.messageText}>{item.content}</Text>
               </View>
             ))}
 
             {loading && (
               <View style={styles.loadingRow}>
-                <ActivityIndicator color={theme.cyan} />
+                <ActivityIndicator color={C.blueLight} />
                 <Text style={styles.loadingText}>
                   BRITUME AI is thinking...
                 </Text>
@@ -211,15 +289,20 @@ export default function BritumeAIScreen() {
           </View>
         )}
 
-        <View style={styles.chipSection}>
-          {chipRows.map((row, rowIndex) => (
-            <View
-              key={rowIndex}
-              style={[
-                styles.chipRow,
-                rowIndex === 2 && styles.lastChipRow,
-              ]}
-            >
+        {/* Suggestions */}
+        <View style={styles.suggestions}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Explore possibilities</Text>
+              <Text style={styles.sectionSubtitle}>
+                Choose something to get started
+              </Text>
+            </View>
+            <Ionicons name="sparkles" size={23} color={C.gold} />
+          </View>
+
+          {chipRows.map((row, index) => (
+            <View key={index} style={styles.chipRow}>
               {row.map(chip => (
                 <Pressable
                   key={chip.label}
@@ -229,17 +312,14 @@ export default function BritumeAIScreen() {
                       `Help me with ${chip.label}. Give me a useful starting point and guide me step by step.`,
                     )
                   }
-                  style={[
-                    styles.chip,
-                    rowIndex === 2 && styles.wideChip,
-                  ]}
+                  style={styles.chip}
                 >
                   <Ionicons
                     name={chip.icon}
                     size={17}
-                    color={theme.cyan}
+                    color={index === 1 ? C.purpleLight : C.blueLight}
                   />
-                  <Text style={styles.chipLabel} numberOfLines={1}>
+                  <Text style={styles.chipText} numberOfLines={1}>
                     {chip.label}
                   </Text>
                 </Pressable>
@@ -248,95 +328,122 @@ export default function BritumeAIScreen() {
           ))}
         </View>
 
-        <View style={styles.middleSection}>
-          <View style={styles.historyPill}>
+        {/* AI energy centre */}
+        <View style={styles.energySection}>
+          <Text style={styles.energyEyebrow}>MEET YOUR AI ASSISTANT</Text>
+
+          <Pressable
+            onPress={() => showComingSoon('Voice talk')}
+            style={styles.orbArea}
+          >
+            <View style={styles.orbOuter}>
+              <View style={styles.orbMiddle}>
+                <View style={styles.orbInner}>
+                  <Text style={styles.crown}>♛</Text>
+                  <Text style={styles.orbB}>B</Text>
+                  <Text style={styles.orbName}>BRITUME</Text>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+
+          <Text style={styles.voiceTitle}>Voice talk</Text>
+          <Text style={styles.voiceSubtitle}>
+            A new way to connect with Brilliant
+          </Text>
+
+          <Pressable
+            onPress={() => showComingSoon('Voice talk')}
+            style={styles.voiceButton}
+          >
+            <Ionicons name="mic" size={18} color={C.background} />
+            <Text style={styles.voiceButtonText}>START VOICE TALK</Text>
+            <Ionicons name="sparkles" size={17} color={C.background} />
+          </Pressable>
+        </View>
+
+        {/* Extra tools */}
+        <View style={styles.toolsSection}>
+          <Text style={styles.sectionTitle}>More possibilities</Text>
+
+          <View style={styles.toolRow}>
             <Pressable
               onPress={() => showComingSoon('AI history')}
-              style={styles.historyAction}
+              style={styles.toolCard}
             >
-              <Ionicons name="time-outline" size={20} color={theme.cyan} />
-            </Pressable>
-            <Pressable
-              onPress={() => showComingSoon('Share conversation')}
-              style={styles.historyAction}
-            >
-              <Ionicons name="share-outline" size={20} color={theme.cyan} />
-            </Pressable>
-            <Pressable
-              onPress={clearConversation}
-              style={styles.historyAction}
-            >
-              <Ionicons name="trash-outline" size={20} color={theme.cyan} />
-            </Pressable>
-            <Text style={styles.deleteLabel}>Delete</Text>
-          </View>
-
-          <View style={styles.voiceColumn}>
-            <Pressable
-              onPress={() => showComingSoon('Voice talk')}
-              style={styles.voiceHalo}
-            >
-              <View style={styles.voiceCircle}>
-                <Text style={styles.crown}>♛</Text>
-                <Text style={styles.voiceB}>B</Text>
+              <View style={styles.toolIconBlue}>
+                <Ionicons name="time-outline" size={22} color={C.blueLight} />
               </View>
+              <Text style={styles.toolTitle}>AI history</Text>
+              <Text style={styles.toolSubtitle}>Past conversations</Text>
             </Pressable>
-            <Text style={styles.voiceTitle}>Voice talk</Text>
-            <Text style={styles.voiceHint}>Talk with Brilliant</Text>
-          </View>
 
-          <View style={styles.actionCards}>
             <Pressable
               onPress={() => showComingSoon('Video call')}
-              style={styles.actionCard}
+              style={styles.toolCard}
             >
-              <Ionicons name="videocam-outline" size={21} color={theme.cyan} />
-              <Text style={styles.actionTitle}>Video call</Text>
-              <Text style={styles.actionArrow}>→</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() =>
-                sendMessage('Help me research a topic and explain your findings.')
-              }
-              style={styles.actionCard}
-            >
-              <Ionicons name="search-outline" size={21} color={theme.cyan} />
-              <Text style={styles.actionTitle}>Research and web search</Text>
-              <Text style={styles.actionArrow}>→</Text>
+              <View style={styles.toolIconPurple}>
+                <Ionicons
+                  name="videocam-outline"
+                  size={22}
+                  color={C.purpleLight}
+                />
+              </View>
+              <Text style={styles.toolTitle}>Video call</Text>
+              <Text style={styles.toolSubtitle}>Meet your AI</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            onPress={() =>
+              sendMessage('Help me research a topic and explain your findings.')
+            }
+            style={styles.researchCard}
+          >
+            <View style={styles.researchIcon}>
+              <Ionicons name="globe-outline" size={23} color={C.gold} />
+            </View>
+
+            <View style={styles.researchCopy}>
+              <Text style={styles.toolTitle}>Research and discovery</Text>
+              <Text style={styles.toolSubtitle}>
+                Ask BRITUME AI to help explore a topic
+              </Text>
+            </View>
+
+            <Ionicons name="arrow-forward" size={19} color={C.gold} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => showComingSoon('Share Screen')}
+            style={styles.shareScreen}
+          >
+            <Ionicons name="share-outline" size={19} color={C.blueLight} />
+            <Text style={styles.shareScreenText}>Share Screen</Text>
+            <Ionicons name="lock-closed-outline" size={13} color={C.muted} />
+          </Pressable>
         </View>
 
-        <Pressable
-          onPress={() => showComingSoon('Share Screen')}
-          style={styles.shareScreenButton}
-        >
-          <Ionicons name="share-outline" size={18} color={theme.cyan} />
-          <Text style={styles.shareScreenText}>Share Screen</Text>
-        </Pressable>
-
-        <View style={styles.note}>
-          <Text style={styles.noteText}>
-            Ask, learn, research, and create — all in one place.
-          </Text>
-        </View>
+        <Text style={styles.footer}>
+          BRITUME AI · VORTEX OF POSSIBILITIES
+        </Text>
       </ScrollView>
 
+      {/* Message composer */}
       <View style={styles.composer}>
         <Pressable
           onPress={() => showComingSoon('Add attachment')}
-          style={styles.addButton}
+          style={styles.composerAdd}
         >
-          <Ionicons name="add" size={24} color={theme.cyan} />
+          <Ionicons name="add" size={25} color={C.blueLight} />
         </Pressable>
 
         <TextInput
           value={reply}
           onChangeText={setReply}
-          placeholder="Reply to me"
-          placeholderTextColor={theme.muted}
-          style={styles.replyInput}
+          placeholder="Message BRITUME AI..."
+          placeholderTextColor={C.muted}
+          style={styles.composerInput}
           returnKeyType="send"
           onSubmitEditing={() => sendMessage()}
           editable={!loading}
@@ -344,189 +451,565 @@ export default function BritumeAIScreen() {
 
         <Pressable
           onPress={() => showComingSoon('Voice message')}
-          style={styles.composerIcon}
+          style={styles.composerMic}
         >
-          <Ionicons name="mic-outline" size={21} color={theme.muted} />
+          <Ionicons name="mic-outline" size={21} color={C.purpleLight} />
         </Pressable>
 
         <Pressable
           onPress={() => sendMessage()}
           disabled={loading}
-          style={[styles.sendButton, loading && styles.disabledButton]}
+          style={[styles.composerSend, loading && styles.disabled]}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={C.background} size="small" />
           ) : (
-            <Ionicons name="send" size={17} color="#FFFFFF" />
+            <Ionicons name="send" size={17} color={C.background} />
           )}
         </Pressable>
-
-        <Pressable
-          onPress={() => setReply('')}
-          style={styles.moreButton}
-        >
-          <Text style={styles.moreGlyph}>•••</Text>
-        </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.bg },
-  content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 18 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  backButton: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.panel, borderWidth: 1,
-    borderColor: theme.border, marginRight: 9,
+  screen: {
+    flex: 1,
+    backgroundColor: C.background,
   },
-  backGlyph: { color: theme.text, fontSize: 30, lineHeight: 32, marginTop: -3 },
-  headerTitle: { color: theme.text, fontSize: 23, fontWeight: '900', flex: 1 },
-  headerSparkle: { fontSize: 25 },
-  greetingCard: {
-    backgroundColor: theme.panel, borderWidth: 1,
-    borderColor: theme.cyan, borderRadius: 22,
-    padding: 14, marginBottom: 15,
-    shadowColor: theme.cyan, shadowOpacity: 0.16,
-    shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+  content: {
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 25,
   },
-  greetingTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 13 },
-  greetingBadge: {
-    width: 42, height: 42, borderRadius: 15,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.panel2, marginRight: 10,
-  },
-  greetingB: { color: theme.cyan, fontSize: 25, fontWeight: '900' },
-  greetingCopy: { flex: 1 },
-  greetingTitle: { color: theme.text, fontSize: 15, fontWeight: '900' },
-  greetingSubtitle: { color: theme.muted, fontSize: 11, marginTop: 3 },
-  smallSparkle: { color: theme.cyan, fontSize: 21, marginLeft: 5 },
-  questionBox: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: theme.cyan,
-    borderRadius: 16, backgroundColor: theme.bg,
-    paddingLeft: 12, paddingRight: 5,
-  },
-  questionInput: {
-    flex: 1, color: theme.text, minHeight: 44,
-    paddingVertical: 9, fontSize: 13,
-  },
-  questionSend: {
-    width: 33, height: 33, borderRadius: 12,
-    backgroundColor: theme.cyan,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  conversation: {
-    backgroundColor: theme.panel, borderRadius: 18,
-    borderWidth: 1, borderColor: theme.border,
-    padding: 12, marginBottom: 16, gap: 10,
-  },
-  conversationHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
+
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 17,
   },
-  conversationTitle: { color: theme.text, fontWeight: '900', fontSize: 15 },
-  clearText: { color: theme.cyan, fontWeight: '800', fontSize: 12 },
-  messageBubble: { padding: 11, borderRadius: 14 },
-  userBubble: { backgroundColor: theme.panel2, alignSelf: 'flex-end', maxWidth: '90%' },
-  aiBubble: { backgroundColor: theme.bg, alignSelf: 'stretch' },
-  messageRole: { color: theme.cyan, fontSize: 11, fontWeight: '900', marginBottom: 5 },
-  messageText: { color: theme.text, fontSize: 13, lineHeight: 20 },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7 },
-  loadingText: { color: theme.muted, fontSize: 12 },
-  chipSection: { gap: 9, marginBottom: 19 },
-  chipRow: { flexDirection: 'row', gap: 7 },
-  lastChipRow: { justifyContent: 'space-between' },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  headerBrand: {
+    flex: 1,
+  },
+  headerTitle: {
+    color: C.text,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  headerSubtitle: {
+    color: C.blueLight,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginTop: 3,
+  },
+  onlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 18,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    backgroundColor: C.panel2,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: C.gold,
+  },
+  onlineText: {
+    color: C.text,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  heroCard: {
+    backgroundColor: C.panel,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 16,
+    marginBottom: 19,
+    shadowColor: C.blue,
+    shadowOpacity: 0.22,
+    shadowRadius: 17,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 17,
+  },
+  heroCopy: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  eyebrow: {
+    color: C.gold,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  heroTitle: {
+    color: C.text,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 26,
+  },
+  heroSubtitle: {
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  miniOrb: {
+    width: 67,
+    height: 67,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.blue,
+    borderWidth: 2,
+    borderColor: C.gold,
+    shadowColor: C.purple,
+    shadowOpacity: 0.8,
+    shadowRadius: 13,
+    elevation: 7,
+  },
+  miniOrbB: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '900',
+  },
+  miniOrbDot: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: C.gold,
+    top: 4,
+    right: 4,
+  },
+  heroQuestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 13,
+    paddingRight: 6,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: C.blue,
+    backgroundColor: C.background2,
+  },
+  heroInput: {
+    flex: 1,
+    minHeight: 47,
+    color: C.text,
+    fontSize: 13,
+    paddingVertical: 9,
+  },
+  heroSend: {
+    width: 37,
+    height: 37,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.gold,
+  },
+
+  conversation: {
+    backgroundColor: C.panel,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 13,
+    marginBottom: 20,
+    gap: 11,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: C.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  sectionSubtitle: {
+    color: C.muted,
+    fontSize: 10,
+    marginTop: 4,
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  clearText: {
+    color: C.gold,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  messageBubble: {
+    borderRadius: 16,
+    padding: 12,
+    maxWidth: '96%',
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: C.userBubble,
+    borderWidth: 1,
+    borderColor: C.blue,
+  },
+  assistantBubble: {
+    alignSelf: 'stretch',
+    backgroundColor: C.assistantBubble,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  messageHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 7,
+  },
+  messageAvatar: {
+    width: 23,
+    height: 23,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userAvatar: {
+    backgroundColor: C.blue,
+  },
+  aiAvatar: {
+    backgroundColor: C.purple,
+  },
+  messageB: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  messageRole: {
+    color: C.gold,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  messageText: {
+    color: C.text,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    padding: 8,
+  },
+  loadingText: {
+    color: C.blueLight,
+    fontSize: 12,
+  },
+
+  suggestions: {
+    marginBottom: 23,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 7,
+    marginBottom: 8,
+  },
   chip: {
-    flex: 1, minWidth: 0, minHeight: 43,
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 5,
-    paddingHorizontal: 7, paddingVertical: 8,
-    backgroundColor: theme.panel, borderWidth: 1,
-    borderColor: theme.border, borderRadius: 22,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 7,
+    borderRadius: 15,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  wideChip: { flex: 1, paddingHorizontal: 9 },
-  chipLabel: { flexShrink: 1, color: theme.text, fontSize: 10, fontWeight: '700' },
-  middleSection: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 17,
+  chipText: {
+    flexShrink: 1,
+    color: C.text,
+    fontSize: 10,
+    fontWeight: '700',
   },
-  historyPill: {
-    width: 42, minHeight: 155, paddingVertical: 9,
-    borderRadius: 23, backgroundColor: theme.panel,
-    borderWidth: 1, borderColor: theme.border,
-    alignItems: 'center', justifyContent: 'space-around',
+
+  energySection: {
+    alignItems: 'center',
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 25,
+    padding: 19,
+    marginBottom: 22,
   },
-  historyAction: { width: 34, height: 31, alignItems: 'center', justifyContent: 'center' },
-  deleteLabel: { color: theme.muted, fontSize: 8, fontWeight: '700', marginTop: -1 },
-  voiceColumn: {
-    flex: 1.1, minWidth: 0, alignItems: 'center', justifyContent: 'center',
+  energyEyebrow: {
+    color: C.gold,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 17,
   },
-  voiceHalo: {
-    width: 112, height: 112, borderRadius: 56,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#D8ECFF', borderWidth: 1, borderColor: '#B5D9FF',
-    shadowColor: theme.cyan, shadowOpacity: 0.4,
-    shadowRadius: 15, elevation: 7,
+  orbArea: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 7,
   },
-  voiceCircle: {
-    width: 91, height: 91, borderRadius: 46,
-    backgroundColor: theme.cyan, alignItems: 'center',
-    justifyContent: 'center', borderWidth: 3, borderColor: '#FFFFFF',
+  orbOuter: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#241A52',
+    borderWidth: 2,
+    borderColor: C.purple,
+    shadowColor: C.purple,
+    shadowOpacity: 0.9,
+    shadowRadius: 27,
+    elevation: 12,
+  },
+  orbMiddle: {
+    width: 153,
+    height: 153,
+    borderRadius: 77,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#103B79',
+    borderWidth: 3,
+    borderColor: C.gold,
+    shadowColor: C.blue,
+    shadowOpacity: 0.9,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  orbInner: {
+    width: 125,
+    height: 125,
+    borderRadius: 63,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.blue,
+    borderWidth: 2,
+    borderColor: C.blueLight,
   },
   crown: {
-    position: 'absolute', top: 7, color: '#FFFFFF',
-    fontSize: 17, fontWeight: '900',
+    color: C.gold,
+    fontSize: 23,
+    marginBottom: -5,
   },
-  voiceB: { color: '#FFFFFF', fontSize: 45, fontWeight: '900', marginTop: 13 },
-  voiceTitle: { color: theme.text, fontSize: 14, fontWeight: '900', marginTop: 10 },
-  voiceHint: { color: theme.muted, fontSize: 9, marginTop: 3, textAlign: 'center' },
-  actionCards: { flex: 1, gap: 9, minWidth: 0 },
-  actionCard: {
-    minHeight: 72, backgroundColor: theme.panel,
-    borderWidth: 1, borderColor: theme.border,
-    borderRadius: 17, paddingHorizontal: 8,
-    paddingVertical: 9, justifyContent: 'center', gap: 4,
+  orbB: {
+    color: '#FFFFFF',
+    fontSize: 67,
+    fontWeight: '900',
+    lineHeight: 76,
+    textShadowColor: C.purple,
+    textShadowRadius: 13,
   },
-  actionTitle: { color: theme.text, fontSize: 10, fontWeight: '800', paddingRight: 10 },
-  actionArrow: {
-    position: 'absolute', right: 8, top: 9,
-    color: theme.cyan, fontSize: 17, fontWeight: '900',
+  orbName: {
+    color: C.gold,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 2,
   },
-  shareScreenButton: {
-    alignSelf: 'center', flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingHorizontal: 22, minHeight: 42,
-    borderRadius: 24, backgroundColor: theme.panel,
-    borderWidth: 1, borderColor: theme.border,
+  voiceTitle: {
+    color: C.text,
+    fontSize: 19,
+    fontWeight: '900',
+    marginTop: 13,
   },
-  shareScreenText: { color: theme.text, fontSize: 12, fontWeight: '800' },
-  note: { alignItems: 'center', marginTop: 12, marginBottom: 4 },
-  noteText: { color: theme.muted, fontSize: 10, textAlign: 'center' },
+  voiceSubtitle: {
+    color: C.muted,
+    fontSize: 11,
+    marginTop: 5,
+  },
+  voiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: C.gold,
+    borderRadius: 23,
+    paddingHorizontal: 23,
+    minHeight: 45,
+    marginTop: 15,
+  },
+  voiceButtonText: {
+    color: C.background,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  toolsSection: {
+    marginBottom: 16,
+  },
+  toolRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  toolCard: {
+    flex: 1,
+    minHeight: 116,
+    padding: 13,
+    borderRadius: 18,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  toolIconBlue: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: '#102D53',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  toolIconPurple: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: '#2B2054',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  toolTitle: {
+    color: C.text,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  toolSubtitle: {
+    color: C.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 4,
+  },
+  researchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 18,
+    padding: 13,
+    marginBottom: 10,
+  },
+  researchIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: '#3A3018',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  researchCopy: {
+    flex: 1,
+  },
+  shareScreen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    minHeight: 43,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.panel,
+  },
+  shareScreenText: {
+    color: C.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  footer: {
+    color: C.muted,
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginTop: 10,
+  },
+
   composer: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 9,
-    backgroundColor: theme.panel,
-    borderTopWidth: 1, borderTopColor: theme.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    backgroundColor: C.background2,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
   },
-  addButton: { width: 34, height: 38, alignItems: 'center', justifyContent: 'center' },
-  replyInput: {
-    flex: 1, minWidth: 0, minHeight: 41,
-    paddingHorizontal: 12, paddingVertical: 8,
-    backgroundColor: theme.bg, borderWidth: 1,
-    borderColor: theme.border, borderRadius: 22,
-    color: theme.text, fontSize: 12,
+  composerAdd: {
+    width: 34,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  composerIcon: { width: 30, height: 38, alignItems: 'center', justifyContent: 'center' },
-  sendButton: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: theme.cyan,
-    alignItems: 'center', justifyContent: 'center',
+  composerInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 43,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 22,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+    color: C.text,
+    fontSize: 12,
   },
-  disabledButton: { opacity: 0.6 },
-  moreButton: { width: 28, height: 36, alignItems: 'center', justifyContent: 'center' },
-  moreGlyph: { color: theme.muted, fontSize: 15, fontWeight: '900', letterSpacing: 1 },
+  composerMic: {
+    width: 31,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerSend: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.gold,
+  },
+  disabled: {
+    opacity: 0.55,
+  },
 });
