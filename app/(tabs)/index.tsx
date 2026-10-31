@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,7 +35,10 @@ import {
 import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/lib/theme';
 
-const BLUE = '#168BFF';
+// BRITUME — TRIPLE WHITE MILKY × LIQUID OIL
+const BLUE = '#075A91';
+const YELLOW = '#F2C94C';
+const WHITE = '#FFFFFF';
 
 type Interaction = {
   liked: boolean;
@@ -45,7 +47,6 @@ type Interaction = {
   commentsCount: number;
 };
 
-// Prevent requests from running forever.
 function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs = 15000,
@@ -85,7 +86,7 @@ function MediaVideo({ uri }: { uri: string }) {
   );
 }
 
-// VIDEO POST
+// VIDEO AND REEL POST
 function VideoPost({ post }: { post: FeedPost }) {
   const video = post.media?.find(
     item => item.media_type === 'video',
@@ -112,6 +113,8 @@ function VideoPost({ post }: { post: FeedPost }) {
             {new Date(post.created_at).toLocaleDateString()}
           </Text>
         </View>
+
+        <View style={styles.oilDot} />
       </View>
 
       <MediaVideo uri={video.url} />
@@ -191,7 +194,7 @@ export default function HomeScreen() {
 
       setPosts(freshPosts);
 
-      // Show the feed immediately.
+      // Show feed before loading interactions.
       setLoading(false);
 
       // Load likes, saves and comments separately.
@@ -211,6 +214,7 @@ export default function HomeScreen() {
           interactionError,
         );
 
+        // Keep the posts visible even if interactions fail.
         setInteractions({});
       }
     } catch (e) {
@@ -227,7 +231,7 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Reload when Home becomes active.
+  // RELOAD WHEN HOME BECOMES ACTIVE
   useFocusEffect(
     useCallback(() => {
       void loadPosts();
@@ -464,12 +468,14 @@ export default function HomeScreen() {
   // HOME HEADER
   const Header = (
     <View>
+      {/* BRAND HEADER */}
       <View style={styles.topBar}>
         <Pressable
           style={styles.brandMark}
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandLetter}>B</Text>
+          <View style={styles.brandShine} />
         </Pressable>
 
         <Pressable
@@ -587,7 +593,7 @@ export default function HomeScreen() {
             <Ionicons
               name="add"
               size={29}
-              color="#FFFFFF"
+              color={BLUE}
             />
           </View>
 
@@ -608,7 +614,7 @@ export default function HomeScreen() {
                     borderColor:
                       index % 2 === 0
                         ? BLUE
-                        : theme.purple,
+                        : YELLOW,
                   },
                 ]}
               >
@@ -656,9 +662,7 @@ export default function HomeScreen() {
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
 
-          <Pressable
-            onPress={() => void loadPosts()}
-          >
+          <Pressable onPress={() => void loadPosts()}>
             <Text style={styles.retryText}>
               Try again
             </Text>
@@ -977,7 +981,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name="add"
                     size={22}
-                    color="#FFFFFF"
+                    color={WHITE}
                   />
 
                   <Text style={styles.primaryButtonText}>
@@ -1077,7 +1081,10 @@ export default function HomeScreen() {
               />
 
               <Pressable
-                style={styles.sendButton}
+                style={[
+                  styles.sendButton,
+                  !commentText.trim() && styles.sendButtonDisabled,
+                ]}
                 onPress={() => void submitComment()}
                 disabled={
                   sendingComment ||
@@ -1085,12 +1092,12 @@ export default function HomeScreen() {
                 }
               >
                 {sendingComment ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={WHITE} />
                 ) : (
                   <Ionicons
                     name="send"
                     size={19}
-                    color="#FFFFFF"
+                    color={WHITE}
                   />
                 )}
               </Pressable>
@@ -1103,7 +1110,7 @@ export default function HomeScreen() {
 }
 
 // =========================================
-// BRITUME HOME SCREEN STYLES
+// BRITUME HOME SCREEN — LIQUID OIL STYLES
 // =========================================
 
 const styles = StyleSheet.create({
@@ -1144,12 +1151,26 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: YELLOW,
+    overflow: 'hidden',
   },
 
   brandLetter: {
-    color: '#FFFFFF',
+    color: WHITE,
     fontSize: 25,
     fontWeight: '900',
+  },
+
+  brandShine: {
+    position: 'absolute',
+    top: 4,
+    left: 7,
+    width: 13,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    transform: [{ rotate: '-35deg' }],
   },
 
   brandText: {
@@ -1158,9 +1179,10 @@ const styles = StyleSheet.create({
   },
 
   brandName: {
-    color: theme.text,
+    color: BLUE,
     fontSize: 17,
     fontWeight: '900',
+    letterSpacing: 1,
   },
 
   tagline: {
@@ -1211,7 +1233,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: theme.text,
+    color: BLUE,
     fontSize: 19,
     fontWeight: '800',
   },
@@ -1249,9 +1271,9 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: BLUE,
+    backgroundColor: YELLOW,
     borderWidth: 2,
-    borderColor: BLUE,
+    borderColor: YELLOW,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1299,6 +1321,8 @@ const styles = StyleSheet.create({
     height: 29,
     borderRadius: 15,
     backgroundColor: theme.panel2,
+    borderWidth: 1,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1381,6 +1405,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  oilDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: YELLOW,
+  },
+
   videoPlayer: {
     width: '100%',
     height: 230,
@@ -1444,6 +1475,8 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     backgroundColor: BLUE,
+    borderColor: YELLOW,
+    borderWidth: 1,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 11,
@@ -1454,7 +1487,7 @@ const styles = StyleSheet.create({
   },
 
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: WHITE,
     fontWeight: '800',
   },
 
@@ -1499,7 +1532,7 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    color: theme.text,
+    color: BLUE,
     fontSize: 19,
     fontWeight: '900',
   },
@@ -1565,7 +1598,13 @@ const styles = StyleSheet.create({
     height: 43,
     borderRadius: 22,
     backgroundColor: BLUE,
+    borderWidth: 1,
+    borderColor: YELLOW,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  sendButtonDisabled: {
+    opacity: 0.55,
   },
 });
