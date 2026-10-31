@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -35,9 +36,9 @@ import {
 import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/lib/theme';
 
-// BRITUME — TRIPLE WHITE MILKY × LIQUID OIL
-const BLUE = '#075A91';
-const YELLOW = '#F2C94C';
+const BLUE = '#168BFF';
+const GOLD = '#FFD447';
+const PURPLE = '#895CFF';
 const WHITE = '#FFFFFF';
 
 type Interaction = {
@@ -86,7 +87,7 @@ function MediaVideo({ uri }: { uri: string }) {
   );
 }
 
-// VIDEO AND REEL POST
+// VIDEO POST
 function VideoPost({ post }: { post: FeedPost }) {
   const video = post.media?.find(
     item => item.media_type === 'video',
@@ -108,21 +109,18 @@ function VideoPost({ post }: { post: FeedPost }) {
 
         <View style={{ flex: 1 }}>
           <Text style={styles.authorName}>{author}</Text>
-
           <Text style={styles.postDate}>
             {new Date(post.created_at).toLocaleDateString()}
           </Text>
         </View>
 
-        <View style={styles.oilDot} />
+        <Ionicons name="videocam" size={20} color={GOLD} />
       </View>
 
       <MediaVideo uri={video.url} />
 
       {post.content ? (
-        <Text style={styles.videoCaption}>
-          {post.content}
-        </Text>
+        <Text style={styles.videoCaption}>{post.content}</Text>
       ) : null}
     </View>
   );
@@ -145,9 +143,7 @@ export default function HomeScreen() {
 
   const [busyPosts, setBusyPosts] = useState<string[]>([]);
 
-  const [activePostId, setActivePostId] = useState<string | null>(
-    null,
-  );
+  const [activePostId, setActivePostId] = useState<string | null>(null);
 
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -167,7 +163,6 @@ export default function HomeScreen() {
     try {
       let currentUserId: string | null = null;
 
-      // Authentication must not prevent public posts loading.
       try {
         if (supabase) {
           const { data } = await withTimeout(
@@ -178,26 +173,16 @@ export default function HomeScreen() {
           currentUserId = data.user?.id ?? null;
         }
       } catch (authError) {
-        console.warn(
-          'BRITUME authentication check:',
-          authError,
-        );
+        console.warn('BRITUME authentication check:', authError);
       }
 
       setUserId(currentUserId);
 
-      // Load public posts.
-      const freshPosts = await withTimeout(
-        fetchPublicPosts(),
-        15000,
-      );
+      const freshPosts = await withTimeout(fetchPublicPosts(), 15000);
 
       setPosts(freshPosts);
-
-      // Show feed before loading interactions.
       setLoading(false);
 
-      // Load likes, saves and comments separately.
       try {
         const freshInteractions = await withTimeout(
           fetchPostInteractions(
@@ -209,12 +194,7 @@ export default function HomeScreen() {
 
         setInteractions(freshInteractions);
       } catch (interactionError) {
-        console.error(
-          'BRITUME interactions error:',
-          interactionError,
-        );
-
-        // Keep the posts visible even if interactions fail.
+        console.error('BRITUME interactions error:', interactionError);
         setInteractions({});
       }
     } catch (e) {
@@ -231,7 +211,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // RELOAD WHEN HOME BECOMES ACTIVE
   useFocusEffect(
     useCallback(() => {
       void loadPosts();
@@ -246,12 +225,8 @@ export default function HomeScreen() {
 
     return posts.filter(post => {
       const content = (post.content ?? '').toLowerCase();
-
-      const author =
-        post.author?.display_name?.toLowerCase() ?? '';
-
-      const username =
-        post.author?.username?.toLowerCase() ?? '';
+      const author = post.author?.display_name?.toLowerCase() ?? '';
+      const username = post.author?.username?.toLowerCase() ?? '';
 
       return (
         content.includes(q) ||
@@ -273,18 +248,12 @@ export default function HomeScreen() {
   );
 
   const videoPosts = useMemo(
-    () =>
-      filteredPosts.filter(
-        post => post.post_type === 'video',
-      ),
+    () => filteredPosts.filter(post => post.post_type === 'video'),
     [filteredPosts],
   );
 
   const reelPosts = useMemo(
-    () =>
-      filteredPosts.filter(
-        post => post.post_type === 'reel',
-      ),
+    () => filteredPosts.filter(post => post.post_type === 'reel'),
     [filteredPosts],
   );
 
@@ -306,10 +275,7 @@ export default function HomeScreen() {
   // LIKE POST
   const handleLike = async (postId: string) => {
     if (!userId) {
-      Alert.alert(
-        'Sign in required',
-        'Please sign in to like posts.',
-      );
+      Alert.alert('Sign in required', 'Please sign in to like posts.');
       return;
     }
 
@@ -328,24 +294,17 @@ export default function HomeScreen() {
     } catch (e) {
       Alert.alert(
         'Like failed',
-        e instanceof Error
-          ? e.message
-          : 'Please try again.',
+        e instanceof Error ? e.message : 'Please try again.',
       );
     } finally {
-      setBusyPosts(items =>
-        items.filter(id => id !== postId),
-      );
+      setBusyPosts(items => items.filter(id => id !== postId));
     }
   };
 
   // SAVE POST
   const handleSave = async (postId: string) => {
     if (!userId) {
-      Alert.alert(
-        'Sign in required',
-        'Please sign in to save posts.',
-      );
+      Alert.alert('Sign in required', 'Please sign in to save posts.');
       return;
     }
 
@@ -364,14 +323,10 @@ export default function HomeScreen() {
     } catch (e) {
       Alert.alert(
         'Save failed',
-        e instanceof Error
-          ? e.message
-          : 'Please try again.',
+        e instanceof Error ? e.message : 'Please try again.',
       );
     } finally {
-      setBusyPosts(items =>
-        items.filter(id => id !== postId),
-      );
+      setBusyPosts(items => items.filter(id => id !== postId));
     }
   };
 
@@ -388,10 +343,7 @@ export default function HomeScreen() {
           `${post.content ?? ''}\n${mediaLinks}`,
       });
     } catch {
-      Alert.alert(
-        'Sharing unavailable',
-        'Please try again.',
-      );
+      Alert.alert('Sharing unavailable', 'Please try again.');
     }
   };
 
@@ -412,9 +364,7 @@ export default function HomeScreen() {
     } catch (e) {
       Alert.alert(
         'Comments',
-        e instanceof Error
-          ? e.message
-          : 'Could not load comments.',
+        e instanceof Error ? e.message : 'Could not load comments.',
       );
     } finally {
       setCommentsLoading(false);
@@ -424,15 +374,11 @@ export default function HomeScreen() {
   // SEND COMMENT
   const submitComment = async () => {
     if (!activePostId || !userId) {
-      Alert.alert(
-        'Sign in required',
-        'Please sign in to comment.',
-      );
+      Alert.alert('Sign in required', 'Please sign in to comment.');
       return;
     }
 
     const content = commentText.trim();
-
     if (!content) return;
 
     setSendingComment(true);
@@ -451,14 +397,11 @@ export default function HomeScreen() {
       );
 
       setComments(result);
-
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
         'Comment failed',
-        e instanceof Error
-          ? e.message
-          : 'Please try again.',
+        e instanceof Error ? e.message : 'Please try again.',
       );
     } finally {
       setSendingComment(false);
@@ -468,14 +411,15 @@ export default function HomeScreen() {
   // HOME HEADER
   const Header = (
     <View>
-      {/* BRAND HEADER */}
       <View style={styles.topBar}>
         <Pressable
           style={styles.brandMark}
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandLetter}>B</Text>
-          <View style={styles.brandShine} />
+          <View style={styles.brandCrown}>
+            <Ionicons name="sparkles" size={11} color={GOLD} />
+          </View>
         </Pressable>
 
         <Pressable
@@ -483,9 +427,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>
-            Vortex of Possibilities
-          </Text>
+          <Text style={styles.tagline}>Vortex of Possibilities</Text>
           <Text style={styles.byline}>by brilliant mere</Text>
         </Pressable>
 
@@ -493,22 +435,14 @@ export default function HomeScreen() {
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons
-            name="add-circle"
-            size={27}
-            color={BLUE}
-          />
+          <Ionicons name="add-circle" size={27} color={GOLD} />
         </Pressable>
 
         <Pressable
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/discover')}
         >
-          <Ionicons
-            name="people-outline"
-            size={24}
-            color={theme.text}
-          />
+          <Ionicons name="people-outline" size={24} color={theme.text} />
         </Pressable>
 
         <Pressable
@@ -526,21 +460,13 @@ export default function HomeScreen() {
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/more')}
         >
-          <Ionicons
-            name="menu"
-            size={27}
-            color={theme.text}
-          />
+          <Ionicons name="menu" size={27} color={theme.text} />
         </Pressable>
       </View>
 
       {/* SEARCH */}
       <View style={styles.searchBox}>
-        <Ionicons
-          name="search-outline"
-          size={21}
-          color={theme.muted}
-        />
+        <Ionicons name="search-outline" size={21} color={theme.muted} />
 
         <TextInput
           value={search}
@@ -551,31 +477,24 @@ export default function HomeScreen() {
           returnKeyType="search"
         />
 
-        <Pressable
-          onPress={() => router.push('/(tabs)/discover')}
-        >
-          <Ionicons
-            name="options-outline"
-            size={22}
-            color={BLUE}
-          />
+        <Pressable onPress={() => router.push('/(tabs)/discover')}>
+          <Ionicons name="options-outline" size={22} color={GOLD} />
         </Pressable>
       </View>
 
       {/* STORIES */}
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Stories</Text>
+        <View style={styles.headingWithIcon}>
+          <Ionicons name="aperture-outline" size={21} color={GOLD} />
+          <Text style={styles.sectionTitle}>Stories</Text>
+        </View>
 
         <Pressable
           style={styles.seeAll}
           onPress={() => router.push('/stories')}
         >
           <Text style={styles.seeAllText}>See all</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={16}
-            color={BLUE}
-          />
+          <Ionicons name="chevron-forward" size={16} color={GOLD} />
         </Pressable>
       </View>
 
@@ -590,13 +509,8 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/create')}
         >
           <View style={styles.myStoryCircle}>
-            <Ionicons
-              name="add"
-              size={29}
-              color={BLUE}
-            />
+            <Ionicons name="add" size={29} color={WHITE} />
           </View>
-
           <Text style={styles.storyLabel}>Your Story</Text>
         </Pressable>
 
@@ -611,10 +525,7 @@ export default function HomeScreen() {
                 style={[
                   styles.storyCircle,
                   {
-                    borderColor:
-                      index % 2 === 0
-                        ? BLUE
-                        : YELLOW,
+                    borderColor: index % 2 === 0 ? BLUE : PURPLE,
                   },
                 ]}
               >
@@ -629,13 +540,11 @@ export default function HomeScreen() {
                           : 'compass'
                   }
                   size={23}
-                  color={BLUE}
+                  color={index % 2 === 0 ? BLUE : PURPLE}
                 />
               </View>
 
-              <Text style={styles.storyLabel}>
-                {label}
-              </Text>
+              <Text style={styles.storyLabel}>{label}</Text>
             </Pressable>
           ),
         )}
@@ -643,29 +552,24 @@ export default function HomeScreen() {
 
       {/* POSTS HEADING */}
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Posts</Text>
+        <View style={styles.headingWithIcon}>
+          <Ionicons name="grid-outline" size={21} color={GOLD} />
+          <Text style={styles.sectionTitle}>Posts</Text>
+        </View>
 
         <Pressable
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons
-            name="add-circle"
-            size={26}
-            color={BLUE}
-          />
+          <Ionicons name="add-circle" size={27} color={GOLD} />
         </Pressable>
       </View>
 
-      {/* ERROR AND RETRY */}
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
-
           <Pressable onPress={() => void loadPosts()}>
-            <Text style={styles.retryText}>
-              Try again
-            </Text>
+            <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
       ) : null}
@@ -675,7 +579,6 @@ export default function HomeScreen() {
   // RENDER INDIVIDUAL POST
   const renderPost = ({ item }: { item: FeedPost }) => {
     const interaction = interactions[item.id];
-
     const liked = interaction?.liked ?? false;
     const saved = interaction?.saved ?? false;
 
@@ -692,44 +595,30 @@ export default function HomeScreen() {
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
-            <Ionicons
-              name="person"
-              size={19}
-              color={BLUE}
-            />
+            <Ionicons name="person" size={19} color={BLUE} />
           </View>
 
           <View style={styles.postAuthor}>
-            <Text
-              style={styles.authorName}
-              numberOfLines={1}
-            >
+            <Text style={styles.authorName} numberOfLines={1}>
               {author}
             </Text>
-
             <Text style={styles.postDate}>
-              {new Date(
-                item.created_at,
-              ).toLocaleDateString()}
+              {new Date(item.created_at).toLocaleDateString()}
             </Text>
           </View>
 
           <Pressable
             onPress={() =>
-              Alert.alert(
-                'Post options',
-                'Choose an action.',
-                [
-                  {
-                    text: 'Share',
-                    onPress: () => void sharePost(item),
-                  },
-                  {
-                    text: 'Cancel',
-                    style: 'cancel',
-                  },
-                ],
-              )
+              Alert.alert('Post options', 'Choose an action.', [
+                {
+                  text: 'Share',
+                  onPress: () => void sharePost(item),
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ])
             }
           >
             <Ionicons
@@ -741,9 +630,7 @@ export default function HomeScreen() {
         </View>
 
         {item.content ? (
-          <Text style={styles.postContent}>
-            {item.content}
-          </Text>
+          <Text style={styles.postContent}>{item.content}</Text>
         ) : null}
 
         {images.length > 0 ? (
@@ -774,9 +661,8 @@ export default function HomeScreen() {
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
               size={21}
-              color={liked ? '#E84C75' : theme.muted}
+              color={liked ? '#FF5478' : theme.muted}
             />
-
             <Text style={styles.actionCount}>
               {interaction?.likesCount ?? 0}
             </Text>
@@ -791,7 +677,6 @@ export default function HomeScreen() {
               size={20}
               color={theme.muted}
             />
-
             <Text style={styles.actionCount}>
               {interaction?.commentsCount ?? 0}
             </Text>
@@ -816,7 +701,7 @@ export default function HomeScreen() {
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
               size={20}
-              color={saved ? BLUE : theme.muted}
+              color={saved ? GOLD : theme.muted}
             />
           </Pressable>
         </View>
@@ -834,29 +719,18 @@ export default function HomeScreen() {
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
           <Ionicons
-            name={
-              kind === 'reel'
-                ? 'play-circle'
-                : 'videocam'
-            }
+            name={kind === 'reel' ? 'play-circle' : 'videocam'}
             size={22}
-            color={BLUE}
+            color={kind === 'reel' ? PURPLE : BLUE}
           />
-
-          <Text style={styles.sectionTitle}>
-            {title}
-          </Text>
+          <Text style={styles.sectionTitle}>{title}</Text>
         </View>
 
         <Pressable
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons
-            name="add-circle"
-            size={26}
-            color={BLUE}
-          />
+          <Ionicons name="add-circle" size={27} color={GOLD} />
         </Pressable>
       </View>
 
@@ -869,7 +743,7 @@ export default function HomeScreen() {
                 : 'videocam-outline'
             }
             size={30}
-            color={BLUE}
+            color={kind === 'reel' ? PURPLE : BLUE}
           />
 
           <Text style={styles.emptyMediaTitle}>
@@ -881,9 +755,7 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : (
-        data.map(post => (
-          <VideoPost key={post.id} post={post} />
-        ))
+        data.map(post => <VideoPost key={post.id} post={post} />)
       )}
     </View>
   );
@@ -893,27 +765,14 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator
-            size="large"
-            color={BLUE}
-          />
-
-          <Text style={styles.loadingText}>
-            Loading BRITUME...
-          </Text>
+          <ActivityIndicator size="large" color={BLUE} />
+          <Text style={styles.loadingText}>Loading BRITUME...</Text>
 
           {error ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>
-                {error}
-              </Text>
-
-              <Pressable
-                onPress={() => void loadPosts()}
-              >
-                <Text style={styles.retryText}>
-                  Try again
-                </Text>
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable onPress={() => void loadPosts()}>
+                <Text style={styles.retryText}>Try again</Text>
               </Pressable>
             </View>
           ) : null}
@@ -929,17 +788,8 @@ export default function HomeScreen() {
           ListHeaderComponent={Header}
           ListFooterComponent={
             <View>
-              {renderVideoSection(
-                'Videos',
-                videoPosts,
-                'video',
-              )}
-
-              {renderVideoSection(
-                'Reels',
-                reelPosts,
-                'reel',
-              )}
+              {renderVideoSection('Videos', videoPosts, 'video')}
+              {renderVideoSection('Reels', reelPosts, 'reel')}
             </View>
           }
           keyboardShouldPersistTaps="handled"
@@ -953,16 +803,10 @@ export default function HomeScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Ionicons
-                name="images-outline"
-                size={40}
-                color={BLUE}
-              />
+              <Ionicons name="images-outline" size={40} color={BLUE} />
 
               <Text style={styles.emptyTitle}>
-                {search.trim()
-                  ? 'No matching posts'
-                  : 'Welcome to BRITUME'}
+                {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
               </Text>
 
               <Text style={styles.emptyText}>
@@ -974,19 +818,10 @@ export default function HomeScreen() {
               {!search.trim() ? (
                 <Pressable
                   style={styles.primaryButton}
-                  onPress={() =>
-                    router.push('/(tabs)/create')
-                  }
+                  onPress={() => router.push('/(tabs)/create')}
                 >
-                  <Ionicons
-                    name="add"
-                    size={22}
-                    color={WHITE}
-                  />
-
-                  <Text style={styles.primaryButtonText}>
-                    Create post
-                  </Text>
+                  <Ionicons name="add" size={22} color={WHITE} />
+                  <Text style={styles.primaryButtonText}>Create post</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -1004,21 +839,16 @@ export default function HomeScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalBackground}
-          behavior={
-            Platform.OS === 'ios'
-              ? 'padding'
-              : undefined
-          }
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.commentsPanel}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Comments
-              </Text>
+              <View style={styles.headingWithIcon}>
+                <Ionicons name="chatbubbles" size={22} color={GOLD} />
+                <Text style={styles.modalTitle}>Comments</Text>
+              </View>
 
-              <Pressable
-                onPress={() => setActivePostId(null)}
-              >
+              <Pressable onPress={() => setActivePostId(null)}>
                 <Ionicons
                   name="close-circle"
                   size={28}
@@ -1040,16 +870,9 @@ export default function HomeScreen() {
                   </Text>
                 ) : (
                   comments.map(comment => (
-                    <View
-                      key={comment.id}
-                      style={styles.commentCard}
-                    >
+                    <View key={comment.id} style={styles.commentCard}>
                       <View style={styles.avatar}>
-                        <Ionicons
-                          name="person"
-                          size={16}
-                          color={BLUE}
-                        />
+                        <Ionicons name="person" size={16} color={BLUE} />
                       </View>
 
                       <View style={{ flex: 1 }}>
@@ -1058,7 +881,6 @@ export default function HomeScreen() {
                             comment.author?.username ||
                             'BRITUME member'}
                         </Text>
-
                         <Text style={styles.commentContent}>
                           {comment.content}
                         </Text>
@@ -1081,24 +903,14 @@ export default function HomeScreen() {
               />
 
               <Pressable
-                style={[
-                  styles.sendButton,
-                  !commentText.trim() && styles.sendButtonDisabled,
-                ]}
+                style={styles.sendButton}
                 onPress={() => void submitComment()}
-                disabled={
-                  sendingComment ||
-                  !commentText.trim()
-                }
+                disabled={sendingComment || !commentText.trim()}
               >
                 {sendingComment ? (
                   <ActivityIndicator color={WHITE} />
                 ) : (
-                  <Ionicons
-                    name="send"
-                    size={19}
-                    color={WHITE}
-                  />
+                  <Ionicons name="send" size={19} color={WHITE} />
                 )}
               </Pressable>
             </View>
@@ -1110,50 +922,55 @@ export default function HomeScreen() {
 }
 
 // =========================================
-// BRITUME HOME SCREEN — LIQUID OIL STYLES
+// BRITUME — ELECTRIC AI GLASS STYLES
 // =========================================
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.bg,
+    backgroundColor: '#070B1B',
   },
 
   content: {
     paddingHorizontal: 10,
     paddingTop: 10,
-    paddingBottom: 25,
+    paddingBottom: 30,
   },
 
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.bg,
+    backgroundColor: '#070B1B',
     padding: 20,
   },
 
   loadingText: {
-    color: theme.muted,
+    color: '#A8B6D1',
     marginTop: 12,
+    fontWeight: '600',
   },
 
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 17,
   },
 
   brandMark: {
-    width: 43,
-    height: 43,
+    width: 45,
+    height: 45,
     borderRadius: 15,
-    backgroundColor: BLUE,
+    backgroundColor: '#102C53',
+    borderWidth: 1.5,
+    borderColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: YELLOW,
-    overflow: 'hidden',
+    shadowColor: BLUE,
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
 
   brandLetter: {
@@ -1162,58 +979,66 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  brandShine: {
+  brandCrown: {
     position: 'absolute',
-    top: 4,
-    left: 7,
-    width: 13,
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.65)',
-    transform: [{ rotate: '-35deg' }],
+    top: -6,
+    right: -5,
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: '#242345',
+    borderWidth: 1,
+    borderColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   brandText: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 9,
   },
 
   brandName: {
-    color: BLUE,
+    color: WHITE,
     fontSize: 17,
     fontWeight: '900',
     letterSpacing: 1,
   },
 
   tagline: {
-    color: theme.muted,
+    color: '#45B5FF',
     fontSize: 9,
+    fontWeight: '700',
   },
 
   byline: {
-    color: theme.muted,
+    color: '#A8B6D1',
     fontSize: 9,
   },
 
   topButton: {
-    padding: 4,
-    marginLeft: 3,
+    padding: 5,
+    marginLeft: 2,
   },
 
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.panel,
+    backgroundColor: 'rgba(24, 39, 71, 0.78)',
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: 'rgba(69, 181, 255, 0.35)',
     borderRadius: 18,
     paddingHorizontal: 12,
-    marginBottom: 20,
+    marginBottom: 22,
+    shadowColor: BLUE,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
   searchInput: {
     flex: 1,
-    color: theme.text,
+    color: WHITE,
     paddingHorizontal: 9,
     paddingVertical: 12,
     fontSize: 13,
@@ -1223,7 +1048,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 11,
+    marginBottom: 12,
   },
 
   headingWithIcon: {
@@ -1233,7 +1058,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: BLUE,
+    color: WHITE,
     fontSize: 19,
     fontWeight: '800',
   },
@@ -1244,7 +1069,7 @@ const styles = StyleSheet.create({
   },
 
   seeAllText: {
-    color: BLUE,
+    color: GOLD,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1254,7 +1079,7 @@ const styles = StyleSheet.create({
   },
 
   storiesScroll: {
-    marginBottom: 21,
+    marginBottom: 23,
   },
 
   storiesContent: {
@@ -1268,46 +1093,55 @@ const styles = StyleSheet.create({
   },
 
   myStoryCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: YELLOW,
+    width: 59,
+    height: 59,
+    borderRadius: 30,
+    backgroundColor: '#1256A0',
     borderWidth: 2,
-    borderColor: YELLOW,
+    borderColor: GOLD,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: BLUE,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 5,
   },
 
   storyCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 59,
+    height: 59,
+    borderRadius: 30,
     borderWidth: 2,
-    backgroundColor: theme.panel,
+    backgroundColor: '#111C38',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   storyLabel: {
-    color: theme.text,
+    color: '#DCE8F0',
     fontSize: 10,
-    marginTop: 5,
+    marginTop: 6,
   },
 
   postRow: {
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 9,
   },
 
   postCard: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: theme.panel,
+    backgroundColor: 'rgba(24, 39, 71, 0.82)',
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    padding: 9,
-    marginBottom: 10,
+    borderColor: 'rgba(69, 181, 255, 0.30)',
+    borderRadius: 19,
+    padding: 10,
+    marginBottom: 11,
+    shadowColor: BLUE,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
 
   postHeader: {
@@ -1317,51 +1151,51 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 29,
-    height: 29,
-    borderRadius: 15,
-    backgroundColor: theme.panel2,
+    width: 31,
+    height: 31,
+    borderRadius: 16,
+    backgroundColor: '#182D51',
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: 'rgba(69, 181, 255, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   postAuthor: {
     flex: 1,
-    marginLeft: 6,
+    marginLeft: 7,
   },
 
   authorName: {
-    color: theme.text,
+    color: WHITE,
     fontWeight: '800',
     fontSize: 10,
   },
 
   postDate: {
-    color: theme.muted,
+    color: '#A8B6D1',
     fontSize: 9,
     marginTop: 2,
   },
 
   postContent: {
-    color: theme.text,
+    color: '#F1F5FF',
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 8,
   },
 
   imageScroller: {
-    marginHorizontal: -9,
+    marginHorizontal: -10,
     marginBottom: 7,
   },
 
   postImage: {
     width: 155,
     height: 170,
-    borderRadius: 10,
+    borderRadius: 11,
     marginHorizontal: 3,
-    backgroundColor: theme.panel2,
+    backgroundColor: '#182747',
   },
 
   postActions: {
@@ -1369,7 +1203,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: theme.border,
+    borderTopColor: 'rgba(168, 182, 209, 0.18)',
     paddingTop: 10,
     marginTop: 7,
   },
@@ -1377,25 +1211,29 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
 
   actionCount: {
     fontSize: 9,
-    color: theme.muted,
+    color: '#A8B6D1',
   },
 
   mediaSection: {
-    marginTop: 20,
+    marginTop: 21,
   },
 
   videoPostCard: {
-    backgroundColor: theme.panel,
-    borderRadius: 17,
+    backgroundColor: 'rgba(24, 39, 71, 0.84)',
+    borderRadius: 19,
     borderWidth: 1,
-    borderColor: theme.border,
-    padding: 10,
-    marginBottom: 13,
+    borderColor: 'rgba(137, 92, 255, 0.38)',
+    padding: 11,
+    marginBottom: 14,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 5,
   },
 
   videoPostHeader: {
@@ -1405,69 +1243,62 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  oilDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: YELLOW,
-  },
-
   videoPlayer: {
     width: '100%',
     height: 230,
-    backgroundColor: '#101820',
-    borderRadius: 12,
+    backgroundColor: '#050916',
+    borderRadius: 13,
   },
 
   videoCaption: {
-    color: theme.text,
+    color: '#F1F5FF',
     fontSize: 14,
     lineHeight: 20,
     marginTop: 10,
   },
 
   emptyMedia: {
-    backgroundColor: theme.panel,
+    backgroundColor: 'rgba(24, 39, 71, 0.78)',
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    padding: 22,
+    borderColor: 'rgba(137, 92, 255, 0.32)',
+    borderRadius: 18,
+    padding: 23,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 11,
   },
 
   emptyMediaTitle: {
-    color: theme.text,
+    color: WHITE,
     fontWeight: '800',
     marginTop: 8,
   },
 
   emptyMediaText: {
-    color: theme.muted,
+    color: '#A8B6D1',
     fontSize: 12,
     marginTop: 5,
     textAlign: 'center',
   },
 
   emptyBox: {
-    backgroundColor: theme.panel,
+    backgroundColor: 'rgba(24, 39, 71, 0.82)',
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 17,
-    padding: 20,
+    borderColor: 'rgba(69, 181, 255, 0.30)',
+    borderRadius: 19,
+    padding: 22,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 13,
   },
 
   emptyTitle: {
-    color: theme.text,
+    color: WHITE,
     fontSize: 16,
     fontWeight: '800',
-    marginTop: 9,
+    marginTop: 10,
   },
 
   emptyText: {
-    color: theme.muted,
+    color: '#A8B6D1',
     textAlign: 'center',
     lineHeight: 19,
     marginTop: 6,
@@ -1475,15 +1306,19 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     backgroundColor: BLUE,
-    borderColor: YELLOW,
     borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    borderColor: '#65C3FF',
+    borderRadius: 23,
+    paddingHorizontal: 19,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 13,
+    gap: 7,
+    marginTop: 14,
+    shadowColor: BLUE,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 5,
   },
 
   primaryButtonText: {
@@ -1492,33 +1327,37 @@ const styles = StyleSheet.create({
   },
 
   errorBox: {
-    backgroundColor: '#FFF0F0',
+    backgroundColor: 'rgba(255, 91, 110, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 91, 110, 0.35)',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 13,
     marginBottom: 12,
   },
 
   errorText: {
-    color: theme.danger,
+    color: '#FF8795',
     marginBottom: 5,
   },
 
   retryText: {
-    color: BLUE,
+    color: GOLD,
     fontWeight: '800',
   },
 
   modalBackground: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
   },
 
   commentsPanel: {
     height: '70%',
-    backgroundColor: theme.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#0C142A',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    borderTopWidth: 1,
+    borderColor: 'rgba(69, 181, 255, 0.45)',
     padding: 16,
   },
 
@@ -1528,11 +1367,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: theme.border,
+    borderBottomColor: 'rgba(168, 182, 209, 0.20)',
   },
 
   modalTitle: {
-    color: BLUE,
+    color: WHITE,
     fontSize: 19,
     fontWeight: '900',
   },
@@ -1543,7 +1382,7 @@ const styles = StyleSheet.create({
   },
 
   noComments: {
-    color: theme.muted,
+    color: '#A8B6D1',
     textAlign: 'center',
     marginTop: 30,
   },
@@ -1552,20 +1391,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 9,
-    backgroundColor: theme.panel,
+    backgroundColor: 'rgba(24, 39, 71, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(69, 181, 255, 0.20)',
     padding: 11,
-    borderRadius: 13,
+    borderRadius: 14,
     marginBottom: 9,
   },
 
   commentAuthor: {
-    color: theme.text,
+    color: WHITE,
     fontSize: 11,
     fontWeight: '800',
   },
 
   commentContent: {
-    color: theme.text,
+    color: '#DCE8F0',
     fontSize: 13,
     marginTop: 4,
     lineHeight: 19,
@@ -1576,7 +1417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: theme.border,
+    borderTopColor: 'rgba(168, 182, 209, 0.20)',
     paddingTop: 12,
   },
 
@@ -1584,13 +1425,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 43,
     maxHeight: 90,
-    backgroundColor: theme.panel,
+    backgroundColor: '#182747',
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
+    borderColor: 'rgba(69, 181, 255, 0.35)',
+    borderRadius: 19,
     paddingHorizontal: 13,
     paddingVertical: 10,
-    color: theme.text,
+    color: WHITE,
   },
 
   sendButton: {
@@ -1599,12 +1440,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: BLUE,
     borderWidth: 1,
-    borderColor: YELLOW,
+    borderColor: '#65C3FF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  sendButtonDisabled: {
-    opacity: 0.55,
+    shadowColor: BLUE,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });
