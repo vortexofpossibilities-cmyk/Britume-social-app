@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,29 +19,63 @@ import {
   type ProfileRecord,
 } from '../../src/lib/profile';
 
+import {
+  fetchPostsForUser,
+  type FeedPost,
+} from '../../src/lib/posts';
+
 import { theme } from '../../src/lib/theme';
 
 export default function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
 
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [postsError, setPostsError] = useState('');
 
   const loadProfile = useCallback(async () => {
     if (!username || typeof username !== 'string') {
       setProfile(null);
+      setPosts([]);
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
+      setPostsError('');
 
       const result = await fetchPublicProfileByUsername(username);
-
       setProfile(result);
+
+      if (!result || result.is_public === false) {
+        setPosts([]);
+        return;
+      }
+
+      try {
+        setLoadingPosts(true);
+
+        const userPosts = await fetchPostsForUser(result.user_id, {
+          includePrivate: false,
+        });
+
+        setPosts(userPosts);
+      } catch (error) {
+        setPosts([]);
+        setPostsError(
+          error instanceof Error
+            ? error.message
+            : 'Could not load this user’s posts.'
+        );
+      } finally {
+        setLoadingPosts(false);
+      }
     } catch (error) {
       setProfile(null);
+      setPosts([]);
 
       Alert.alert(
         'Profile unavailable',
@@ -131,11 +166,7 @@ export default function PublicProfileScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons
-            name="arrow-back"
-            size={23}
-            color={theme.text}
-          />
+          <Ionicons name="arrow-back" size={23} color={theme.text} />
         </Pressable>
 
         <Text style={styles.topTitle}>Public profile</Text>
@@ -145,18 +176,12 @@ export default function PublicProfileScreen() {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
-          <Ionicons
-            name="person"
-            size={43}
-            color={theme.cyan}
-          />
+          <Ionicons name="person" size={43} color={theme.cyan} />
         </View>
 
         <Text style={styles.name}>{displayName}</Text>
 
-        <Text style={styles.username}>
-          @{profile.username}
-        </Text>
+        <Text style={styles.username}>@{profile.username}</Text>
 
         <Text style={styles.bio}>
           {profile.bio || 'Welcome to my BRITUME profile.'}
@@ -175,21 +200,122 @@ export default function PublicProfileScreen() {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Posts and activity</Text>
-
-      <View style={styles.emptyCard}>
-        <Ionicons
-          name="images-outline"
-          size={42}
-          color={theme.muted}
-        />
-
-        <Text style={styles.emptyTitle}>Nothing to display yet</Text>
-
-        <Text style={styles.mutedText}>
-          Posts and other public activity will appear here when connected.
-        </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Posts and activity</Text>
+        <Text style={styles.postCount}>{posts.length} posts</Text>
       </View>
+
+      {loadingPosts ? (
+        <View style={styles.emptyCard}>
+          <ActivityIndicator size="small" color={theme.cyan} />
+          <Text style={styles.mutedText}>Loading posts...</Text>
+        </View>
+      ) : postsError ? (
+        <View style={styles.emptyCard}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={38}
+            color={theme.muted}
+          />
+          <Text style={styles.emptyTitle}>Posts unavailable</Text>
+          <Text style={styles.mutedText}>{postsError}</Text>
+        </View>
+      ) : posts.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Ionicons
+            name="images-outline"
+            size={42}
+            color={theme.muted}
+          />
+
+          <Text style={styles.emptyTitle}>No public posts yet</Text>
+
+          <Text style={styles.mutedText}>
+            When this user shares public posts on BRITUME, they will appear here.
+          </Text>
+        </View>
+      ) : (
+        posts.map((post) => (
+          <View key={post.id} style={styles.postCard}>
+            <View style={styles.postHeader}>
+              <View style={styles.smallAvatar}>
+                <Ionicons
+                  name="person"
+                  size={19}
+                  color={theme.cyan}
+                />
+              </View>
+
+              <View style={styles.postAuthor}>
+                <Text style={styles.postAuthorName}>
+                  {displayName}
+                </Text>
+
+                <Text style={styles.postDate}>
+                  {new Date(post.created_at).toLocaleDateString()}
+                </Text>
+              </View>
+
+              <Ionicons
+                name="globe-outline"
+                size={18}
+                color={theme.muted}
+              />
+            </View>
+
+            {!!post.content && (
+              <Text style={styles.postContent}>{post.content}</Text>
+            )}
+
+            {!!post.media?.length && (
+              <View style={styles.mediaContainer}>
+                {post.media.map((media) => (
+                  <View key={media.id} style={styles.mediaItem}>
+                    {media.media_type === 'image' && media.url ? (
+                      <Image
+                        source={{ uri: media.url }}
+                        style={styles.postImage}
+                        resizeMode="cover"
+                      />
+                    ) : media.media_type === 'video' ? (
+                      <View style={styles.videoPreview}>
+                        <Ionicons
+                          name="play-circle"
+                          size={48}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.videoLabel}>
+                          Video post
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.mediaUnavailable}>
+                        <Ionicons
+                          name="image-outline"
+                          size={30}
+                          color={theme.muted}
+                        />
+                        <Text style={styles.mutedText}>
+                          Media unavailable
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.postFooter}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={17}
+                color={theme.success}
+              />
+              <Text style={styles.publicLabel}>Public post</Text>
+            </View>
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -278,12 +404,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 27,
+    marginBottom: 13,
+  },
   sectionTitle: {
     color: theme.text,
     fontSize: 19,
     fontWeight: '800',
-    marginTop: 27,
-    marginBottom: 13,
+  },
+  postCount: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '700',
   },
   emptyCard: {
     backgroundColor: theme.panel,
@@ -292,13 +428,100 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 25,
     alignItems: 'center',
+    gap: 9,
   },
   emptyTitle: {
     color: theme.text,
     fontSize: 16,
     fontWeight: '800',
+    marginTop: 5,
+    marginBottom: 3,
+  },
+  postCard: {
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 17,
+    padding: 14,
+    marginBottom: 15,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  smallAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: theme.panel2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postAuthor: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  postAuthorName: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  postDate: {
+    color: theme.muted,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  postContent: {
+    color: theme.text,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 12,
+  },
+  mediaContainer: {
+    gap: 9,
+  },
+  mediaItem: {
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: 13,
+    backgroundColor: theme.panel2,
+  },
+  postImage: {
+    width: '100%',
+    height: 230,
+  },
+  videoPreview: {
+    height: 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.blueDark,
+  },
+  videoLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 5,
+  },
+  mediaUnavailable: {
+    minHeight: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingTop: 11,
     marginTop: 12,
-    marginBottom: 7,
+    gap: 6,
+  },
+  publicLabel: {
+    color: theme.muted,
+    fontSize: 12,
+    fontWeight: '600',
   },
   title: {
     color: theme.text,
