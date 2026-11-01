@@ -42,11 +42,7 @@ export default function ProfileScreen() {
 
     try {
       setLoading(true);
-
-      const nextProfile = await fetchCurrentUserProfile(
-        session.user.id
-      );
-
+      const nextProfile = await fetchCurrentUserProfile(session.user.id);
       setProfile(nextProfile);
     } catch (error) {
       Alert.alert(
@@ -67,7 +63,7 @@ export default function ProfileScreen() {
   );
 
   const handleTogglePublic = async (value: boolean) => {
-    if (!session?.user?.id) {
+    if (!session?.user?.id || saving) {
       return;
     }
 
@@ -100,14 +96,20 @@ export default function ProfileScreen() {
   if (!session) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons
-          name="person-circle-outline"
-          size={48}
-          color={theme.cyan}
-        />
+        <View style={styles.emptyIcon}>
+          <Ionicons
+            name="person-circle-outline"
+            size={52}
+            color={theme.cyan}
+          />
+        </View>
 
         <Text style={styles.emptyTitle}>
           Sign in to view your profile
+        </Text>
+
+        <Text style={styles.emptyDescription}>
+          Your BRITUME profile, creations and personal library will be here.
         </Text>
 
         <Pressable
@@ -117,6 +119,7 @@ export default function ProfileScreen() {
           <Text style={styles.primaryActionText}>
             Go to sign in
           </Text>
+          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
         </Pressable>
       </View>
     );
@@ -129,11 +132,17 @@ export default function ProfileScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.topBar}>
-        <Text style={styles.pageTitle}>Profile</Text>
+        <View>
+          <Text style={styles.eyebrow}>BRITUME ACCOUNT</Text>
+          <Text style={styles.pageTitle}>My Profile</Text>
+        </View>
 
         <Pressable
           accessibilityLabel="Profile options"
-          style={styles.topButton}
+          style={({ pressed }) => [
+            styles.topButton,
+            pressed && styles.pressed,
+          ]}
           onPress={() => router.push('/settings')}
         >
           <Ionicons
@@ -146,27 +155,31 @@ export default function ProfileScreen() {
 
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator
-            size="small"
-            color={theme.cyan}
-          />
+          <ActivityIndicator size="large" color={theme.cyan} />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
         </View>
       ) : (
         <>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarWrap}>
+            <View style={styles.avatarOuter}>
               <View style={styles.avatar}>
                 <Ionicons
                   name="person"
-                  size={38}
+                  size={43}
                   color={theme.cyan}
+                />
+              </View>
+
+              <View style={styles.avatarBadge}>
+                <Ionicons
+                  name="sparkles"
+                  size={15}
+                  color="#FFFFFF"
                 />
               </View>
             </View>
 
-            <Text style={styles.profileName}>
-              {displayName}
-            </Text>
+            <Text style={styles.profileName}>{displayName}</Text>
 
             <Text style={styles.bioLine}>
               {profile?.username
@@ -176,8 +189,23 @@ export default function ProfileScreen() {
 
             <Text style={styles.bioText}>
               {profile?.bio ||
-                'Add a short personal bio for your public profile.'}
+                'Add a short personal bio and let the world know you.'}
             </Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.editButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => router.push('/profile-edit')}
+            >
+              <Ionicons
+                name="create-outline"
+                size={17}
+                color={theme.cyan}
+              />
+              <Text style={styles.editButtonText}>Edit profile</Text>
+            </Pressable>
           </View>
 
           <View style={styles.tabs}>
@@ -188,7 +216,10 @@ export default function ProfileScreen() {
                 <Pressable
                   key={tab}
                   onPress={() => setActiveTab(tab)}
-                  style={styles.tab}
+                  style={[
+                    styles.tab,
+                    selected && styles.activeTab,
+                  ]}
                   accessibilityRole="tab"
                   accessibilityState={{ selected }}
                 >
@@ -201,9 +232,7 @@ export default function ProfileScreen() {
                     {tab}
                   </Text>
 
-                  {selected && (
-                    <View style={styles.tabUnderline} />
-                  )}
+                  {selected && <View style={styles.tabUnderline} />}
                 </Pressable>
               );
             })}
@@ -211,34 +240,43 @@ export default function ProfileScreen() {
 
           <View style={styles.card}>
             <View style={styles.cardHeading}>
-              <Text style={styles.cardTitle}>
-                Personal details
-              </Text>
+              <View>
+                <Text style={styles.cardEyebrow}>YOUR INFORMATION</Text>
+                <Text style={styles.cardTitle}>Personal details</Text>
+              </View>
 
               <Pressable
                 accessibilityLabel="Edit personal details"
                 hitSlop={8}
+                style={styles.editIconButton}
                 onPress={() => router.push('/profile-edit')}
               >
                 <Ionicons
                   name="pencil-outline"
-                  size={20}
-                  color={theme.muted}
+                  size={19}
+                  color={theme.cyan}
                 />
               </Pressable>
             </View>
 
             <View style={styles.publicRow}>
               <View style={styles.publicInfo}>
-                <Ionicons
-                  name="globe-outline"
-                  size={20}
-                  color={theme.cyan}
-                />
+                <View style={styles.iconBubble}>
+                  <Ionicons
+                    name="globe-outline"
+                    size={20}
+                    color={theme.cyan}
+                  />
+                </View>
 
-                <Text style={styles.rowLabel}>
-                  Public
-                </Text>
+                <View>
+                  <Text style={styles.rowLabel}>Public profile</Text>
+                  <Text style={styles.rowDescription}>
+                    {profile?.is_public
+                      ? 'People can discover your profile'
+                      : 'Your profile is private'}
+                  </Text>
+                </View>
               </View>
 
               <Switch
@@ -253,17 +291,25 @@ export default function ProfileScreen() {
                 ios_backgroundColor={theme.border}
               />
             </View>
+
+            {saving && (
+              <View style={styles.savingRow}>
+                <ActivityIndicator size="small" color={theme.cyan} />
+                <Text style={styles.savingText}>Updating visibility...</Text>
+              </View>
+            )}
           </View>
 
           <Pressable
-            style={styles.card}
+            style={({ pressed }) => [
+              styles.card,
+              pressed && styles.pressedCard,
+            ]}
             onPress={() => {
               if (profile?.username) {
                 router.push({
                   pathname: '/profile/[username]',
-                  params: {
-                    username: profile.username,
-                  },
+                  params: { username: profile.username },
                 });
               } else {
                 router.push('/profile-edit');
@@ -279,11 +325,16 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              <Text style={styles.cardTitle}>
-                {profile?.username
-                  ? 'Public profile'
-                  : 'Create profile link'}
-              </Text>
+              <View>
+                <Text style={styles.cardTitle}>
+                  {profile?.username
+                    ? 'Public profile'
+                    : 'Create profile link'}
+                </Text>
+                <Text style={styles.rowDescription}>
+                  View how others see your profile
+                </Text>
+              </View>
 
               <View style={styles.flexSpace} />
 
@@ -296,26 +347,32 @@ export default function ProfileScreen() {
           </Pressable>
 
           <Pressable
-            style={styles.card}
+            style={({ pressed }) => [
+              styles.card,
+              pressed && styles.pressedCard,
+            ]}
             onPress={() =>
               Alert.alert(
                 'Subscribers',
-                'Your subscriber list will appear here when profile data is connected.'
+                'Your subscriber list will appear here when subscriber data is connected.'
               )
             }
           >
             <View style={styles.singleCardRow}>
-              <View style={styles.iconBubble}>
+              <View style={styles.iconBubblePurple}>
                 <Ionicons
                   name="people-outline"
                   size={21}
-                  color={theme.cyan}
+                  color={theme.purple}
                 />
               </View>
 
-              <Text style={styles.cardTitle}>
-                Subscribers
-              </Text>
+              <View>
+                <Text style={styles.cardTitle}>Subscribers</Text>
+                <Text style={styles.rowDescription}>
+                  People following your updates
+                </Text>
+              </View>
 
               <View style={styles.flexSpace} />
 
@@ -328,7 +385,10 @@ export default function ProfileScreen() {
           </Pressable>
 
           <Pressable
-            style={styles.card}
+            style={({ pressed }) => [
+              styles.card,
+              pressed && styles.pressedCard,
+            ]}
             onPress={() =>
               Alert.alert(
                 'Friends',
@@ -337,23 +397,24 @@ export default function ProfileScreen() {
             }
           >
             <View style={styles.singleCardRow}>
-              <View style={styles.iconBubble}>
+              <View style={styles.iconBubbleGold}>
                 <Ionicons
                   name="people-circle-outline"
                   size={22}
-                  color={theme.cyan}
+                  color="#B58A16"
                 />
               </View>
 
-              <Text style={styles.cardTitle}>
-                Friends
-              </Text>
+              <View>
+                <Text style={styles.cardTitle}>Friends</Text>
+                <Text style={styles.rowDescription}>
+                  Your BRITUME connections
+                </Text>
+              </View>
 
               <View style={styles.flexSpace} />
 
-              <Text style={styles.seeAll}>
-                See all
-              </Text>
+              <Text style={styles.seeAll}>See all</Text>
 
               <Ionicons
                 name="chevron-forward"
@@ -363,16 +424,25 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
 
-          <Text style={styles.libraryTitle}>
-            My library
-          </Text>
+          <View style={styles.libraryHeading}>
+            <View>
+              <Text style={styles.cardEyebrow}>YOUR COLLECTION</Text>
+              <Text style={styles.libraryTitle}>My library</Text>
+            </View>
+
+            <View style={styles.libraryBadge}>
+              <Ionicons name="folder-open" size={16} color={theme.cyan} />
+            </View>
+          </View>
 
           <View style={styles.libraryRow}>
             <Pressable
-              style={styles.libraryCard}
+              style={({ pressed }) => [
+                styles.libraryCard,
+                pressed && styles.pressedCard,
+              ]}
               onPress={() => {
                 setActiveTab('Photos');
-
                 Alert.alert(
                   'Photos',
                   'Your photo library will appear here when media storage is connected.'
@@ -380,10 +450,7 @@ export default function ProfileScreen() {
               }}
             >
               <View style={styles.libraryCardHeading}>
-                <Text style={styles.libraryCardTitle}>
-                  Photos
-                </Text>
-
+                <Text style={styles.libraryCardTitle}>Photos</Text>
                 <Ionicons
                   name="arrow-forward"
                   size={15}
@@ -393,33 +460,28 @@ export default function ProfileScreen() {
 
               <View style={styles.photoGrid}>
                 {Array.from({ length: 6 }, (_, index) => (
-                  <View
-                    key={index}
-                    style={styles.photoBox}
-                  >
+                  <View key={index} style={styles.photoBox}>
                     <Ionicons
                       name="image-outline"
-                      size={13}
+                      size={14}
                       color={theme.muted}
                     />
                   </View>
                 ))}
               </View>
 
-              <Text style={styles.enterText}>
-                Enter
-              </Text>
+              <Text style={styles.enterText}>Enter</Text>
             </Pressable>
 
             <Pressable
-              style={styles.libraryCard}
+              style={({ pressed }) => [
+                styles.libraryCard,
+                pressed && styles.pressedCard,
+              ]}
               onPress={() => router.push('/dashboard')}
             >
               <View style={styles.libraryCardHeading}>
-                <Text style={styles.libraryCardTitle}>
-                  Dashboard
-                </Text>
-
+                <Text style={styles.libraryCardTitle}>Dashboard</Text>
                 <Ionicons
                   name="arrow-forward"
                   size={15}
@@ -435,16 +497,16 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              <Text style={styles.enterText}>
-                Enter
-              </Text>
+              <Text style={styles.enterText}>Enter</Text>
             </Pressable>
 
             <Pressable
-              style={styles.libraryCard}
+              style={({ pressed }) => [
+                styles.libraryCard,
+                pressed && styles.pressedCard,
+              ]}
               onPress={() => {
                 setActiveTab('Create');
-
                 Alert.alert(
                   'Videos',
                   'Your video library will appear here when media storage is connected.'
@@ -452,10 +514,7 @@ export default function ProfileScreen() {
               }}
             >
               <View style={styles.libraryCardHeading}>
-                <Text style={styles.libraryCardTitle}>
-                  Videos
-                </Text>
-
+                <Text style={styles.libraryCardTitle}>Videos</Text>
                 <Ionicons
                   name="arrow-forward"
                   size={15}
@@ -465,31 +524,37 @@ export default function ProfileScreen() {
 
               <View style={styles.videoStack}>
                 {[0, 1, 2].map((item) => (
-                  <View
-                    key={item}
-                    style={styles.videoItem}
-                  >
+                  <View key={item} style={styles.videoItem}>
                     <Ionicons
                       name="play-circle-outline"
                       size={17}
                       color={theme.cyan}
                     />
-
                     <View style={styles.videoLine} />
                   </View>
                 ))}
               </View>
 
-              <Text style={styles.enterText}>
-                Enter
-              </Text>
+              <Text style={styles.enterText}>Enter</Text>
             </Pressable>
           </View>
 
           <View style={styles.tabContent}>
-            <Text style={styles.tabContentTitle}>
-              {activeTab}
-            </Text>
+            <View style={styles.tabContentIcon}>
+              <Ionicons
+                name={
+                  activeTab === 'Photos'
+                    ? 'images-outline'
+                    : activeTab === 'Create'
+                      ? 'color-wand-outline'
+                      : 'people-outline'
+                }
+                size={25}
+                color={theme.cyan}
+              />
+            </View>
+
+            <Text style={styles.tabContentTitle}>{activeTab}</Text>
 
             <Text style={styles.tabContentDescription}>
               {activeTab === 'Photos'
@@ -511,74 +576,152 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    paddingHorizontal: 15,
-    paddingTop: 12,
-    paddingBottom: 30,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 38,
   },
   topBar: {
-    minHeight: 43,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  eyebrow: {
+    color: theme.cyan,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   pageTitle: {
     color: theme.text,
-    fontSize: 23,
-    fontWeight: '800',
+    fontSize: 25,
+    fontWeight: '900',
+    marginTop: 2,
   },
   topButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
+    borderRadius: 16,
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.17,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  pressed: {
+    transform: [{ scale: 0.95 }],
+    opacity: 0.85,
+  },
+  pressedCard: {
+    transform: [{ scale: 0.985 }],
   },
   profileHeader: {
     alignItems: 'center',
-    paddingTop: 7,
-    paddingBottom: 17,
+    paddingTop: 15,
+    paddingBottom: 21,
+    paddingHorizontal: 16,
+    marginBottom: 17,
+    backgroundColor: theme.panel,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 5, height: 7 },
+    shadowOpacity: 0.17,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  avatarWrap: {
-    width: 100,
-    height: 100,
-    marginBottom: 8,
+  avatarOuter: {
+    width: 108,
+    height: 108,
+    marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: theme.border,
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    backgroundColor: theme.panel2,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#168BFF',
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.cyan,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileName: {
     color: theme.text,
-    fontSize: 21,
-    fontWeight: '800',
-    marginTop: 1,
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 2,
   },
   bioLine: {
     color: theme.cyan,
     fontSize: 13,
     marginTop: 6,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   bioText: {
     color: theme.muted,
-    fontSize: 14,
-    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 8,
     textAlign: 'center',
+  },
+  editButton: {
+    minHeight: 39,
+    paddingHorizontal: 17,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginTop: 15,
+    backgroundColor: theme.panel2,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 13,
+  },
+  editButtonText: {
+    color: theme.cyan,
+    fontSize: 13,
+    fontWeight: '800',
   },
   tabs: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    marginBottom: 15,
+    backgroundColor: theme.panel,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 4,
+    marginBottom: 16,
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 3,
   },
   tab: {
     flex: 1,
@@ -586,21 +729,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    borderRadius: 12,
+  },
+  activeTab: {
+    backgroundColor: theme.panel2,
   },
   tabText: {
     color: theme.muted,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   activeTabText: {
     color: theme.cyan,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   tabUnderline: {
     position: 'absolute',
-    bottom: -1,
+    bottom: 2,
     height: 3,
-    width: '58%',
+    width: '35%',
     backgroundColor: theme.cyan,
     borderRadius: 3,
   },
@@ -608,24 +755,44 @@ const styles = StyleSheet.create({
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 17,
+    borderRadius: 19,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 14,
     marginBottom: 11,
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.13,
+    shadowRadius: 7,
+    elevation: 4,
   },
   cardHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 13,
+  },
+  cardEyebrow: {
+    color: theme.cyan,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    marginBottom: 4,
   },
   cardTitle: {
     color: theme.text,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
+  },
+  editIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: theme.panel2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   publicRow: {
-    minHeight: 35,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -633,41 +800,92 @@ const styles = StyleSheet.create({
   publicInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 11,
+  },
+  iconBubble: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: theme.panel2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBubblePurple: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: '#EFEDFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBubbleGold: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: '#FFF6D9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowLabel: {
     color: theme.text,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
   },
-  singleCardRow: {
-    minHeight: 33,
+  rowDescription: {
+    color: theme.muted,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  savingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginTop: 10,
   },
-  iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: theme.panel2,
+  savingText: {
+    color: theme.muted,
+    fontSize: 11,
+  },
+  singleCardRow: {
+    minHeight: 43,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 11,
   },
   flexSpace: {
     flex: 1,
   },
   seeAll: {
     color: theme.cyan,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  libraryHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 13,
+    marginBottom: 12,
   },
   libraryTitle: {
     color: theme.text,
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 9,
-    marginBottom: 11,
+    fontSize: 21,
+    fontWeight: '900',
+  },
+  libraryBadge: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.13,
+    shadowRadius: 5,
+    elevation: 3,
   },
   libraryRow: {
     flexDirection: 'row',
@@ -680,9 +898,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 8,
-    minHeight: 145,
+    minHeight: 150,
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+    elevation: 4,
   },
   libraryCardHeading: {
     flexDirection: 'row',
@@ -695,7 +918,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: theme.text,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   photoGrid: {
     flexDirection: 'row',
@@ -706,14 +929,14 @@ const styles = StyleSheet.create({
     width: '47%',
     aspectRatio: 1,
     backgroundColor: theme.panel2,
-    borderRadius: 5,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dashboardGraphic: {
-    height: 69,
+    height: 72,
     backgroundColor: theme.panel2,
-    borderRadius: 9,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -722,13 +945,13 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   videoItem: {
-    height: 18,
+    height: 19,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 4,
     backgroundColor: theme.panel2,
-    borderRadius: 5,
+    borderRadius: 6,
   },
   videoLine: {
     flex: 1,
@@ -739,54 +962,110 @@ const styles = StyleSheet.create({
   enterText: {
     color: theme.cyan,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '900',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 9,
   },
   tabContent: {
     marginTop: 17,
-    padding: 14,
-    borderRadius: 15,
+    padding: 17,
+    borderRadius: 18,
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
+    alignItems: 'center',
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    elevation: 3,
+  },
+  tabContentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: theme.panel2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 9,
   },
   tabContentTitle: {
     color: theme.text,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
   },
   tabContentDescription: {
     color: theme.muted,
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 5,
+    textAlign: 'center',
   },
   loadingBox: {
-    paddingVertical: 30,
+    paddingVertical: 45,
     alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 25,
     backgroundColor: theme.bg,
+  },
+  emptyIcon: {
+    width: 90,
+    height: 90,
+    borderRadius: 28,
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 4, height: 5 },
+    shadowOpacity: 0.17,
+    shadowRadius: 9,
+    elevation: 5,
   },
   emptyTitle: {
     color: theme.text,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 12,
-    marginBottom: 16,
+    fontSize: 19,
+    fontWeight: '900',
+    marginTop: 18,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 18,
+    textAlign: 'center',
   },
   primaryAction: {
+    minHeight: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
     backgroundColor: theme.cyan,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 15,
+    shadowColor: '#168BFF',
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 7,
+    elevation: 5,
   },
   primaryActionText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '900',
+    fontSize: 14,
   },
 });
