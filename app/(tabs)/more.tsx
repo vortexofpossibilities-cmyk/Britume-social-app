@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Alert,
@@ -71,6 +72,7 @@ export default function MoreScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
         <View style={styles.brandMark}>
@@ -83,10 +85,12 @@ export default function MoreScreen() {
           <Text style={styles.byline}>by brilliant mere</Text>
         </View>
 
-        <Text style={styles.pageTitle}>More</Text>
+        <View style={styles.pageBadge}>
+          <Text style={styles.pageTitle}>More</Text>
+        </View>
       </View>
 
-      {sections.map((section) => (
+      {sections.map((section, sectionIndex) => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
 
@@ -95,17 +99,24 @@ export default function MoreScreen() {
               <Pressable
                 key={row.label}
                 onPress={() => openRow(row.label)}
-                style={[
+                style={({ pressed }) => [
                   styles.row,
                   index < section.rows.length - 1 && styles.rowDivider,
+                  pressed && styles.rowPressed,
                 ]}
               >
-                <Ionicons
-                  name={row.icon}
-                  size={22}
-                  color={theme.cyan}
-                  style={styles.rowIcon}
-                />
+                <View
+                  style={[
+                    styles.iconTile,
+                    sectionIndex % 2 === 1 && styles.purpleTile,
+                  ]}
+                >
+                  <Ionicons
+                    name={row.icon}
+                    size={20}
+                    color={sectionIndex % 2 === 1 ? theme.purple : theme.cyan}
+                  />
+                </View>
 
                 <Text style={styles.rowText}>{row.label}</Text>
 
@@ -113,7 +124,7 @@ export default function MoreScreen() {
                   <Ionicons
                     name="checkmark-circle"
                     size={20}
-                    color={theme.cyan}
+                    color={theme.success}
                     style={styles.checkIcon}
                   />
                 )}
@@ -131,200 +142,318 @@ export default function MoreScreen() {
 
       <View style={styles.card}>
         <Pressable
-          style={styles.row}
+          style={({ pressed }) => [
+            styles.row,
+            styles.rowDivider,
+            pressed && styles.rowPressed,
+          ]}
           onPress={() => openRow('Delete account')}
         >
-          <Ionicons
-            name="trash-outline"
-            size={22}
-            color={theme.danger}
-            style={styles.rowIcon}
-          />
+          <View style={styles.dangerTile}>
+            <Ionicons name="trash-outline" size={20} color={theme.danger} />
+          </View>
           <Text style={[styles.rowText, styles.dangerText]}>
             Delete account
           </Text>
-          <Ionicons
-            name="chevron-forward"
-            size={19}
-            color={theme.muted}
-          />
+          <Ionicons name="chevron-forward" size={19} color={theme.muted} />
         </Pressable>
 
         <Pressable
-          style={[styles.row, styles.rowDivider]}
+          style={({ pressed }) => [
+            styles.row,
+            styles.rowDivider,
+            pressed && styles.rowPressed,
+          ]}
           onPress={() => openRow('Deactivate')}
         >
-          <Ionicons
-            name="pause-outline"
-            size={22}
-            color={theme.cyan}
-            style={styles.rowIcon}
-          />
+          <View style={styles.iconTile}>
+            <Ionicons name="pause-outline" size={20} color={theme.cyan} />
+          </View>
           <Text style={styles.rowText}>Deactivate</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={19}
-            color={theme.muted}
-          />
+          <Ionicons name="chevron-forward" size={19} color={theme.muted} />
         </Pressable>
 
         <Pressable
-          style={styles.row}
+          style={({ pressed }) => [
+            styles.row,
+            pressed && styles.rowPressed,
+          ]}
           onPress={() => openRow('Clear my account')}
         >
-          <Ionicons
-            name="trash-outline"
-            size={22}
-            color={theme.danger}
-            style={styles.rowIcon}
-          />
+          <View style={styles.dangerTile}>
+            <Ionicons name="trash-outline" size={20} color={theme.danger} />
+          </View>
           <Text style={[styles.rowText, styles.dangerText]}>
             Clear my account
           </Text>
-          <Ionicons
-            name="chevron-forward"
-            size={19}
-            color={theme.muted}
-          />
+          <Ionicons name="chevron-forward" size={19} color={theme.muted} />
         </Pressable>
       </View>
 
       <Pressable
-        style={styles.helpBar}
+        style={({ pressed }) => [
+          styles.helpBar,
+          pressed && styles.rowPressed,
+        ]}
         onPress={() => openRow('Help')}
       >
-        <Ionicons
-          name="search-outline"
-          size={22}
-          color={theme.cyan}
-        />
-        <Text style={styles.helpText}>HELP</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={19}
-          color={theme.muted}
-        />
+        <View style={styles.helpIcon}>
+          <Ionicons name="search-outline" size={22} color={theme.cyan} />
+        </View>
+        <Text style={styles.helpText}>HELP & SUPPORT</Text>
+        <Ionicons name="chevron-forward" size={19} color={theme.muted} />
       </Pressable>
 
       <Pressable
-        style={styles.settingsLink}
+        style={({ pressed }) => [
+          styles.settingsLink,
+          pressed && styles.rowPressed,
+        ]}
         onPress={() => router.push('/settings')}
       >
-        <Ionicons
-          name="settings-outline"
-          size={19}
-          color={theme.cyan}
-        />
+        <Ionicons name="settings-outline" size={20} color={theme.cyan} />
         <Text style={styles.settingsLinkText}>Open Settings</Text>
+        <Ionicons name="arrow-forward" size={17} color={theme.cyan} />
       </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.bg },
-  content: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 24,
+  screen: {
+    flex: 1,
+    backgroundColor: theme.bg,
   },
+
+  content: {
+    paddingHorizontal: 13,
+    paddingTop: 13,
+    paddingBottom: 35,
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 19,
+    marginBottom: 23,
+    paddingHorizontal: 2,
   },
+
   brandMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 49,
+    height: 49,
+    borderRadius: 17,
     backgroundColor: theme.cyan,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: theme.panel,
+
+    shadowColor: theme.blueDark,
+    shadowOffset: { width: 3, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 7,
+    elevation: 7,
   },
+
   brandLetter: {
     color: '#FFFFFF',
-    fontSize: 25,
+    fontSize: 27,
     fontWeight: '900',
   },
-  brandText: { flex: 1, marginLeft: 9 },
+
+  brandText: {
+    flex: 1,
+    marginLeft: 11,
+  },
+
   brandName: {
     color: theme.text,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  tagline: { color: theme.muted, fontSize: 10 },
-  byline: { color: theme.muted, fontSize: 10 },
-  pageTitle: {
-    color: theme.text,
-    fontSize: 17,
-    fontWeight: '800',
-    marginLeft: 8,
-  },
-  section: { marginBottom: 18 },
-  sectionTitle: {
-    color: theme.text,
     fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 9,
-    marginLeft: 2,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
-  card: {
+
+  tagline: {
+    color: theme.muted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  byline: {
+    color: theme.muted,
+    fontSize: 10,
+  },
+
+  pageBadge: {
     backgroundColor: theme.panel,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 5,
+    elevation: 3,
   },
+
+  pageTitle: {
+    color: theme.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  section: {
+    marginBottom: 19,
+  },
+
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+
+  card: {
+    backgroundColor: theme.clay,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 21,
+    overflow: 'hidden',
+    marginBottom: 13,
+
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 5, height: 7 },
+    shadowOpacity: 0.19,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
   row: {
-    minHeight: 49,
+    minHeight: 59,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 13,
-    paddingVertical: 10,
+    paddingVertical: 9,
   },
+
+  rowPressed: {
+    backgroundColor: theme.panel2,
+    transform: [{ scale: 0.99 }],
+  },
+
   rowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
-  rowIcon: { width: 29, marginRight: 8 },
+
+  iconTile: {
+    width: 37,
+    height: 37,
+    borderRadius: 13,
+    backgroundColor: theme.clayBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.13,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  purpleTile: {
+    backgroundColor: theme.clayPurple,
+  },
+
+  dangerTile: {
+    width: 37,
+    height: 37,
+    borderRadius: 13,
+    backgroundColor: '#FFF0F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
   rowText: {
     flex: 1,
     color: theme.text,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  checkIcon: { marginRight: 7 },
-  dangerText: { color: theme.danger },
+
+  checkIcon: {
+    marginRight: 8,
+  },
+
+  dangerText: {
+    color: theme.danger,
+  },
+
   helpBar: {
-    minHeight: 51,
+    minHeight: 61,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 18,
-    marginTop: 1,
+    borderRadius: 20,
+    marginTop: 2,
+
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 4, height: 6 },
+    shadowOpacity: 0.17,
+    shadowRadius: 8,
+    elevation: 5,
   },
+
+  helpIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: theme.clayBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   helpText: {
     flex: 1,
     color: theme.text,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
     letterSpacing: 1,
   },
+
   settingsLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 15,
+    gap: 9,
+    alignSelf: 'center',
+    marginTop: 15,
+    paddingHorizontal: 19,
+    paddingVertical: 13,
+    borderRadius: 17,
+    backgroundColor: theme.panel,
+    borderWidth: 1,
+    borderColor: theme.border,
+
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
+
   settingsLinkText: {
     color: theme.cyan,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
