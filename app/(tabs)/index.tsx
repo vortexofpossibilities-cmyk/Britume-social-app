@@ -36,10 +36,6 @@ import {
 import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
 
-// ========================================
-// BRITUME BRAND COLORS
-// ========================================
-
 const BLUE = '#168BFF';
 const DARK_BLUE = '#0756B5';
 const GOLD = '#FFD447';
@@ -49,17 +45,10 @@ const WHITE = '#FFFFFF';
 const C = {
   bg: '#F2F8FF',
   panel: '#E4F1FF',
-  panelWhite: '#FFFFFF',
   text: '#19334D',
   muted: '#66829B',
   border: '#D3E6F8',
-  blue: BLUE,
-  purple: PURPLE,
 };
-
-// ========================================
-// TYPES
-// ========================================
 
 type Interaction = {
   liked: boolean;
@@ -67,10 +56,6 @@ type Interaction = {
   likesCount: number;
   commentsCount: number;
 };
-
-// ========================================
-// REQUEST TIMEOUT
-// ========================================
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -93,10 +78,6 @@ function withTimeout<T>(
   });
 }
 
-// ========================================
-// VIDEO PLAYER
-// ========================================
-
 function MediaVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
@@ -113,10 +94,6 @@ function MediaVideo({ uri }: { uri: string }) {
     />
   );
 }
-
-// ========================================
-// VIDEO POST
-// ========================================
 
 function VideoPost({ post }: { post: FeedPost }) {
   const video = post.media?.find(
@@ -156,9 +133,36 @@ function VideoPost({ post }: { post: FeedPost }) {
   );
 }
 
-// ========================================
-// MAIN HOME SCREEN
-// ========================================
+const storyCards = [
+  {
+    label: 'Friends',
+    subtitle: 'Your people',
+    icon: 'people-outline' as const,
+    backgroundColor: '#DCEEFF',
+    iconColor: BLUE,
+  },
+  {
+    label: 'Creators',
+    subtitle: 'Creative moments',
+    icon: 'star-outline' as const,
+    backgroundColor: '#EAE5FF',
+    iconColor: PURPLE,
+  },
+  {
+    label: 'Community',
+    subtitle: 'Together',
+    icon: 'globe-outline' as const,
+    backgroundColor: '#DDF7F0',
+    iconColor: '#229B83',
+  },
+  {
+    label: 'Explore',
+    subtitle: 'Discover more',
+    icon: 'compass-outline' as const,
+    backgroundColor: '#FFF0D9',
+    iconColor: '#D58B20',
+  },
+];
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -177,15 +181,12 @@ export default function HomeScreen() {
   const [busyPosts, setBusyPosts] = useState<string[]>([]);
 
   const [activePostId, setActivePostId] = useState<string | null>(null);
-
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
 
-  // ======================================
   // LOAD POSTS
-  // ======================================
 
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -215,9 +216,7 @@ export default function HomeScreen() {
       setUserId(currentUserId);
 
       const freshPosts = await withTimeout(fetchPublicPosts());
-
       setPosts(freshPosts);
-
       setLoading(false);
 
       try {
@@ -253,9 +252,7 @@ export default function HomeScreen() {
     }, [loadPosts]),
   );
 
-  // ======================================
   // SEARCH
-  // ======================================
 
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -275,9 +272,7 @@ export default function HomeScreen() {
     });
   }, [posts, search]);
 
-  // ======================================
   // SEPARATE POST TYPES
-  // ======================================
 
   const photoPosts = useMemo(
     () =>
@@ -299,9 +294,7 @@ export default function HomeScreen() {
     [filteredPosts],
   );
 
-  // ======================================
   // REFRESH INTERACTIONS
-  // ======================================
 
   const refreshInteractions = async () => {
     if (!posts.length) return;
@@ -316,9 +309,7 @@ export default function HomeScreen() {
     setInteractions(result);
   };
 
-  // ======================================
   // LIKE
-  // ======================================
 
   const handleLike = async (postId: string) => {
     if (!userId) {
@@ -351,9 +342,7 @@ export default function HomeScreen() {
     }
   };
 
-  // ======================================
   // SAVE
-  // ======================================
 
   const handleSave = async (postId: string) => {
     if (!userId) {
@@ -386,9 +375,7 @@ export default function HomeScreen() {
     }
   };
 
-  // ======================================
   // SHARE
-  // ======================================
 
   const sharePost = async (post: FeedPost) => {
     const mediaLinks = (post.media ?? [])
@@ -406,9 +393,7 @@ export default function HomeScreen() {
     }
   };
 
-  // ======================================
   // COMMENTS
-  // ======================================
 
   const openComments = async (postId: string) => {
     setActivePostId(postId);
@@ -459,7 +444,6 @@ export default function HomeScreen() {
       );
 
       setComments(result);
-
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
@@ -471,20 +455,16 @@ export default function HomeScreen() {
     }
   };
 
-  // ======================================
-  // HEADER
-  // ======================================
+  // HOME HEADER
 
   const Header = (
     <View>
-      {/* BRAND HEADER */}
-
       <View style={styles.topBar}>
         <Pressable
           onPress={() => router.push('/(tabs)/profile')}
           style={styles.logoHolder}
         >
-          <ClayLogo size={54} />
+          <ClayLogo size={52} />
         </Pressable>
 
         <Pressable
@@ -492,37 +472,36 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>
-            Vortex of Possibilities
-          </Text>
-          <Text style={styles.byline}>
-            by brilliant mere
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.topButton}
-          onPress={() => router.push('/(tabs)/create')}
-        >
-          <Ionicons name="add" size={27} color={WHITE} />
+          <Text style={styles.tagline}>Vortex of Possibilities</Text>
+          <Text style={styles.byline}>by brilliant mere</Text>
         </Pressable>
 
         <Pressable
           style={styles.topButtonLight}
           onPress={() => router.push('/(tabs)/discover')}
+          accessibilityLabel="Discover people"
         >
-          <Ionicons name="search" size={23} color={BLUE} />
+          <Ionicons name="search" size={22} color={BLUE} />
         </Pressable>
 
         <Pressable
           style={styles.topButtonLight}
           onPress={() => router.push('/notifications')}
+          accessibilityLabel="Notifications"
         >
           <Ionicons
             name="notifications-outline"
             size={22}
             color={BLUE}
           />
+        </Pressable>
+
+        <Pressable
+          style={styles.topButtonLight}
+          onPress={() => router.push('/(tabs)/more')}
+          accessibilityLabel="More menu"
+        >
+          <Ionicons name="menu" size={25} color={BLUE} />
         </Pressable>
       </View>
 
@@ -542,12 +521,13 @@ export default function HomeScreen() {
 
         <Pressable
           onPress={() => router.push('/(tabs)/discover')}
+          accessibilityLabel="Search filters"
         >
           <Ionicons name="options-outline" size={22} color={PURPLE} />
         </Pressable>
       </View>
 
-      {/* STORIES */}
+      {/* LARGE STORY CARDS */}
 
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
@@ -571,42 +551,58 @@ export default function HomeScreen() {
         contentContainerStyle={styles.storiesContent}
       >
         <Pressable
-          style={styles.storyItem}
+          style={[styles.storyCard, styles.yourStoryCard]}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <View style={styles.myStoryCircle}>
-            <Ionicons name="add" size={30} color={WHITE} />
+          <View style={styles.storyCardTop}>
+            <View style={styles.storyAvatar}>
+              <Ionicons name="person" size={25} color={BLUE} />
+            </View>
+            <View style={styles.storyStatus}>
+              <Ionicons name="add" size={17} color={WHITE} />
+            </View>
           </View>
-          <Text style={styles.storyLabel}>Your Story</Text>
+
+          <View style={styles.storyCardBottom}>
+            <Text style={styles.storyCardTitle}>Your Story</Text>
+            <Text style={styles.storyCardSubtitle}>
+              Share a moment
+            </Text>
+          </View>
         </Pressable>
 
-        {['Friends', 'Creators', 'Community', 'Explore'].map(
-          (label, index) => (
-            <Pressable
-              key={label}
-              style={styles.storyItem}
-              onPress={() => router.push('/stories')}
-            >
-              <View style={styles.storyCircle}>
+        {storyCards.map(card => (
+          <Pressable
+            key={card.label}
+            style={[
+              styles.storyCard,
+              { backgroundColor: card.backgroundColor },
+            ]}
+            onPress={() => router.push('/stories')}
+          >
+            <View style={styles.storyCardTop}>
+              <View
+                style={[
+                  styles.storyIconCircle,
+                  { borderColor: WHITE },
+                ]}
+              >
                 <Ionicons
-                  name={
-                    index === 0
-                      ? 'person'
-                      : index === 1
-                        ? 'star'
-                        : index === 2
-                          ? 'people'
-                          : 'compass'
-                  }
-                  size={25}
-                  color={index % 2 === 0 ? BLUE : PURPLE}
+                  name={card.icon}
+                  size={31}
+                  color={card.iconColor}
                 />
               </View>
+            </View>
 
-              <Text style={styles.storyLabel}>{label}</Text>
-            </Pressable>
-          ),
-        )}
+            <View style={styles.storyCardBottom}>
+              <Text style={styles.storyCardTitle}>{card.label}</Text>
+              <Text style={styles.storyCardSubtitle}>
+                {card.subtitle}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
       </ScrollView>
 
       {/* POSTS HEADING */}
@@ -616,13 +612,6 @@ export default function HomeScreen() {
           <Ionicons name="grid-outline" size={22} color={BLUE} />
           <Text style={styles.sectionTitle}>Posts</Text>
         </View>
-
-        <Pressable
-          style={styles.addButton}
-          onPress={() => router.push('/(tabs)/create')}
-        >
-          <Ionicons name="add" size={26} color={WHITE} />
-        </Pressable>
       </View>
 
       {error ? (
@@ -636,9 +625,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  // ======================================
   // POST CARD
-  // ======================================
 
   const renderPost = ({ item }: { item: FeedPost }) => {
     const interaction = interactions[item.id];
@@ -715,8 +702,6 @@ export default function HomeScreen() {
           </ScrollView>
         ) : null}
 
-        {/* ACTIONS */}
-
         <View style={styles.postActions}>
           <Pressable
             style={styles.actionButton}
@@ -774,9 +759,7 @@ export default function HomeScreen() {
     );
   };
 
-  // ======================================
-  // VIDEO AND REEL SECTIONS
-  // ======================================
+  // VIDEO AND REELS SECTIONS
 
   const renderVideoSection = (
     title: string,
@@ -793,13 +776,6 @@ export default function HomeScreen() {
           />
           <Text style={styles.sectionTitle}>{title}</Text>
         </View>
-
-        <Pressable
-          style={styles.addButton}
-          onPress={() => router.push('/(tabs)/create')}
-        >
-          <Ionicons name="add" size={26} color={WHITE} />
-        </Pressable>
       </View>
 
       {data.length === 0 ? (
@@ -830,18 +806,14 @@ export default function HomeScreen() {
     </View>
   );
 
-  // ======================================
   // MAIN SCREEN
-  // ======================================
 
   return (
     <View style={styles.screen}>
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={BLUE} />
-          <Text style={styles.loadingText}>
-            Loading BRITUME...
-          </Text>
+          <Text style={styles.loadingText}>Loading BRITUME...</Text>
         </View>
       ) : (
         <FlatList
@@ -884,29 +856,15 @@ export default function HomeScreen() {
               <Text style={styles.emptyText}>
                 {search.trim()
                   ? 'Try searching for something else.'
-                  : 'Your community starts here. Share your first post!'}
+                  : 'Your community starts here. Use the Create button to share your first post!'}
               </Text>
-
-              {!search.trim() ? (
-                <Pressable
-                  style={styles.primaryButton}
-                  onPress={() => router.push('/(tabs)/create')}
-                >
-                  <Ionicons name="add" size={22} color={WHITE} />
-                  <Text style={styles.primaryButtonText}>
-                    Create post
-                  </Text>
-                </Pressable>
-              ) : null}
             </View>
           }
           renderItem={renderPost}
         />
       )}
 
-      {/* ==================================
-          COMMENTS MODAL
-      ================================== */}
+      {/* COMMENTS MODAL */}
 
       <Modal
         visible={activePostId !== null}
@@ -999,11 +957,7 @@ export default function HomeScreen() {
                 {sendingComment ? (
                   <ActivityIndicator color={WHITE} />
                 ) : (
-                  <Ionicons
-                    name="send"
-                    size={19}
-                    color={WHITE}
-                  />
+                  <Ionicons name="send" size={19} color={WHITE} />
                 )}
               </Pressable>
             </View>
@@ -1014,9 +968,7 @@ export default function HomeScreen() {
   );
 }
 
-// ========================================
-// EXTREME BRITUME CLAYMORPHISM STYLES
-// ========================================
+// STYLES
 
 const styles = StyleSheet.create({
   screen: {
@@ -1053,26 +1005,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
 
-  brandMark: {
-    width: 53,
-    height: 53,
-    borderRadius: 19,
-    backgroundColor: BLUE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 12,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 5, height: 7 },
-  },
-
-  brandLetter: {
-    color: WHITE,
-    fontSize: 32,
-    fontWeight: '900',
-  },
-
   brandText: {
     flex: 1,
   },
@@ -1096,30 +1028,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  topButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 17,
-    backgroundColor: BLUE,
-    borderWidth: 2,
-    borderTopColor: '#9CD9FF',
-    borderLeftColor: '#74C6FF',
-    borderRightColor: DARK_BLUE,
-    borderBottomColor: DARK_BLUE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 5,
-    elevation: 9,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 4, height: 6 },
-  },
-
   topButtonLight: {
-    width: 39,
-    height: 39,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 15,
     backgroundColor: C.panel,
     borderWidth: 2,
     borderColor: WHITE,
@@ -1196,73 +1108,93 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  addButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: BLUE,
-    borderWidth: 2,
-    borderColor: WHITE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 4, height: 5 },
-  },
-
   storiesScroll: {
     marginBottom: 24,
   },
 
   storiesContent: {
     paddingHorizontal: 3,
-    gap: 16,
+    paddingBottom: 9,
+    gap: 12,
   },
 
-  storyItem: {
-    width: 68,
-    alignItems: 'center',
-  },
-
-  myStoryCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 23,
-    backgroundColor: BLUE,
+  storyCard: {
+    width: 116,
+    height: 174,
+    borderRadius: 21,
     borderWidth: 3,
     borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 10,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.38,
-    shadowRadius: 10,
-    shadowOffset: { width: 5, height: 7 },
-  },
-
-  storyCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 23,
-    borderWidth: 3,
-    borderColor: WHITE,
-    backgroundColor: C.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 9,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
     elevation: 9,
     shadowColor: '#548BCB',
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 9,
-    shadowOffset: { width: 5, height: 6 },
+    shadowOffset: { width: 4, height: 6 },
   },
 
-  storyLabel: {
+  yourStoryCard: {
+    backgroundColor: '#CDE7FF',
+  },
+
+  storyCardTop: {
+    alignItems: 'flex-start',
+  },
+
+  storyAvatar: {
+    width: 49,
+    height: 49,
+    borderRadius: 18,
+    backgroundColor: WHITE,
+    borderWidth: 2,
+    borderColor: WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  storyStatus: {
+    position: 'absolute',
+    left: 35,
+    top: 34,
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    backgroundColor: BLUE,
+    borderWidth: 2,
+    borderColor: WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  storyIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  storyCardBottom: {
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 8,
+  },
+
+  storyCardTitle: {
     color: C.text,
-    fontSize: 10,
-    fontWeight: '800',
-    marginTop: 9,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  storyCardSubtitle: {
+    color: C.muted,
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 3,
   },
 
   postRow: {
@@ -1480,32 +1412,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginTop: 7,
-  },
-
-  primaryButton: {
-    backgroundColor: BLUE,
-    borderWidth: 2,
-    borderTopColor: '#A9DEFF',
-    borderLeftColor: '#73C3FF',
-    borderRightColor: DARK_BLUE,
-    borderBottomColor: DARK_BLUE,
-    borderRadius: 22,
-    paddingHorizontal: 21,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    elevation: 9,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.35,
-    shadowRadius: 9,
-    shadowOffset: { width: 5, height: 7 },
-  },
-
-  primaryButtonText: {
-    color: WHITE,
-    fontWeight: '900',
   },
 
   errorBox: {
