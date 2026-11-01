@@ -76,7 +76,6 @@ export default function SettingsScreen() {
     }
 
     if (signingOut) return;
-
     setSigningOut(true);
 
     try {
@@ -106,7 +105,7 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* HEADER */}
+      {/* BRITUME HEADER */}
       <View style={styles.header}>
         <View style={styles.brandMark}>
           <Text style={styles.brandLetter}>B</Text>
@@ -123,48 +122,39 @@ export default function SettingsScreen() {
         </View>
 
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="More options"
           style={({ pressed }) => [
-            styles.moreButton,
-            pressed && styles.pressedButton,
+            styles.headerButton,
+            pressed && styles.pressed,
           ]}
           onPress={() => router.push('/(tabs)/more')}
         >
-          <Ionicons
-            name="ellipsis-vertical"
-            size={22}
-            color={theme.text}
-          />
+          <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
         </Pressable>
       </View>
 
-      {/* SETTINGS SECTIONS */}
+      {/* SETTINGS GROUPS */}
       {sections.map((section, sectionIndex) => (
         <View key={section.title} style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {section.title}
-          </Text>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
 
-          <View style={styles.card}>
+          <View style={styles.clayCard}>
             {section.rows.map((row, index) => (
               <Pressable
                 key={row.label}
-                accessibilityRole="button"
                 onPress={() => openRow(row.label)}
                 style={({ pressed }) => [
-                  styles.row,
-                  row.highlight && styles.highlightRow,
-                  index < section.rows.length - 1 &&
+                  styles.settingRow,
+                  row.highlight && styles.premiumRow,
+                  index !== section.rows.length - 1 &&
                     styles.rowDivider,
-                  pressed && styles.pressedRow,
+                  pressed && styles.pressed,
                 ]}
               >
                 <View
                   style={[
-                    styles.iconTile,
-                    sectionIndex === 1 && styles.purpleTile,
-                    row.highlight && styles.goldTile,
+                    styles.iconClay,
+                    sectionIndex === 1 && styles.purpleClay,
+                    row.highlight && styles.goldClay,
                   ]}
                 >
                   <Ionicons
@@ -180,20 +170,12 @@ export default function SettingsScreen() {
                   />
                 </View>
 
-                <Text style={styles.rowText}>
-                  {row.label}
-                </Text>
+                <Text style={styles.rowLabel}>{row.label}</Text>
 
                 {row.highlight && (
                   <View style={styles.premiumBadge}>
-                    <Ionicons
-                      name="sparkles"
-                      size={12}
-                      color="#9A7100"
-                    />
-                    <Text style={styles.premiumText}>
-                      PREMIUM
-                    </Text>
+                    <Ionicons name="sparkles" size={12} color="#A47700" />
+                    <Text style={styles.premiumText}>PRO</Text>
                   </View>
                 )}
 
@@ -208,123 +190,113 @@ export default function SettingsScreen() {
         </View>
       ))}
 
-      {/* PREFERENCES CARD */}
-      <Text style={styles.sectionTitle}>
-        Personal preferences
-      </Text>
+      {/* PERSONAL PREFERENCES */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Personal preferences</Text>
 
-      <View style={styles.card}>
-        <View style={styles.toggleRow}>
-          <View style={styles.iconTile}>
-            <Ionicons
-              name="moon-outline"
-              size={21}
-              color={theme.purple}
+        <View style={styles.clayCard}>
+          <View style={styles.switchRow}>
+            <View style={styles.iconClay}>
+              <Ionicons
+                name="moon-outline"
+                size={21}
+                color={theme.purple}
+              />
+            </View>
+
+            <View style={styles.switchInfo}>
+              <Text style={styles.rowLabel}>Dark mode</Text>
+              <Text style={styles.description}>
+                Choose your preferred appearance
+              </Text>
+            </View>
+
+            <Switch
+              value={darkMode}
+              onValueChange={setDarkMode}
+              trackColor={{
+                false: theme.borderStrong,
+                true: theme.cyan,
+              }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={theme.border}
             />
           </View>
 
-          <View style={styles.toggleInfo}>
-            <Text style={styles.rowText}>Dark mode</Text>
-            <Text style={styles.description}>
-              Choose your preferred appearance
-            </Text>
-          </View>
-
-          <Switch
-            value={darkMode}
-            onValueChange={setDarkMode}
-            trackColor={{
-              false: theme.borderStrong,
-              true: theme.cyan,
-            }}
-            thumbColor={theme.panel}
-            ios_backgroundColor={theme.border}
+          <ActionRow
+            label="Clear space"
+            icon="trash-outline"
+            onPress={() => openRow('Clear space')}
           />
-        </View>
 
-        <ActionRow
-          label="Clear space"
-          icon="trash-outline"
-          onPress={() => openRow('Clear space')}
-        />
+          <ActionRow
+            label="Early access"
+            icon="flask-outline"
+            onPress={() => openRow('Early access')}
+          />
 
-        <ActionRow
-          label="Early access"
-          icon="flask-outline"
-          onPress={() => openRow('Early access')}
-        />
+          <ActionRow
+            label="Switch account"
+            icon="repeat-outline"
+            onPress={() => openRow('Switch account')}
+          />
 
-        <ActionRow
-          label="Switch account"
-          icon="repeat-outline"
-          onPress={() => openRow('Switch account')}
-        />
-
-        {/* SIGN OUT */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-          disabled={signingOut}
-          style={({ pressed }) => [
-            styles.row,
-            styles.signOutRow,
-            pressed && styles.pressedButton,
-          ]}
-          onPress={() =>
-            Alert.alert(
-              'Sign out',
-              'Are you sure you want to sign out?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Sign out',
-                  style: 'destructive',
-                  onPress: () => {
-                    void signOut();
+          <Pressable
+            disabled={signingOut}
+            onPress={() =>
+              Alert.alert(
+                'Sign out',
+                'Are you sure you want to sign out?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign out',
+                    style: 'destructive',
+                    onPress: () => void signOut(),
                   },
-                },
-              ]
-            )
-          }
-        >
-          <View style={styles.dangerTile}>
-            {signingOut ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.danger}
-              />
-            ) : (
-              <Ionicons
-                name="log-out-outline"
-                size={21}
-                color={theme.danger}
-              />
-            )}
-          </View>
+                ]
+              )
+            }
+            style={({ pressed }) => [
+              styles.settingRow,
+              styles.signOutRow,
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.dangerClay}>
+              {signingOut ? (
+                <ActivityIndicator size="small" color={theme.danger} />
+              ) : (
+                <Ionicons
+                  name="log-out-outline"
+                  size={21}
+                  color={theme.danger}
+                />
+              )}
+            </View>
 
-          <Text style={[styles.rowText, styles.dangerText]}>
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </Text>
+            <Text style={[styles.rowLabel, styles.dangerText]}>
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </Text>
 
-          <Ionicons
-            name="chevron-forward"
-            size={19}
-            color={theme.danger}
-          />
-        </Pressable>
+            <Ionicons
+              name="chevron-forward"
+              size={19}
+              color={theme.danger}
+            />
+          </Pressable>
+        </View>
       </View>
 
-      {/* FOOTER */}
+      {/* BRAND FOOTER */}
       <View style={styles.footerCard}>
         <View style={styles.footerLogo}>
           <Text style={styles.footerLetter}>B</Text>
         </View>
 
         <Text style={styles.footerBrand}>BRITUME</Text>
-        <Text style={styles.footerText}>
-          Vortex of Possibilities
-        </Text>
-        <Text style={styles.version}>
+        <Text style={styles.footerTagline}>Vortex of Possibilities</Text>
+        <Text style={styles.footerCaption}>
           Your world. Your possibilities.
         </Text>
       </View>
@@ -343,22 +315,17 @@ function ActionRow({
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.row,
-        pressed && styles.pressedRow,
-      ]}
       onPress={onPress}
+      style={({ pressed }) => [
+        styles.settingRow,
+        pressed && styles.pressed,
+      ]}
     >
-      <View style={styles.iconTile}>
-        <Ionicons
-          name={icon}
-          size={21}
-          color={theme.cyan}
-        />
+      <View style={styles.iconClay}>
+        <Ionicons name={icon} size={21} color={theme.cyan} />
       </View>
 
-      <Text style={styles.rowText}>{label}</Text>
+      <Text style={styles.rowLabel}>{label}</Text>
 
       <Ionicons
         name="chevron-forward"
@@ -378,47 +345,47 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 15,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 45,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 27,
   },
 
   brandMark: {
-    width: 51,
-    height: 51,
-    borderRadius: 18,
+    width: 53,
+    height: 53,
+    borderRadius: 19,
     backgroundColor: theme.cyan,
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 3,
     borderColor: theme.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: theme.blueDark,
-    shadowOffset: { width: 5, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 9,
+    shadowOffset: { width: 6, height: 7 },
+    shadowOpacity: 0.26,
+    shadowRadius: 10,
     elevation: 8,
   },
 
   brandLetter: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: '900',
   },
 
   brandText: {
     flex: 1,
-    marginLeft: 11,
+    marginLeft: 10,
   },
 
   brandName: {
     color: theme.text,
     fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
   },
 
   tagline: {
@@ -434,16 +401,16 @@ const styles = StyleSheet.create({
 
   pageBadge: {
     backgroundColor: theme.clayBlue,
-    borderRadius: 15,
+    borderRadius: 17,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: theme.shadowDark,
-    shadowOffset: { width: 4, height: 5 },
-    shadowOpacity: 0.18,
-    shadowRadius: 7,
-    elevation: 5,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 5, height: 6 },
+    shadowOpacity: 0.20,
+    shadowRadius: 9,
+    elevation: 6,
   },
 
   pageTitle: {
@@ -452,10 +419,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  moreButton: {
-    width: 41,
-    height: 41,
-    borderRadius: 15,
+  headerButton: {
+    width: 43,
+    height: 43,
+    borderRadius: 16,
     backgroundColor: theme.clay,
     alignItems: 'center',
     justifyContent: 'center',
@@ -463,40 +430,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     shadowColor: theme.shadowDark,
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.17,
-    shadowRadius: 6,
+    shadowOffset: { width: 4, height: 5 },
+    shadowOpacity: 0.20,
+    shadowRadius: 7,
     elevation: 5,
   },
 
   section: {
-    marginBottom: 21,
+    marginBottom: 23,
   },
 
   sectionTitle: {
     color: theme.text,
     fontSize: 16,
     fontWeight: '900',
-    marginBottom: 11,
+    marginBottom: 12,
     marginLeft: 5,
   },
 
-  card: {
+  clayCard: {
     backgroundColor: theme.clay,
+    borderRadius: 25,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    borderRadius: 23,
-    marginBottom: 18,
-    paddingVertical: 5,
+    paddingVertical: 6,
     shadowColor: theme.shadowDark,
-    shadowOffset: { width: 7, height: 8 },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 8, height: 9 },
+    shadowOpacity: 0.22,
+    shadowRadius: 13,
+    elevation: 9,
   },
 
-  row: {
-    minHeight: 62,
+  settingRow: {
+    minHeight: 65,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -508,78 +474,64 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.border,
   },
 
-  pressedRow: {
-    backgroundColor: theme.clayPressed,
-    transform: [{ scale: 0.985 }],
-  },
-
-  pressedButton: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.85,
-  },
-
-  iconTile: {
-    width: 39,
-    height: 39,
-    borderRadius: 14,
+  iconClay: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
     backgroundColor: theme.clayBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 13,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
     shadowColor: theme.shadow,
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOffset: { width: 4, height: 5 },
+    shadowOpacity: 0.23,
+    shadowRadius: 7,
+    elevation: 5,
   },
 
-  purpleTile: {
+  purpleClay: {
     backgroundColor: theme.clayPurple,
   },
 
-  goldTile: {
-    backgroundColor: '#FFF5D4',
-    borderWidth: 1,
+  goldClay: {
+    backgroundColor: '#FFF2C5',
     borderColor: '#FFE49A',
   },
 
-  dangerTile: {
-    width: 39,
-    height: 39,
-    borderRadius: 14,
-    backgroundColor: '#FFF0F1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-    shadowColor: '#D64545',
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.10,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  rowText: {
+  rowLabel: {
     flex: 1,
     color: theme.text,
     fontSize: 14,
     fontWeight: '800',
   },
 
-  highlightRow: {
+  premiumRow: {
     backgroundColor: '#FFFCF1',
-    borderRadius: 15,
+    borderRadius: 18,
     marginHorizontal: 5,
-    marginVertical: 3,
+    marginVertical: 4,
+    shadowColor: '#D4A72C',
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   premiumBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF0B9',
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 9,
-    marginRight: 8,
+    borderRadius: 10,
+    marginRight: 7,
+    shadowColor: '#C99A28',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   premiumText: {
@@ -589,8 +541,8 @@ const styles = StyleSheet.create({
     marginLeft: 3,
   },
 
-  toggleRow: {
-    minHeight: 76,
+  switchRow: {
+    minHeight: 79,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -599,75 +551,95 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.border,
   },
 
-  toggleInfo: {
+  switchInfo: {
     flex: 1,
   },
 
   description: {
     color: theme.muted,
     fontSize: 10,
-    marginTop: 3,
+    marginTop: 4,
   },
 
-  signOutRow: {
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    marginTop: 4,
+  dangerClay: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: '#FFF0F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 13,
+    shadowColor: theme.danger,
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   dangerText: {
     color: theme.danger,
   },
 
+  signOutRow: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    marginTop: 5,
+  },
+
+  pressed: {
+    backgroundColor: theme.clayPressed,
+    transform: [{ scale: 0.975 }],
+  },
+
   footerCard: {
     backgroundColor: theme.clayBlue,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    borderRadius: 22,
     alignItems: 'center',
-    padding: 20,
-    marginTop: 3,
+    padding: 22,
+    marginTop: 4,
     shadowColor: theme.shadowDark,
-    shadowOffset: { width: 5, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 9,
-    elevation: 5,
+    shadowOffset: { width: 7, height: 8 },
+    shadowOpacity: 0.20,
+    shadowRadius: 12,
+    elevation: 7,
   },
 
   footerLogo: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
+    width: 48,
+    height: 48,
+    borderRadius: 17,
     backgroundColor: theme.cyan,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 9,
     elevation: 5,
   },
 
   footerLetter: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
   },
 
   footerBrand: {
     color: theme.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: 2,
   },
 
-  footerText: {
+  footerTagline: {
     color: theme.muted,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 3,
   },
 
-  version: {
+  footerCaption: {
     color: theme.muted,
     fontSize: 10,
-    marginTop: 9,
+    marginTop: 10,
   },
 });
