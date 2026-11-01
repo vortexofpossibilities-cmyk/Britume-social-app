@@ -1,30 +1,117 @@
 
-import React from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
+  Animated,
+  PanResponder,
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { AuthProvider } from '../src/auth/AuthProvider';
 
 function FloatingBritumeAI() {
-  return (
-    <Pressable
-      style={styles.aiButton}
-      onPress={() => router.push('/ai')}
-      accessibilityRole="button"
-      accessibilityLabel="Open BRITUME AI assistant"
-      hitSlop={8}
-    >
-      <View style={styles.eye}>
-        <View style={styles.pupil} />
-      </View>
+  const { width, height } = useWindowDimensions();
 
-      <View style={styles.eye}>
-        <View style={styles.pupil} />
-      </View>
-    </Pressable>
+  const buttonSize = 58;
+  const edgePadding = 5;
+
+  const initialX = Math.max(edgePadding, width - buttonSize - 16);
+  const initialY = Math.max(80, height - 220);
+
+  const position = useRef(
+    new Animated.ValueXY({ x: initialX, y: initialY }),
+  ).current;
+
+  const currentX = useRef(initialX);
+  const currentY = useRef(initialY);
+  const startX = useRef(initialX);
+  const startY = useRef(initialY);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
+
+        onPanResponderGrant: () => {
+          startX.current = currentX.current;
+          startY.current = currentY.current;
+        },
+
+        onPanResponderMove: (_, gesture) => {
+          const x = Math.max(
+            edgePadding,
+            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+          );
+
+          const y = Math.max(
+            65,
+            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+          );
+
+          position.setValue({ x, y });
+        },
+
+        onPanResponderRelease: (_, gesture) => {
+          const proposedX = Math.max(
+            edgePadding,
+            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+          );
+
+          const finalX =
+            proposedX + buttonSize / 2 < width / 2
+              ? edgePadding
+              : width - buttonSize - edgePadding;
+
+          const finalY = Math.max(
+            65,
+            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+          );
+
+          currentX.current = finalX;
+          currentY.current = finalY;
+
+          Animated.spring(position, {
+            toValue: { x: finalX, y: finalY },
+            useNativeDriver: false,
+            speed: 18,
+            bounciness: 5,
+          }).start();
+        },
+      }),
+    [width, height, position],
+  );
+
+  return (
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        styles.aiPosition,
+        {
+          transform: position.getTranslateTransform(),
+        },
+      ]}
+    >
+      <Pressable
+        style={styles.aiButton}
+        onPress={() => router.push('/ai')}
+        accessibilityRole="button"
+        accessibilityLabel="Open BRITUME AI assistant"
+        hitSlop={8}
+      >
+        <View style={styles.eye}>
+          <View style={styles.pupil} />
+        </View>
+
+        <View style={styles.eye}>
+          <View style={styles.pupil} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -39,7 +126,9 @@ export default function RootLayout() {
           }}
         />
 
-        <FloatingBritumeAI />
+        <View pointerEvents="box-none" style={styles.aiOverlay}>
+          <FloatingBritumeAI />
+        </View>
       </View>
     </AuthProvider>
   );
@@ -51,13 +140,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF4FF',
   },
 
-  aiButton: {
+  aiOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    elevation: 20,
+  },
+
+  aiPosition: {
     position: 'absolute',
-    right: 16,
-    bottom: 105,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    left: 0,
+    top: 0,
+    width: 58,
+    height: 58,
+  },
+
+  aiButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
     borderColor: '#168BFF',
@@ -73,7 +173,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.32,
     shadowRadius: 9,
-    zIndex: 999,
   },
 
   eye: {
