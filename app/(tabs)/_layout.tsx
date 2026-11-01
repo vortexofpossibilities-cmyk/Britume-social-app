@@ -38,9 +38,9 @@ const items = [
     name: 'Messages',
   },
   {
-    icon: 'sparkles-outline' as const,
-    route: '/ai',
-    name: 'BRITUME AI',
+    icon: 'videocam-outline' as const,
+    route: '/stories',
+    name: 'Videos',
   },
 ];
 
@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingTop: 7,
     paddingBottom: 7,
-
     shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 7 },
     shadowOpacity: 0.22,
@@ -161,7 +160,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.panel2,
     borderWidth: 1,
     borderColor: theme.borderStrong,
-
     shadowColor: theme.shadow,
     shadowOffset: { width: 2, height: 3 },
     shadowOpacity: 0.16,
@@ -183,7 +181,6 @@ const styles = StyleSheet.create({
     marginTop: -23,
     borderWidth: 4,
     borderColor: theme.panel,
-
     shadowColor: theme.blueDark,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
