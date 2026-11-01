@@ -34,12 +34,32 @@ import {
 } from '../../src/lib/posts';
 
 import { supabase } from '../../src/lib/supabase';
-import { theme } from '../../src/lib/theme';
+import { ClayLogo } from '../../src/components/ClayUI';
+
+// ========================================
+// BRITUME BRAND COLORS
+// ========================================
 
 const BLUE = '#168BFF';
+const DARK_BLUE = '#0756B5';
 const GOLD = '#FFD447';
-const PURPLE = '#895CFF';
+const PURPLE = '#8C83FF';
 const WHITE = '#FFFFFF';
+
+const C = {
+  bg: '#F2F8FF',
+  panel: '#E4F1FF',
+  panelWhite: '#FFFFFF',
+  text: '#19334D',
+  muted: '#66829B',
+  border: '#D3E6F8',
+  blue: BLUE,
+  purple: PURPLE,
+};
+
+// ========================================
+// TYPES
+// ========================================
 
 type Interaction = {
   liked: boolean;
@@ -47,6 +67,10 @@ type Interaction = {
   likesCount: number;
   commentsCount: number;
 };
+
+// ========================================
+// REQUEST TIMEOUT
+// ========================================
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -69,7 +93,10 @@ function withTimeout<T>(
   });
 }
 
+// ========================================
 // VIDEO PLAYER
+// ========================================
+
 function MediaVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
@@ -87,7 +114,10 @@ function MediaVideo({ uri }: { uri: string }) {
   );
 }
 
+// ========================================
 // VIDEO POST
+// ========================================
+
 function VideoPost({ post }: { post: FeedPost }) {
   const video = post.media?.find(
     item => item.media_type === 'video',
@@ -104,7 +134,7 @@ function VideoPost({ post }: { post: FeedPost }) {
     <View style={styles.videoPostCard}>
       <View style={styles.videoPostHeader}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={19} color={BLUE} />
+          <Ionicons name="person" size={20} color={BLUE} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -114,7 +144,7 @@ function VideoPost({ post }: { post: FeedPost }) {
           </Text>
         </View>
 
-        <Ionicons name="videocam" size={20} color={GOLD} />
+        <Ionicons name="videocam" size={24} color={PURPLE} />
       </View>
 
       <MediaVideo uri={video.url} />
@@ -126,7 +156,10 @@ function VideoPost({ post }: { post: FeedPost }) {
   );
 }
 
+// ========================================
 // MAIN HOME SCREEN
+// ========================================
+
 export default function HomeScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
@@ -150,7 +183,10 @@ export default function HomeScreen() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
 
+  // ======================================
   // LOAD POSTS
+  // ======================================
+
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
       setRefreshing(true);
@@ -173,32 +209,32 @@ export default function HomeScreen() {
           currentUserId = data.user?.id ?? null;
         }
       } catch (authError) {
-        console.warn('BRITUME authentication check:', authError);
+        console.warn('BRITUME authentication:', authError);
       }
 
       setUserId(currentUserId);
 
-      const freshPosts = await withTimeout(fetchPublicPosts(), 15000);
+      const freshPosts = await withTimeout(fetchPublicPosts());
 
       setPosts(freshPosts);
+
       setLoading(false);
 
       try {
-        const freshInteractions = await withTimeout(
+        const result = await withTimeout(
           fetchPostInteractions(
             freshPosts.map(post => post.id),
             currentUserId ?? undefined,
           ),
-          15000,
         );
 
-        setInteractions(freshInteractions);
+        setInteractions(result);
       } catch (interactionError) {
-        console.error('BRITUME interactions error:', interactionError);
+        console.error('BRITUME interactions:', interactionError);
         setInteractions({});
       }
     } catch (e) {
-      console.error('BRITUME feed error:', e);
+      console.error('BRITUME feed:', e);
 
       setError(
         e instanceof Error
@@ -217,7 +253,10 @@ export default function HomeScreen() {
     }, [loadPosts]),
   );
 
-  // SEARCH POSTS
+  // ======================================
+  // SEARCH
+  // ======================================
+
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -236,7 +275,10 @@ export default function HomeScreen() {
     });
   }, [posts, search]);
 
+  // ======================================
   // SEPARATE POST TYPES
+  // ======================================
+
   const photoPosts = useMemo(
     () =>
       filteredPosts.filter(
@@ -257,7 +299,10 @@ export default function HomeScreen() {
     [filteredPosts],
   );
 
+  // ======================================
   // REFRESH INTERACTIONS
+  // ======================================
+
   const refreshInteractions = async () => {
     if (!posts.length) return;
 
@@ -266,16 +311,21 @@ export default function HomeScreen() {
         posts.map(post => post.id),
         userId ?? undefined,
       ),
-      15000,
     );
 
     setInteractions(result);
   };
 
-  // LIKE POST
+  // ======================================
+  // LIKE
+  // ======================================
+
   const handleLike = async (postId: string) => {
     if (!userId) {
-      Alert.alert('Sign in required', 'Please sign in to like posts.');
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to like posts.',
+      );
       return;
     }
 
@@ -301,10 +351,16 @@ export default function HomeScreen() {
     }
   };
 
-  // SAVE POST
+  // ======================================
+  // SAVE
+  // ======================================
+
   const handleSave = async (postId: string) => {
     if (!userId) {
-      Alert.alert('Sign in required', 'Please sign in to save posts.');
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to save posts.',
+      );
       return;
     }
 
@@ -330,7 +386,10 @@ export default function HomeScreen() {
     }
   };
 
-  // SHARE POST
+  // ======================================
+  // SHARE
+  // ======================================
+
   const sharePost = async (post: FeedPost) => {
     const mediaLinks = (post.media ?? [])
       .map(item => item.url)
@@ -347,7 +406,10 @@ export default function HomeScreen() {
     }
   };
 
-  // OPEN COMMENTS
+  // ======================================
+  // COMMENTS
+  // ======================================
+
   const openComments = async (postId: string) => {
     setActivePostId(postId);
     setCommentText('');
@@ -357,7 +419,6 @@ export default function HomeScreen() {
     try {
       const result = await withTimeout(
         fetchCommentsForPost(postId),
-        15000,
       );
 
       setComments(result);
@@ -371,14 +432,17 @@ export default function HomeScreen() {
     }
   };
 
-  // SEND COMMENT
   const submitComment = async () => {
     if (!activePostId || !userId) {
-      Alert.alert('Sign in required', 'Please sign in to comment.');
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to comment.',
+      );
       return;
     }
 
     const content = commentText.trim();
+
     if (!content) return;
 
     setSendingComment(true);
@@ -386,17 +450,16 @@ export default function HomeScreen() {
     try {
       await withTimeout(
         createComment(activePostId, userId, content),
-        15000,
       );
 
       setCommentText('');
 
       const result = await withTimeout(
         fetchCommentsForPost(activePostId),
-        15000,
       );
 
       setComments(result);
+
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
@@ -408,18 +471,20 @@ export default function HomeScreen() {
     }
   };
 
-  // HOME HEADER
+  // ======================================
+  // HEADER
+  // ======================================
+
   const Header = (
     <View>
+      {/* BRAND HEADER */}
+
       <View style={styles.topBar}>
         <Pressable
-          style={styles.brandMark}
           onPress={() => router.push('/(tabs)/profile')}
+          style={styles.logoHolder}
         >
-          <Text style={styles.brandLetter}>B</Text>
-          <View style={styles.brandCrown}>
-            <Ionicons name="sparkles" size={11} color={GOLD} />
-          </View>
+          <ClayLogo size={54} />
         </Pressable>
 
         <Pressable
@@ -427,65 +492,66 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>Vortex of Possibilities</Text>
-          <Text style={styles.byline}>by brilliant mere</Text>
+          <Text style={styles.tagline}>
+            Vortex of Possibilities
+          </Text>
+          <Text style={styles.byline}>
+            by brilliant mere
+          </Text>
         </Pressable>
 
         <Pressable
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons name="add-circle" size={27} color={GOLD} />
+          <Ionicons name="add" size={27} color={WHITE} />
         </Pressable>
 
         <Pressable
-          style={styles.topButton}
+          style={styles.topButtonLight}
           onPress={() => router.push('/(tabs)/discover')}
         >
-          <Ionicons name="people-outline" size={24} color={theme.text} />
+          <Ionicons name="search" size={23} color={BLUE} />
         </Pressable>
 
         <Pressable
-          style={styles.topButton}
+          style={styles.topButtonLight}
           onPress={() => router.push('/notifications')}
         >
           <Ionicons
             name="notifications-outline"
-            size={24}
-            color={theme.text}
+            size={22}
+            color={BLUE}
           />
-        </Pressable>
-
-        <Pressable
-          style={styles.topButton}
-          onPress={() => router.push('/(tabs)/more')}
-        >
-          <Ionicons name="menu" size={27} color={theme.text} />
         </Pressable>
       </View>
 
       {/* SEARCH */}
+
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={21} color={theme.muted} />
+        <Ionicons name="search-outline" size={21} color={BLUE} />
 
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search BRITUME..."
-          placeholderTextColor={theme.muted}
+          placeholder="Search people, posts and communities..."
+          placeholderTextColor={C.muted}
           style={styles.searchInput}
           returnKeyType="search"
         />
 
-        <Pressable onPress={() => router.push('/(tabs)/discover')}>
-          <Ionicons name="options-outline" size={22} color={GOLD} />
+        <Pressable
+          onPress={() => router.push('/(tabs)/discover')}
+        >
+          <Ionicons name="options-outline" size={22} color={PURPLE} />
         </Pressable>
       </View>
 
       {/* STORIES */}
+
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
-          <Ionicons name="aperture-outline" size={21} color={GOLD} />
+          <Ionicons name="aperture-outline" size={23} color={BLUE} />
           <Text style={styles.sectionTitle}>Stories</Text>
         </View>
 
@@ -494,7 +560,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/stories')}
         >
           <Text style={styles.seeAllText}>See all</Text>
-          <Ionicons name="chevron-forward" size={16} color={GOLD} />
+          <Ionicons name="chevron-forward" size={16} color={BLUE} />
         </Pressable>
       </View>
 
@@ -509,7 +575,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/create')}
         >
           <View style={styles.myStoryCircle}>
-            <Ionicons name="add" size={29} color={WHITE} />
+            <Ionicons name="add" size={30} color={WHITE} />
           </View>
           <Text style={styles.storyLabel}>Your Story</Text>
         </Pressable>
@@ -521,14 +587,7 @@ export default function HomeScreen() {
               style={styles.storyItem}
               onPress={() => router.push('/stories')}
             >
-              <View
-                style={[
-                  styles.storyCircle,
-                  {
-                    borderColor: index % 2 === 0 ? BLUE : PURPLE,
-                  },
-                ]}
-              >
+              <View style={styles.storyCircle}>
                 <Ionicons
                   name={
                     index === 0
@@ -539,7 +598,7 @@ export default function HomeScreen() {
                           ? 'people'
                           : 'compass'
                   }
-                  size={23}
+                  size={25}
                   color={index % 2 === 0 ? BLUE : PURPLE}
                 />
               </View>
@@ -551,9 +610,10 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* POSTS HEADING */}
+
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
-          <Ionicons name="grid-outline" size={21} color={GOLD} />
+          <Ionicons name="grid-outline" size={22} color={BLUE} />
           <Text style={styles.sectionTitle}>Posts</Text>
         </View>
 
@@ -561,7 +621,7 @@ export default function HomeScreen() {
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons name="add-circle" size={27} color={GOLD} />
+          <Ionicons name="add" size={26} color={WHITE} />
         </Pressable>
       </View>
 
@@ -576,9 +636,13 @@ export default function HomeScreen() {
     </View>
   );
 
-  // RENDER INDIVIDUAL POST
+  // ======================================
+  // POST CARD
+  // ======================================
+
   const renderPost = ({ item }: { item: FeedPost }) => {
     const interaction = interactions[item.id];
+
     const liked = interaction?.liked ?? false;
     const saved = interaction?.saved ?? false;
 
@@ -623,8 +687,8 @@ export default function HomeScreen() {
           >
             <Ionicons
               name="ellipsis-vertical"
-              size={19}
-              color={theme.muted}
+              size={20}
+              color={C.muted}
             />
           </Pressable>
         </View>
@@ -651,7 +715,8 @@ export default function HomeScreen() {
           </ScrollView>
         ) : null}
 
-        {/* POST ACTIONS */}
+        {/* ACTIONS */}
+
         <View style={styles.postActions}>
           <Pressable
             style={styles.actionButton}
@@ -660,8 +725,8 @@ export default function HomeScreen() {
           >
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
-              size={21}
-              color={liked ? '#FF5478' : theme.muted}
+              size={20}
+              color={liked ? '#FF5478' : BLUE}
             />
             <Text style={styles.actionCount}>
               {interaction?.likesCount ?? 0}
@@ -674,8 +739,8 @@ export default function HomeScreen() {
           >
             <Ionicons
               name="chatbubble-outline"
-              size={20}
-              color={theme.muted}
+              size={19}
+              color={BLUE}
             />
             <Text style={styles.actionCount}>
               {interaction?.commentsCount ?? 0}
@@ -688,8 +753,8 @@ export default function HomeScreen() {
           >
             <Ionicons
               name="share-social-outline"
-              size={20}
-              color={theme.muted}
+              size={19}
+              color={BLUE}
             />
           </Pressable>
 
@@ -700,8 +765,8 @@ export default function HomeScreen() {
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={saved ? GOLD : theme.muted}
+              size={19}
+              color={saved ? GOLD : BLUE}
             />
           </Pressable>
         </View>
@@ -709,7 +774,10 @@ export default function HomeScreen() {
     );
   };
 
+  // ======================================
   // VIDEO AND REEL SECTIONS
+  // ======================================
+
   const renderVideoSection = (
     title: string,
     data: FeedPost[],
@@ -720,7 +788,7 @@ export default function HomeScreen() {
         <View style={styles.headingWithIcon}>
           <Ionicons
             name={kind === 'reel' ? 'play-circle' : 'videocam'}
-            size={22}
+            size={23}
             color={kind === 'reel' ? PURPLE : BLUE}
           />
           <Text style={styles.sectionTitle}>{title}</Text>
@@ -730,7 +798,7 @@ export default function HomeScreen() {
           style={styles.addButton}
           onPress={() => router.push('/(tabs)/create')}
         >
-          <Ionicons name="add-circle" size={27} color={GOLD} />
+          <Ionicons name="add" size={26} color={WHITE} />
         </Pressable>
       </View>
 
@@ -742,8 +810,8 @@ export default function HomeScreen() {
                 ? 'play-circle-outline'
                 : 'videocam-outline'
             }
-            size={30}
-            color={kind === 'reel' ? PURPLE : BLUE}
+            size={34}
+            color={BLUE}
           />
 
           <Text style={styles.emptyMediaTitle}>
@@ -755,27 +823,25 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : (
-        data.map(post => <VideoPost key={post.id} post={post} />)
+        data.map(post => (
+          <VideoPost key={post.id} post={post} />
+        ))
       )}
     </View>
   );
 
+  // ======================================
   // MAIN SCREEN
+  // ======================================
+
   return (
     <View style={styles.screen}>
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={BLUE} />
-          <Text style={styles.loadingText}>Loading BRITUME...</Text>
-
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-              <Pressable onPress={() => void loadPosts()}>
-                <Text style={styles.retryText}>Try again</Text>
-              </Pressable>
-            </View>
-          ) : null}
+          <Text style={styles.loadingText}>
+            Loading BRITUME...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -803,10 +869,16 @@ export default function HomeScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Ionicons name="images-outline" size={40} color={BLUE} />
+              <Ionicons
+                name="images-outline"
+                size={43}
+                color={BLUE}
+              />
 
               <Text style={styles.emptyTitle}>
-                {search.trim() ? 'No matching posts' : 'Welcome to BRITUME'}
+                {search.trim()
+                  ? 'No matching posts'
+                  : 'Welcome to BRITUME'}
               </Text>
 
               <Text style={styles.emptyText}>
@@ -821,7 +893,9 @@ export default function HomeScreen() {
                   onPress={() => router.push('/(tabs)/create')}
                 >
                   <Ionicons name="add" size={22} color={WHITE} />
-                  <Text style={styles.primaryButtonText}>Create post</Text>
+                  <Text style={styles.primaryButtonText}>
+                    Create post
+                  </Text>
                 </Pressable>
               ) : null}
             </View>
@@ -830,7 +904,10 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* COMMENTS MODAL */}
+      {/* ==================================
+          COMMENTS MODAL
+      ================================== */}
+
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -844,15 +921,19 @@ export default function HomeScreen() {
           <View style={styles.commentsPanel}>
             <View style={styles.modalHeader}>
               <View style={styles.headingWithIcon}>
-                <Ionicons name="chatbubbles" size={22} color={GOLD} />
+                <Ionicons
+                  name="chatbubbles"
+                  size={23}
+                  color={BLUE}
+                />
                 <Text style={styles.modalTitle}>Comments</Text>
               </View>
 
               <Pressable onPress={() => setActivePostId(null)}>
                 <Ionicons
                   name="close-circle"
-                  size={28}
-                  color={theme.muted}
+                  size={29}
+                  color={C.muted}
                 />
               </Pressable>
             </View>
@@ -870,9 +951,16 @@ export default function HomeScreen() {
                   </Text>
                 ) : (
                   comments.map(comment => (
-                    <View key={comment.id} style={styles.commentCard}>
+                    <View
+                      key={comment.id}
+                      style={styles.commentCard}
+                    >
                       <View style={styles.avatar}>
-                        <Ionicons name="person" size={16} color={BLUE} />
+                        <Ionicons
+                          name="person"
+                          size={17}
+                          color={BLUE}
+                        />
                       </View>
 
                       <View style={{ flex: 1 }}>
@@ -881,6 +969,7 @@ export default function HomeScreen() {
                             comment.author?.username ||
                             'BRITUME member'}
                         </Text>
+
                         <Text style={styles.commentContent}>
                           {comment.content}
                         </Text>
@@ -896,7 +985,7 @@ export default function HomeScreen() {
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="Write a comment..."
-                placeholderTextColor={theme.muted}
+                placeholderTextColor={C.muted}
                 style={styles.commentInput}
                 multiline
                 maxLength={2000}
@@ -910,7 +999,11 @@ export default function HomeScreen() {
                 {sendingComment ? (
                   <ActivityIndicator color={WHITE} />
                 ) : (
-                  <Ionicons name="send" size={19} color={WHITE} />
+                  <Ionicons
+                    name="send"
+                    size={19}
+                    color={WHITE}
+                  />
                 )}
               </Pressable>
             </View>
@@ -921,281 +1014,338 @@ export default function HomeScreen() {
   );
 }
 
-// =========================================
-// BRITUME — ELECTRIC AI GLASS STYLES
-// =========================================
+// ========================================
+// EXTREME BRITUME CLAYMORPHISM STYLES
+// ========================================
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#070B1B',
+    backgroundColor: C.bg,
   },
 
   content: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 30,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 35,
   },
 
   loading: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: C.bg,
     justifyContent: 'center',
-    backgroundColor: '#070B1B',
-    padding: 20,
+    alignItems: 'center',
   },
 
   loadingText: {
-    color: '#A8B6D1',
+    color: C.text,
     marginTop: 12,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 17,
+    marginBottom: 19,
+  },
+
+  logoHolder: {
+    marginRight: 8,
   },
 
   brandMark: {
-    width: 45,
-    height: 45,
-    borderRadius: 15,
-    backgroundColor: '#102C53',
-    borderWidth: 1.5,
-    borderColor: BLUE,
-    alignItems: 'center',
+    width: 53,
+    height: 53,
+    borderRadius: 19,
+    backgroundColor: BLUE,
     justifyContent: 'center',
-    shadowColor: BLUE,
-    shadowOpacity: 0.55,
+    alignItems: 'center',
+    elevation: 12,
+    shadowColor: DARK_BLUE,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    shadowOffset: { width: 5, height: 7 },
   },
 
   brandLetter: {
     color: WHITE,
-    fontSize: 25,
+    fontSize: 32,
     fontWeight: '900',
-  },
-
-  brandCrown: {
-    position: 'absolute',
-    top: -6,
-    right: -5,
-    width: 19,
-    height: 19,
-    borderRadius: 10,
-    backgroundColor: '#242345',
-    borderWidth: 1,
-    borderColor: GOLD,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   brandText: {
     flex: 1,
-    marginLeft: 9,
   },
 
   brandName: {
-    color: WHITE,
-    fontSize: 17,
+    color: DARK_BLUE,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,
   },
 
   tagline: {
-    color: '#45B5FF',
+    color: BLUE,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  byline: {
+    color: C.muted,
     fontSize: 9,
     fontWeight: '700',
   },
 
-  byline: {
-    color: '#A8B6D1',
-    fontSize: 9,
+  topButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 17,
+    backgroundColor: BLUE,
+    borderWidth: 2,
+    borderTopColor: '#9CD9FF',
+    borderLeftColor: '#74C6FF',
+    borderRightColor: DARK_BLUE,
+    borderBottomColor: DARK_BLUE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+    elevation: 9,
+    shadowColor: DARK_BLUE,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 4, height: 6 },
   },
 
-  topButton: {
-    padding: 5,
-    marginLeft: 2,
+  topButtonLight: {
+    width: 39,
+    height: 39,
+    borderRadius: 16,
+    backgroundColor: C.panel,
+    borderWidth: 2,
+    borderColor: WHITE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+    elevation: 7,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.27,
+    shadowRadius: 8,
+    shadowOffset: { width: 4, height: 5 },
   },
 
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(24, 39, 71, 0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.35)',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    marginBottom: 22,
-    shadowColor: BLUE,
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    backgroundColor: C.panel,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: WHITE,
+    paddingHorizontal: 15,
+    marginBottom: 25,
+    elevation: 9,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 6, height: 8 },
   },
 
   searchInput: {
     flex: 1,
-    color: WHITE,
-    paddingHorizontal: 9,
-    paddingVertical: 12,
-    fontSize: 13,
+    color: C.text,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
+    marginTop: 5,
   },
 
   headingWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 8,
   },
 
   sectionTitle: {
-    color: WHITE,
+    color: C.text,
     fontSize: 19,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   seeAll: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: C.panel,
+    borderRadius: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: WHITE,
+    elevation: 5,
   },
 
   seeAllText: {
-    color: GOLD,
-    fontSize: 12,
-    fontWeight: '700',
+    color: BLUE,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   addButton: {
-    paddingHorizontal: 3,
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: BLUE,
+    borderWidth: 2,
+    borderColor: WHITE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: DARK_BLUE,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 4, height: 5 },
   },
 
   storiesScroll: {
-    marginBottom: 23,
+    marginBottom: 24,
   },
 
   storiesContent: {
-    paddingRight: 5,
-    gap: 15,
+    paddingHorizontal: 3,
+    gap: 16,
   },
 
   storyItem: {
-    width: 65,
+    width: 68,
     alignItems: 'center',
   },
 
   myStoryCircle: {
-    width: 59,
-    height: 59,
-    borderRadius: 30,
-    backgroundColor: '#1256A0',
-    borderWidth: 2,
-    borderColor: GOLD,
+    width: 62,
+    height: 62,
+    borderRadius: 23,
+    backgroundColor: BLUE,
+    borderWidth: 3,
+    borderColor: WHITE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BLUE,
-    shadowOpacity: 0.45,
+    elevation: 10,
+    shadowColor: DARK_BLUE,
+    shadowOpacity: 0.38,
     shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 5, height: 7 },
   },
 
   storyCircle: {
-    width: 59,
-    height: 59,
-    borderRadius: 30,
-    borderWidth: 2,
-    backgroundColor: '#111C38',
+    width: 62,
+    height: 62,
+    borderRadius: 23,
+    borderWidth: 3,
+    borderColor: WHITE,
+    backgroundColor: C.panel,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 9,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.3,
+    shadowRadius: 9,
+    shadowOffset: { width: 5, height: 6 },
   },
 
   storyLabel: {
-    color: '#DCE8F0',
+    color: C.text,
     fontSize: 10,
-    marginTop: 6,
+    fontWeight: '800',
+    marginTop: 9,
   },
 
   postRow: {
     justifyContent: 'space-between',
-    gap: 9,
+    gap: 11,
   },
 
   postCard: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: 'rgba(24, 39, 71, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.30)',
-    borderRadius: 19,
-    padding: 10,
-    marginBottom: 11,
-    shadowColor: BLUE,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
+    backgroundColor: C.panel,
+    borderWidth: 2,
+    borderTopColor: WHITE,
+    borderLeftColor: WHITE,
+    borderRightColor: '#C7E0FA',
+    borderBottomColor: '#BDD9F5',
+    borderRadius: 24,
+    padding: 11,
+    marginBottom: 16,
+    elevation: 12,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.32,
+    shadowRadius: 13,
+    shadowOffset: { width: 7, height: 9 },
   },
 
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 11,
   },
 
   avatar: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    backgroundColor: '#182D51',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.45)',
+    width: 36,
+    height: 36,
+    borderRadius: 15,
+    backgroundColor: '#D6EAFF',
+    borderWidth: 2,
+    borderColor: WHITE,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 5,
   },
 
   postAuthor: {
     flex: 1,
-    marginLeft: 7,
+    marginLeft: 8,
   },
 
   authorName: {
-    color: WHITE,
-    fontWeight: '800',
-    fontSize: 10,
+    color: C.text,
+    fontWeight: '900',
+    fontSize: 11,
   },
 
   postDate: {
-    color: '#A8B6D1',
+    color: C.muted,
     fontSize: 9,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: '600',
   },
 
   postContent: {
-    color: '#F1F5FF',
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 8,
+    color: C.text,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginBottom: 9,
   },
 
   imageScroller: {
-    marginHorizontal: -10,
-    marginBottom: 7,
+    marginHorizontal: -4,
+    marginBottom: 8,
   },
 
   postImage: {
     width: 155,
     height: 170,
-    borderRadius: 11,
+    borderRadius: 17,
     marginHorizontal: 3,
-    backgroundColor: '#182747',
+    backgroundColor: '#D6EAFF',
+    borderWidth: 2,
+    borderColor: WHITE,
   },
 
   postActions: {
@@ -1203,249 +1353,293 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(168, 182, 209, 0.18)',
-    paddingTop: 10,
+    borderTopColor: '#C7DFF5',
+    paddingTop: 11,
     marginTop: 7,
   },
 
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 3,
+    minWidth: 27,
+    minHeight: 29,
+    borderRadius: 12,
+    backgroundColor: '#EFF7FF',
+    paddingHorizontal: 5,
+    elevation: 3,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 2, height: 3 },
   },
 
   actionCount: {
     fontSize: 9,
-    color: '#A8B6D1',
+    color: C.text,
+    fontWeight: '900',
   },
 
   mediaSection: {
-    marginTop: 21,
+    marginTop: 23,
   },
 
   videoPostCard: {
-    backgroundColor: 'rgba(24, 39, 71, 0.84)',
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: 'rgba(137, 92, 255, 0.38)',
-    padding: 11,
-    marginBottom: 14,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: C.panel,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderTopColor: WHITE,
+    borderLeftColor: WHITE,
+    borderRightColor: '#C7E0FA',
+    borderBottomColor: '#BDD9F5',
+    padding: 13,
+    marginBottom: 16,
+    elevation: 12,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.3,
+    shadowRadius: 13,
+    shadowOffset: { width: 7, height: 9 },
   },
 
   videoPostHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    gap: 8,
+    marginBottom: 12,
+    gap: 9,
   },
 
   videoPlayer: {
     width: '100%',
     height: 230,
-    backgroundColor: '#050916',
-    borderRadius: 13,
+    backgroundColor: C.text,
+    borderRadius: 19,
+    overflow: 'hidden',
   },
 
   videoCaption: {
-    color: '#F1F5FF',
+    color: C.text,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
+    fontWeight: '700',
+    lineHeight: 21,
+    marginTop: 12,
   },
 
   emptyMedia: {
-    backgroundColor: 'rgba(24, 39, 71, 0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(137, 92, 255, 0.32)',
-    borderRadius: 18,
-    padding: 23,
+    backgroundColor: C.panel,
+    borderWidth: 2,
+    borderColor: WHITE,
+    borderRadius: 25,
+    padding: 25,
     alignItems: 'center',
-    marginBottom: 11,
+    marginBottom: 14,
+    elevation: 9,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 5, height: 7 },
   },
 
   emptyMediaTitle: {
-    color: WHITE,
-    fontWeight: '800',
-    marginTop: 8,
+    color: C.text,
+    fontWeight: '900',
+    marginTop: 10,
   },
 
   emptyMediaText: {
-    color: '#A8B6D1',
+    color: C.muted,
     fontSize: 12,
-    marginTop: 5,
+    marginTop: 6,
     textAlign: 'center',
   },
 
   emptyBox: {
-    backgroundColor: 'rgba(24, 39, 71, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.30)',
-    borderRadius: 19,
-    padding: 22,
+    backgroundColor: C.panel,
+    borderWidth: 2,
+    borderColor: WHITE,
+    borderRadius: 26,
+    padding: 25,
     alignItems: 'center',
-    marginBottom: 13,
+    marginBottom: 15,
+    elevation: 10,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 6, height: 8 },
   },
 
   emptyTitle: {
-    color: WHITE,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 10,
+    color: C.text,
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 12,
   },
 
   emptyText: {
-    color: '#A8B6D1',
+    color: C.muted,
     textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 6,
+    lineHeight: 20,
+    marginTop: 7,
   },
 
   primaryButton: {
     backgroundColor: BLUE,
-    borderWidth: 1,
-    borderColor: '#65C3FF',
-    borderRadius: 23,
-    paddingHorizontal: 19,
-    paddingVertical: 12,
+    borderWidth: 2,
+    borderTopColor: '#A9DEFF',
+    borderLeftColor: '#73C3FF',
+    borderRightColor: DARK_BLUE,
+    borderBottomColor: DARK_BLUE,
+    borderRadius: 22,
+    paddingHorizontal: 21,
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 14,
-    shadowColor: BLUE,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 5,
+    gap: 8,
+    marginTop: 16,
+    elevation: 9,
+    shadowColor: DARK_BLUE,
+    shadowOpacity: 0.35,
+    shadowRadius: 9,
+    shadowOffset: { width: 5, height: 7 },
   },
 
   primaryButtonText: {
     color: WHITE,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   errorBox: {
-    backgroundColor: 'rgba(255, 91, 110, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 91, 110, 0.35)',
-    padding: 12,
-    borderRadius: 13,
-    marginBottom: 12,
+    backgroundColor: '#FFF0F0',
+    borderWidth: 1.5,
+    borderColor: '#FFD0D0',
+    padding: 14,
+    borderRadius: 18,
+    marginBottom: 13,
+    elevation: 3,
   },
 
   errorText: {
-    color: '#FF8795',
-    marginBottom: 5,
+    color: '#C52E45',
+    marginBottom: 6,
+    fontWeight: '700',
   },
 
   retryText: {
-    color: GOLD,
-    fontWeight: '800',
+    color: BLUE,
+    fontWeight: '900',
   },
 
   modalBackground: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(25, 51, 77, 0.48)',
   },
 
   commentsPanel: {
     height: '70%',
-    backgroundColor: '#0C142A',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    borderTopWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.45)',
-    padding: 16,
+    backgroundColor: C.bg,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderTopWidth: 3,
+    borderColor: WHITE,
+    padding: 17,
+    elevation: 18,
   },
 
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(168, 182, 209, 0.20)',
+    borderBottomColor: C.border,
   },
 
   modalTitle: {
-    color: WHITE,
-    fontSize: 19,
+    color: C.text,
+    fontSize: 20,
     fontWeight: '900',
   },
 
   commentsList: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
 
   noComments: {
-    color: '#A8B6D1',
+    color: C.muted,
     textAlign: 'center',
     marginTop: 30,
+    fontWeight: '700',
   },
 
   commentCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 9,
-    backgroundColor: 'rgba(24, 39, 71, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.20)',
-    padding: 11,
-    borderRadius: 14,
-    marginBottom: 9,
+    gap: 10,
+    backgroundColor: C.panel,
+    borderWidth: 1.5,
+    borderColor: WHITE,
+    padding: 12,
+    borderRadius: 18,
+    marginBottom: 11,
+    elevation: 5,
+    shadowColor: '#548BCB',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 3, height: 4 },
   },
 
   commentAuthor: {
-    color: WHITE,
-    fontSize: 11,
-    fontWeight: '800',
+    color: C.text,
+    fontSize: 12,
+    fontWeight: '900',
   },
 
   commentContent: {
-    color: '#DCE8F0',
+    color: '#45647F',
     fontSize: 13,
-    marginTop: 4,
+    marginTop: 5,
     lineHeight: 19,
   },
 
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(168, 182, 209, 0.20)',
-    paddingTop: 12,
+    borderTopColor: C.border,
+    paddingTop: 13,
   },
 
   commentInput: {
     flex: 1,
-    minHeight: 43,
+    minHeight: 45,
     maxHeight: 90,
-    backgroundColor: '#182747',
-    borderWidth: 1,
-    borderColor: 'rgba(69, 181, 255, 0.35)',
-    borderRadius: 19,
-    paddingHorizontal: 13,
+    backgroundColor: C.panel,
+    borderWidth: 2,
+    borderColor: WHITE,
+    borderRadius: 21,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    color: WHITE,
+    color: C.text,
+    fontWeight: '600',
+    elevation: 4,
   },
 
   sendButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 22,
+    width: 47,
+    height: 47,
+    borderRadius: 18,
     backgroundColor: BLUE,
-    borderWidth: 1,
-    borderColor: '#65C3FF',
+    borderWidth: 2,
+    borderColor: WHITE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BLUE,
+    elevation: 9,
+    shadowColor: DARK_BLUE,
     shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 4, height: 5 },
   },
 });
