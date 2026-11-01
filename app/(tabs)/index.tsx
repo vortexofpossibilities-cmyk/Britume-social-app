@@ -111,58 +111,31 @@ function VideoPost({ post }: { post: FeedPost }) {
     <View style={styles.videoPostCard}>
       <View style={styles.videoPostHeader}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color={BLUE} />
+          <Ionicons name="person" size={18} color={BLUE} />
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.authorName}>{author}</Text>
+        <View style={styles.videoAuthor}>
+          <Text style={styles.authorName} numberOfLines={1}>
+            {author}
+          </Text>
           <Text style={styles.postDate}>
             {new Date(post.created_at).toLocaleDateString()}
           </Text>
         </View>
 
-        <Ionicons name="videocam" size={24} color={PURPLE} />
+        <Ionicons name="videocam" size={20} color={PURPLE} />
       </View>
 
       <MediaVideo uri={video.url} />
 
       {post.content ? (
-        <Text style={styles.videoCaption}>{post.content}</Text>
+        <Text style={styles.videoCaption} numberOfLines={3}>
+          {post.content}
+        </Text>
       ) : null}
     </View>
   );
 }
-
-const storyCards = [
-  {
-    label: 'Friends',
-    subtitle: 'Your people',
-    icon: 'people-outline' as const,
-    backgroundColor: '#DCEEFF',
-    iconColor: BLUE,
-  },
-  {
-    label: 'Creators',
-    subtitle: 'Creative moments',
-    icon: 'star-outline' as const,
-    backgroundColor: '#EAE5FF',
-    iconColor: PURPLE,
-  },
-  {
-    label: 'Community',
-    subtitle: 'Together',
-    icon: 'globe-outline' as const,
-    backgroundColor: '#DDF7F0',
-    iconColor: '#229B83',
-  },
-  {
-    label: 'Explore',
-    subtitle: 'Discover more',
-    icon: 'compass-outline' as const,
-    backgroundColor: '#FFF0D9',
-    iconColor: '#D58B20',
-  },
-];
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -527,7 +500,7 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* LARGE STORY CARDS */}
+      {/* STORIES */}
 
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
@@ -558,6 +531,7 @@ export default function HomeScreen() {
             <View style={styles.storyAvatar}>
               <Ionicons name="person" size={25} color={BLUE} />
             </View>
+
             <View style={styles.storyStatus}>
               <Ionicons name="add" size={17} color={WHITE} />
             </View>
@@ -571,38 +545,8 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
-        {storyCards.map(card => (
-          <Pressable
-            key={card.label}
-            style={[
-              styles.storyCard,
-              { backgroundColor: card.backgroundColor },
-            ]}
-            onPress={() => router.push('/stories')}
-          >
-            <View style={styles.storyCardTop}>
-              <View
-                style={[
-                  styles.storyIconCircle,
-                  { borderColor: WHITE },
-                ]}
-              >
-                <Ionicons
-                  name={card.icon}
-                  size={31}
-                  color={card.iconColor}
-                />
-              </View>
-            </View>
-
-            <View style={styles.storyCardBottom}>
-              <Text style={styles.storyCardTitle}>{card.label}</Text>
-              <Text style={styles.storyCardSubtitle}>
-                {card.subtitle}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+        {/* Real friends' stories can be connected here when the
+            stories data source is available. */}
       </ScrollView>
 
       {/* POSTS HEADING */}
@@ -759,52 +703,36 @@ export default function HomeScreen() {
     );
   };
 
-  // VIDEO AND REELS SECTIONS
+  // VIDEO AND REELS: HIDE EMPTY SECTIONS, SHOW REAL VIDEOS IN TWO COLUMNS
 
   const renderVideoSection = (
     title: string,
     data: FeedPost[],
     kind: 'video' | 'reel',
-  ) => (
-    <View style={styles.mediaSection}>
-      <View style={styles.sectionHeading}>
-        <View style={styles.headingWithIcon}>
-          <Ionicons
-            name={kind === 'reel' ? 'play-circle' : 'videocam'}
-            size={23}
-            color={kind === 'reel' ? PURPLE : BLUE}
-          />
-          <Text style={styles.sectionTitle}>{title}</Text>
+  ) => {
+    if (data.length === 0) return null;
+
+    return (
+      <View style={styles.mediaSection}>
+        <View style={styles.sectionHeading}>
+          <View style={styles.headingWithIcon}>
+            <Ionicons
+              name={kind === 'reel' ? 'play-circle' : 'videocam'}
+              size={23}
+              color={kind === 'reel' ? PURPLE : BLUE}
+            />
+            <Text style={styles.sectionTitle}>{title}</Text>
+          </View>
+        </View>
+
+        <View style={styles.videoGrid}>
+          {data.map(post => (
+            <VideoPost key={post.id} post={post} />
+          ))}
         </View>
       </View>
-
-      {data.length === 0 ? (
-        <View style={styles.emptyMedia}>
-          <Ionicons
-            name={
-              kind === 'reel'
-                ? 'play-circle-outline'
-                : 'videocam-outline'
-            }
-            size={34}
-            color={BLUE}
-          />
-
-          <Text style={styles.emptyMediaTitle}>
-            No {kind === 'reel' ? 'Reels' : 'videos'} yet
-          </Text>
-
-          <Text style={styles.emptyMediaText}>
-            Be the first to share one with BRITUME.
-          </Text>
-        </View>
-      ) : (
-        data.map(post => (
-          <VideoPost key={post.id} post={post} />
-        ))
-      )}
-    </View>
-  );
+    );
+  };
 
   // MAIN SCREEN
 
@@ -1115,7 +1043,6 @@ const styles = StyleSheet.create({
   storiesContent: {
     paddingHorizontal: 3,
     paddingBottom: 9,
-    gap: 12,
   },
 
   storyCard: {
@@ -1163,16 +1090,6 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     borderWidth: 2,
     borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  storyIconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1317,72 +1234,56 @@ const styles = StyleSheet.create({
     marginTop: 23,
   },
 
+  videoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
   videoPostCard: {
+    width: '48%',
     backgroundColor: C.panel,
-    borderRadius: 25,
+    borderRadius: 21,
     borderWidth: 2,
     borderTopColor: WHITE,
     borderLeftColor: WHITE,
     borderRightColor: '#C7E0FA',
     borderBottomColor: '#BDD9F5',
-    padding: 13,
-    marginBottom: 16,
-    elevation: 12,
+    padding: 8,
+    marginBottom: 12,
+    elevation: 9,
     shadowColor: '#548BCB',
-    shadowOpacity: 0.3,
-    shadowRadius: 13,
-    shadowOffset: { width: 7, height: 9 },
+    shadowOpacity: 0.25,
+    shadowRadius: 9,
+    shadowOffset: { width: 4, height: 6 },
   },
 
   videoPostHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 9,
+    marginBottom: 9,
+    gap: 7,
+  },
+
+  videoAuthor: {
+    flex: 1,
+    minWidth: 0,
   },
 
   videoPlayer: {
     width: '100%',
-    height: 230,
+    height: 125,
     backgroundColor: C.text,
-    borderRadius: 19,
+    borderRadius: 14,
     overflow: 'hidden',
   },
 
   videoCaption: {
     color: C.text,
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 21,
-    marginTop: 12,
-  },
-
-  emptyMedia: {
-    backgroundColor: C.panel,
-    borderWidth: 2,
-    borderColor: WHITE,
-    borderRadius: 25,
-    padding: 25,
-    alignItems: 'center',
-    marginBottom: 14,
-    elevation: 9,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    shadowOffset: { width: 5, height: 7 },
-  },
-
-  emptyMediaTitle: {
-    color: C.text,
-    fontWeight: '900',
-    marginTop: 10,
-  },
-
-  emptyMediaText: {
-    color: C.muted,
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 9,
   },
 
   emptyBox: {
