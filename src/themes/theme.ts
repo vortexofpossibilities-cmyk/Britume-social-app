@@ -1,47 +1,89 @@
 
-// BRITUME — Electric AI Glass Theme
+// BRITUME — TIER 6
+// Royal Blue 3D Claymorphism Design System
+// Vortex of Possibilities
 
 export const theme = {
-  // Main colours
-  bg: '#070B1B',
-  panel: '#111C38',
-  panel2: '#182747',
+  // Main background
+  bg: '#EAF4FF',
+  panel: '#FFFFFF',
+  panel2: '#DCEBFA',
+  panel3: '#F4F9FF',
 
   // Text
-  text: '#FFFFFF',
-  muted: '#A8B6D1',
-  liquidText: '#DCE8F0',
+  text: '#19334D',
+  muted: '#66829B',
+  liquidText: '#315675',
+  textLight: '#FFFFFF',
 
   // Brand colours
   cyan: '#168BFF',
   blue: '#168BFF',
   blueLight: '#45B5FF',
-  purple: '#895CFF',
-  purpleLight: '#B18BFF',
+  blueDark: '#0868C5',
+  purple: '#8C83FF',
+  purpleLight: '#B5AEFF',
   gold: '#FFD447',
   yellow: '#FFD447',
 
-  // Glass cards
-  glass: 'rgba(24, 39, 71, 0.78)',
-  glassLight: 'rgba(255, 255, 255, 0.07)',
-  glassBorder: 'rgba(69, 181, 255, 0.30)',
+  // Glass effects
+  glass: 'rgba(255, 255, 255, 0.82)',
+  glassLight: 'rgba(255, 255, 255, 0.62)',
+  glassBorder: 'rgba(22, 139, 255, 0.20)',
 
   // Borders and status
-  border: 'rgba(168, 182, 209, 0.20)',
-  danger: '#FF5B6E',
-  success: '#39D98A',
+  border: '#D3E6F8',
+  borderStrong: '#B9D8F5',
+  danger: '#D64545',
+  success: '#20B878',
+  warning: '#E9A928',
 
-  // Effects
-  shadow: '#000000',
-  glowBlue: 'rgba(22, 139, 255, 0.35)',
-  glowPurple: 'rgba(137, 92, 255, 0.30)',
-  glowGold: 'rgba(255, 212, 71, 0.25)',
+  // Claymorphism surfaces
+  clay: '#FFFFFF',
+  clayBlue: '#E4F1FF',
+  clayPurple: '#EFEDFF',
+  clayPressed: '#DCEBFA',
+
+  // Shadows
+  shadow: '#8BAECC',
+  shadowDark: '#789BB9',
+  shadowLight: '#FFFFFF',
+
+  // Glow effects
+  glowBlue: 'rgba(22, 139, 255, 0.22)',
+  glowPurple: 'rgba(140, 131, 255, 0.20)',
+  glowGold: 'rgba(255, 212, 71, 0.24)',
 
   // Brand identity
   milky: '#FFFFFF',
-  milkySoft: '#F4F7FF',
+  milkySoft: '#F4F8FF',
   oilBlue: '#168BFF',
-  oilGrey: '#A8B6D1',
+  oilGrey: '#66829B',
   oilYellow: '#FFD447',
   highlight: '#FFD447',
+
+  // Tier 6 shared clay styles
+  clayShadow: {
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 7, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  clayRaised: {
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 5, height: 6 },
+    shadowOpacity: 0.20,
+    shadowRadius: 9,
+    elevation: 6,
+  },
+
+  clayPressedStyle: {
+    shadowColor: '#789BB9',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
 };
