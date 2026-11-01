@@ -106,6 +106,7 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.brandMark}>
           <Text style={styles.brandLetter}>B</Text>
@@ -126,7 +127,7 @@ export default function SettingsScreen() {
           accessibilityLabel="More options"
           style={({ pressed }) => [
             styles.moreButton,
-            pressed && styles.pressedRow,
+            pressed && styles.pressedButton,
           ]}
           onPress={() => router.push('/(tabs)/more')}
         >
@@ -138,19 +139,24 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
+      {/* SETTINGS SECTIONS */}
       {sections.map((section, sectionIndex) => (
         <View key={section.title} style={styles.section}>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <Text style={styles.sectionTitle}>
+            {section.title}
+          </Text>
 
           <View style={styles.card}>
             {section.rows.map((row, index) => (
               <Pressable
                 key={row.label}
+                accessibilityRole="button"
                 onPress={() => openRow(row.label)}
                 style={({ pressed }) => [
                   styles.row,
                   row.highlight && styles.highlightRow,
-                  index < section.rows.length - 1 && styles.rowDivider,
+                  index < section.rows.length - 1 &&
+                    styles.rowDivider,
                   pressed && styles.pressedRow,
                 ]}
               >
@@ -163,7 +169,7 @@ export default function SettingsScreen() {
                 >
                   <Ionicons
                     name={row.icon}
-                    size={20}
+                    size={21}
                     color={
                       row.highlight
                         ? '#B98500'
@@ -174,7 +180,22 @@ export default function SettingsScreen() {
                   />
                 </View>
 
-                <Text style={styles.rowText}>{row.label}</Text>
+                <Text style={styles.rowText}>
+                  {row.label}
+                </Text>
+
+                {row.highlight && (
+                  <View style={styles.premiumBadge}>
+                    <Ionicons
+                      name="sparkles"
+                      size={12}
+                      color="#9A7100"
+                    />
+                    <Text style={styles.premiumText}>
+                      PREMIUM
+                    </Text>
+                  </View>
+                )}
 
                 <Ionicons
                   name="chevron-forward"
@@ -187,26 +208,36 @@ export default function SettingsScreen() {
         </View>
       ))}
 
+      {/* PREFERENCES CARD */}
+      <Text style={styles.sectionTitle}>
+        Personal preferences
+      </Text>
+
       <View style={styles.card}>
         <View style={styles.toggleRow}>
           <View style={styles.iconTile}>
             <Ionicons
               name="moon-outline"
-              size={20}
-              color={theme.cyan}
+              size={21}
+              color={theme.purple}
             />
           </View>
 
-          <Text style={styles.rowText}>Dark mode</Text>
+          <View style={styles.toggleInfo}>
+            <Text style={styles.rowText}>Dark mode</Text>
+            <Text style={styles.description}>
+              Choose your preferred appearance
+            </Text>
+          </View>
 
           <Switch
             value={darkMode}
             onValueChange={setDarkMode}
             trackColor={{
-              false: theme.border,
+              false: theme.borderStrong,
               true: theme.cyan,
             }}
-            thumbColor="#FFFFFF"
+            thumbColor={theme.panel}
             ios_backgroundColor={theme.border}
           />
         </View>
@@ -229,13 +260,15 @@ export default function SettingsScreen() {
           onPress={() => openRow('Switch account')}
         />
 
+        {/* SIGN OUT */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"
           disabled={signingOut}
           style={({ pressed }) => [
             styles.row,
-            pressed && styles.pressedRow,
+            styles.signOutRow,
+            pressed && styles.pressedButton,
           ]}
           onPress={() =>
             Alert.alert(
@@ -256,11 +289,14 @@ export default function SettingsScreen() {
         >
           <View style={styles.dangerTile}>
             {signingOut ? (
-              <ActivityIndicator size="small" color={theme.danger} />
+              <ActivityIndicator
+                size="small"
+                color={theme.danger}
+              />
             ) : (
               <Ionicons
                 name="log-out-outline"
-                size={20}
+                size={21}
                 color={theme.danger}
               />
             )}
@@ -273,14 +309,25 @@ export default function SettingsScreen() {
           <Ionicons
             name="chevron-forward"
             size={19}
-            color={theme.muted}
+            color={theme.danger}
           />
         </Pressable>
       </View>
 
-      <Text style={styles.footer}>
-        BRITUME · Vortex of Possibilities
-      </Text>
+      {/* FOOTER */}
+      <View style={styles.footerCard}>
+        <View style={styles.footerLogo}>
+          <Text style={styles.footerLetter}>B</Text>
+        </View>
+
+        <Text style={styles.footerBrand}>BRITUME</Text>
+        <Text style={styles.footerText}>
+          Vortex of Possibilities
+        </Text>
+        <Text style={styles.version}>
+          Your world. Your possibilities.
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -296,6 +343,7 @@ function ActionRow({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
       style={({ pressed }) => [
         styles.row,
         pressed && styles.pressedRow,
@@ -303,7 +351,11 @@ function ActionRow({
       onPress={onPress}
     >
       <View style={styles.iconTile}>
-        <Ionicons name={icon} size={20} color={theme.cyan} />
+        <Ionicons
+          name={icon}
+          size={21}
+          color={theme.cyan}
+        />
       </View>
 
       <Text style={styles.rowText}>{label}</Text>
@@ -324,55 +376,55 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 13,
-    paddingTop: 13,
-    paddingBottom: 35,
+    paddingHorizontal: 15,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 23,
+    marginBottom: 25,
   },
 
   brandMark: {
-    width: 49,
-    height: 49,
-    borderRadius: 17,
+    width: 51,
+    height: 51,
+    borderRadius: 18,
     backgroundColor: theme.cyan,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: theme.panel,
     shadowColor: theme.blueDark,
-    shadowOffset: { width: 3, height: 5 },
+    shadowOffset: { width: 5, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 7,
-    elevation: 7,
+    shadowRadius: 9,
+    elevation: 8,
   },
 
   brandLetter: {
     color: '#FFFFFF',
-    fontSize: 27,
+    fontSize: 28,
     fontWeight: '900',
   },
 
   brandText: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 11,
   },
 
   brandName: {
     color: theme.text,
     fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
 
   tagline: {
     color: theme.muted,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   byline: {
@@ -381,69 +433,73 @@ const styles = StyleSheet.create({
   },
 
   pageBadge: {
-    backgroundColor: theme.panel,
-    borderRadius: 14,
+    backgroundColor: theme.clayBlue,
+    borderRadius: 15,
     borderWidth: 1,
-    borderColor: theme.border,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 5,
-    elevation: 3,
+    borderColor: theme.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowColor: theme.shadowDark,
+    shadowOffset: { width: 4, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    elevation: 5,
   },
 
   pageTitle: {
     color: theme.text,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   moreButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: theme.panel,
+    width: 41,
+    height: 41,
+    borderRadius: 15,
+    backgroundColor: theme.clay,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 7,
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: theme.border,
-    elevation: 3,
+    shadowColor: theme.shadowDark,
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.17,
+    shadowRadius: 6,
+    elevation: 5,
   },
 
   section: {
-    marginBottom: 19,
+    marginBottom: 21,
   },
 
   sectionTitle: {
     color: theme.text,
     fontSize: 16,
     fontWeight: '900',
-    marginBottom: 10,
-    marginLeft: 4,
+    marginBottom: 11,
+    marginLeft: 5,
   },
 
   card: {
     backgroundColor: theme.clay,
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 21,
-    overflow: 'hidden',
-    marginBottom: 13,
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 5, height: 7 },
-    shadowOpacity: 0.19,
-    shadowRadius: 10,
-    elevation: 6,
+    borderColor: theme.glassBorder,
+    borderRadius: 23,
+    marginBottom: 18,
+    paddingVertical: 5,
+    shadowColor: theme.shadowDark,
+    shadowOffset: { width: 7, height: 8 },
+    shadowOpacity: 0.20,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   row: {
-    minHeight: 59,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     paddingVertical: 9,
   },
 
@@ -453,23 +509,28 @@ const styles = StyleSheet.create({
   },
 
   pressedRow: {
-    backgroundColor: theme.panel2,
-    transform: [{ scale: 0.99 }],
+    backgroundColor: theme.clayPressed,
+    transform: [{ scale: 0.985 }],
+  },
+
+  pressedButton: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.85,
   },
 
   iconTile: {
-    width: 37,
-    height: 37,
-    borderRadius: 13,
+    width: 39,
+    height: 39,
+    borderRadius: 14,
     backgroundColor: theme.clayBlue,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
     shadowColor: theme.shadow,
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.13,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 3, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    elevation: 4,
   },
 
   purpleTile: {
@@ -477,50 +538,136 @@ const styles = StyleSheet.create({
   },
 
   goldTile: {
-    backgroundColor: '#FFF6D8',
+    backgroundColor: '#FFF5D4',
+    borderWidth: 1,
+    borderColor: '#FFE49A',
   },
 
   dangerTile: {
-    width: 37,
-    height: 37,
-    borderRadius: 13,
+    width: 39,
+    height: 39,
+    borderRadius: 14,
     backgroundColor: '#FFF0F1',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
+    shadowColor: '#D64545',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   rowText: {
     flex: 1,
     color: theme.text,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   highlightRow: {
-    backgroundColor: theme.clayPurple,
+    backgroundColor: '#FFFCF1',
+    borderRadius: 15,
+    marginHorizontal: 5,
+    marginVertical: 3,
+  },
+
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0B9',
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 9,
+    marginRight: 8,
+  },
+
+  premiumText: {
+    color: '#9A7100',
+    fontSize: 9,
+    fontWeight: '900',
+    marginLeft: 3,
   },
 
   toggleRow: {
-    minHeight: 60,
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
+  },
+
+  toggleInfo: {
+    flex: 1,
+  },
+
+  description: {
+    color: theme.muted,
+    fontSize: 10,
+    marginTop: 3,
+  },
+
+  signOutRow: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    marginTop: 4,
   },
 
   dangerText: {
     color: theme.danger,
   },
 
-  footer: {
+  footerCard: {
+    backgroundColor: theme.clayBlue,
+    borderWidth: 1,
+    borderColor: theme.glassBorder,
+    borderRadius: 22,
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 3,
+    shadowColor: theme.shadowDark,
+    shadowOffset: { width: 5, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 9,
+    elevation: 5,
+  },
+
+  footerLogo: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    backgroundColor: theme.cyan,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    elevation: 5,
+  },
+
+  footerLetter: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+
+  footerBrand: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+
+  footerText: {
     color: theme.muted,
     fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 8,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+
+  version: {
+    color: theme.muted,
+    fontSize: 10,
+    marginTop: 9,
   },
 });
