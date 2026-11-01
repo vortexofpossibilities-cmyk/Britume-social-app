@@ -59,7 +59,7 @@ const sections: { title: string; rows: RowItem[] }[] = [
 ];
 
 export default function SettingsScreen() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const openRow = (label: string) => {
@@ -87,8 +87,6 @@ export default function SettingsScreen() {
         return;
       }
 
-      // The AuthProvider should receive the signed-out event.
-      // Replace this route if your project uses a different login path.
       router.replace('/(auth)/sign-in');
     } catch (error) {
       Alert.alert(
@@ -106,6 +104,7 @@ export default function SettingsScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
         <View style={styles.brandMark}>
@@ -118,22 +117,28 @@ export default function SettingsScreen() {
           <Text style={styles.byline}>by brilliant mere</Text>
         </View>
 
-        <Text style={styles.pageTitle}>Settings</Text>
+        <View style={styles.pageBadge}>
+          <Text style={styles.pageTitle}>Settings</Text>
+        </View>
 
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="More options"
-          style={styles.moreButton}
+          style={({ pressed }) => [
+            styles.moreButton,
+            pressed && styles.pressed,
+          ]}
           onPress={() => router.push('/(tabs)/more')}
         >
           <Ionicons
             name="ellipsis-vertical"
-            size={23}
+            size={22}
             color={theme.text}
           />
         </Pressable>
       </View>
 
-      {sections.map((section) => (
+      {sections.map((section, sectionIndex) => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
 
@@ -142,19 +147,35 @@ export default function SettingsScreen() {
               <Pressable
                 key={row.label}
                 onPress={() => openRow(row.label)}
-                style={[
+                style={({ pressed }) => [
                   styles.row,
                   row.highlight && styles.highlightRow,
                   index < section.rows.length - 1 && styles.rowDivider,
+                  pressed && styles.pressedRow,
                 ]}
               >
-                <Ionicons
-                  name={row.icon}
-                  size={22}
-                  color={theme.cyan}
-                  style={styles.rowIcon}
-                />
+                <View
+                  style={[
+                    styles.iconTile,
+                    sectionIndex === 1 && styles.purpleTile,
+                    row.highlight && styles.goldTile,
+                  ]}
+                >
+                  <Ionicons
+                    name={row.icon}
+                    size={20}
+                    color={
+                      row.highlight
+                        ? '#B98500'
+                        : sectionIndex === 1
+                          ? theme.purple
+                          : theme.cyan
+                    }
+                  />
+                </View>
+
                 <Text style={styles.rowText}>{row.label}</Text>
+
                 <Ionicons
                   name="chevron-forward"
                   size={19}
@@ -168,13 +189,16 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <View style={styles.toggleRow}>
-          <Ionicons
-            name="moon-outline"
-            size={22}
-            color={theme.cyan}
-            style={styles.rowIcon}
-          />
+          <View style={styles.iconTile}>
+            <Ionicons
+              name="moon-outline"
+              size={20}
+              color={theme.cyan}
+            />
+          </View>
+
           <Text style={styles.rowText}>Dark mode</Text>
+
           <Switch
             value={darkMode}
             onValueChange={setDarkMode}
@@ -192,11 +216,13 @@ export default function SettingsScreen() {
           icon="trash-outline"
           onPress={() => openRow('Clear space')}
         />
+
         <ActionRow
           label="Early access"
           icon="flask-outline"
           onPress={() => openRow('Early access')}
         />
+
         <ActionRow
           label="Switch account"
           icon="repeat-outline"
@@ -207,7 +233,10 @@ export default function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sign out"
           disabled={signingOut}
-          style={styles.row}
+          style={({ pressed }) => [
+            styles.row,
+            pressed && styles.pressedRow,
+          ]}
           onPress={() =>
             Alert.alert(
               'Sign out',
@@ -225,24 +254,22 @@ export default function SettingsScreen() {
             )
           }
         >
-          {signingOut ? (
-            <ActivityIndicator
-              size="small"
-              color={theme.danger}
-              style={styles.rowIcon}
-            />
-          ) : (
-            <Ionicons
-              name="log-out-outline"
-              size={22}
-              color={theme.danger}
-              style={styles.rowIcon}
-            />
-          )}
+          <View style={styles.dangerTile}>
+            {signingOut ? (
+              <ActivityIndicator size="small" color={theme.danger} />
+            ) : (
+              <Ionicons
+                name="log-out-outline"
+                size={20}
+                color={theme.danger}
+              />
+            )}
+          </View>
 
           <Text style={[styles.rowText, styles.dangerText]}>
             {signingOut ? 'Signing out…' : 'Sign out'}
           </Text>
+
           <Ionicons
             name="chevron-forward"
             size={19}
@@ -250,6 +277,10 @@ export default function SettingsScreen() {
           />
         </Pressable>
       </View>
+
+      <Text style={styles.footer}>
+        BRITUME · Vortex of Possibilities
+      </Text>
     </ScrollView>
   );
 }
@@ -264,14 +295,19 @@ function ActionRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={styles.row} onPress={onPress}>
-      <Ionicons
-        name={icon}
-        size={22}
-        color={theme.cyan}
-        style={styles.rowIcon}
-      />
+    <Pressable
+      style={({ pressed }) => [
+        styles.row,
+        pressed && styles.pressedRow,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.iconTile}>
+        <Ionicons name={icon} size={20} color={theme.cyan} />
+      </View>
+
       <Text style={styles.rowText}>{label}</Text>
+
       <Ionicons
         name="chevron-forward"
         size={19}
@@ -286,106 +322,205 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
+
   content: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 24,
+    paddingHorizontal: 13,
+    paddingTop: 13,
+    paddingBottom: 35,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 19,
+    marginBottom: 23,
   },
+
   brandMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 49,
+    height: 49,
+    borderRadius: 17,
     backgroundColor: theme.cyan,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: theme.panel,
+    shadowColor: theme.blueDark,
+    shadowOffset: { width: 3, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 7,
+    elevation: 7,
   },
+
   brandLetter: {
     color: '#FFFFFF',
-    fontSize: 25,
+    fontSize: 27,
     fontWeight: '900',
   },
+
   brandText: {
     flex: 1,
-    marginLeft: 9,
+    marginLeft: 10,
   },
+
   brandName: {
     color: theme.text,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
+    letterSpacing: 1,
   },
+
   tagline: {
     color: theme.muted,
     fontSize: 10,
+    fontWeight: '600',
   },
+
   byline: {
     color: theme.muted,
     fontSize: 10,
   },
+
+  pageBadge: {
+    backgroundColor: theme.panel,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+
   pageTitle: {
     color: theme.text,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
-    marginLeft: 5,
   },
+
   moreButton: {
-    padding: 5,
-    marginLeft: 2,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: theme.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 7,
+    borderWidth: 1,
+    borderColor: theme.border,
+    elevation: 3,
   },
+
   section: {
     marginBottom: 19,
   },
+
   sectionTitle: {
     color: theme.text,
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 9,
-    marginLeft: 2,
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 10,
+    marginLeft: 4,
   },
+
   card: {
-    backgroundColor: theme.panel,
+    backgroundColor: theme.clay,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 18,
+    borderRadius: 21,
     overflow: 'hidden',
     marginBottom: 13,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 5, height: 7 },
+    shadowOpacity: 0.19,
+    shadowRadius: 10,
+    elevation: 6,
   },
+
   row: {
-    minHeight: 49,
+    minHeight: 59,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 13,
-    paddingVertical: 10,
+    paddingVertical: 9,
   },
+
   rowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
-  rowIcon: {
-    width: 29,
-    marginRight: 8,
+
+  pressedRow: {
+    backgroundColor: theme.panel2,
+    transform: [{ scale: 0.99 }],
   },
+
+  iconTile: {
+    width: 37,
+    height: 37,
+    borderRadius: 13,
+    backgroundColor: theme.clayBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.13,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  purpleTile: {
+    backgroundColor: theme.clayPurple,
+  },
+
+  goldTile: {
+    backgroundColor: '#FFF6D8',
+  },
+
+  dangerTile: {
+    width: 37,
+    height: 37,
+    borderRadius: 13,
+    backgroundColor: '#FFF0F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
   rowText: {
     flex: 1,
     color: theme.text,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
+
   highlightRow: {
-    backgroundColor: theme.panel2,
+    backgroundColor: theme.clayPurple,
   },
+
   toggleRow: {
-    minHeight: 52,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 13,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
   },
+
   dangerText: {
     color: theme.danger,
+  },
+
+  footer: {
+    color: theme.muted,
+    fontSize: 11,
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 8,
   },
 });
