@@ -126,7 +126,7 @@ export default function SettingsScreen() {
           accessibilityLabel="More options"
           style={({ pressed }) => [
             styles.moreButton,
-            pressed && styles.pressed,
+            pressed && styles.pressedRow,
           ]}
           onPress={() => router.push('/(tabs)/more')}
         >
