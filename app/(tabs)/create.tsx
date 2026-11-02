@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { supabase } from '../../src/lib/supabase';
-import { theme } from '../../src/lib/theme';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 const BUCKET = 'britume-media';
 const MAX_FILES = 10;
@@ -36,6 +36,8 @@ type PostKind = 'text' | 'photo' | 'video' | 'reel';
 
 export default function Create() {
   const { session } = useAuth();
+  const { theme } = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [content, setContent] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -147,12 +149,8 @@ export default function Create() {
     let createdPostId: string | null = null;
 
     try {
-      const finalType: PostKind =
-        media.length === 0
-          ? 'text'
-          : postKind;
+      const finalType: PostKind = media.length === 0 ? 'text' : postKind;
 
-      // Create the post first.
       const { data: post, error: postError } = await supabase
         .from('posts')
         .insert({
@@ -168,7 +166,6 @@ export default function Create() {
 
       createdPostId = post.id;
 
-      // Upload selected files to the user's private storage folder.
       const mediaRows = [];
 
       for (let index = 0; index < media.length; index++) {
@@ -180,7 +177,9 @@ export default function Create() {
 
         const safeExtension = /^[a-z0-9]{1,8}$/.test(extension)
           ? extension
-          : item.mediaType === 'image' ? 'jpg' : 'mp4';
+          : item.mediaType === 'image'
+            ? 'jpg'
+            : 'mp4';
 
         const path =
           `${session.user.id}/${post.id}/${Date.now()}-${index}.${safeExtension}`;
@@ -209,7 +208,6 @@ export default function Create() {
         });
       }
 
-      // Save the media records.
       if (mediaRows.length > 0) {
         const { error: mediaError } = await supabase
           .from('post_media')
@@ -226,12 +224,10 @@ export default function Create() {
 
       router.replace('/(tabs)');
     } catch (error: any) {
-      // Remove uploaded files if publishing did not complete.
       if (uploadedPaths.length > 0) {
         await supabase.storage.from(BUCKET).remove(uploadedPaths);
       }
 
-      // Remove the incomplete post.
       if (createdPostId) {
         await supabase.from('posts').delete().eq('id', createdPostId);
       }
@@ -365,159 +361,164 @@ export default function Create() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  container: {
-    padding: 18,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.text,
-  },
-  subtitle: {
-    color: theme.muted,
-    marginTop: 4,
-  },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: theme.cyan,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 29,
-    fontWeight: '900',
-  },
-  card: {
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 20,
-    padding: 17,
-  },
-  label: {
-    color: theme.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  input: {
-    minHeight: 125,
-    backgroundColor: theme.panel2,
-    borderRadius: 14,
-    padding: 14,
-    color: theme.text,
-    fontSize: 15,
-  },
-  counter: {
-    textAlign: 'right',
-    color: theme.muted,
-    marginTop: 7,
-    marginBottom: 22,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 9,
-    marginBottom: 18,
-  },
-  mediaButton: {
-    flex: 1,
-    minHeight: 76,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.panel2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  mediaText: {
-    color: theme.text,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  selectedTitle: {
-    color: theme.text,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  previewGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 14,
-  },
-  preview: {
-    width: '47%',
-    height: 145,
-    borderRadius: 13,
-    overflow: 'hidden',
-    backgroundColor: theme.panel2,
-    position: 'relative',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  videoPreview: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-  },
-  videoName: {
-    color: theme.text,
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: 7,
-    right: 7,
-    width: 27,
-    height: 27,
-    borderRadius: 14,
-    backgroundColor: '#D64545',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  info: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-  publishButton: {
-    minHeight: 54,
-    borderRadius: 15,
-    backgroundColor: theme.cyan,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-  },
-  publishText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-});
+function createStyles(theme: any) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+    container: {
+      padding: 18,
+      paddingBottom: 40,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 22,
+    },
+    heading: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: theme.text,
+    },
+    subtitle: {
+      color: theme.muted,
+      marginTop: 4,
+    },
+    logo: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: theme.cyan,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    logoText: {
+      color: '#FFFFFF',
+      fontSize: 29,
+      fontWeight: '900',
+    },
+    card: {
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 20,
+      padding: 17,
+      ...theme.clayShadow,
+    },
+    label: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 10,
+    },
+    input: {
+      minHeight: 125,
+      backgroundColor: theme.panel2,
+      borderRadius: 14,
+      padding: 14,
+      color: theme.text,
+      fontSize: 15,
+    },
+    counter: {
+      textAlign: 'right',
+      color: theme.muted,
+      marginTop: 7,
+      marginBottom: 22,
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 9,
+      marginBottom: 18,
+    },
+    mediaButton: {
+      flex: 1,
+      minHeight: 76,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.panel2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+    },
+    mediaText: {
+      color: theme.text,
+      fontWeight: '700',
+      fontSize: 12,
+    },
+    selectedTitle: {
+      color: theme.text,
+      fontWeight: '700',
+      marginBottom: 12,
+    },
+    previewGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 14,
+    },
+    preview: {
+      width: '47%',
+      height: 145,
+      borderRadius: 13,
+      overflow: 'hidden',
+      backgroundColor: theme.panel2,
+      position: 'relative',
+    },
+    previewImage: {
+      width: '100%',
+      height: '100%',
+    },
+    videoPreview: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 8,
+    },
+    videoName: {
+      color: theme.text,
+      fontSize: 11,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    removeButton: {
+      position: 'absolute',
+      top: 7,
+      right: 7,
+      width: 27,
+      height: 27,
+      borderRadius: 14,
+      backgroundColor: '#D64545',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    info: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 5,
+      marginBottom: 18,
+    },
+    publishButton: {
+      minHeight: 54,
+      borderRadius: 15,
+      backgroundColor: theme.cyan,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+      ...theme.clayRaised,
+    },
+    publishText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    disabled: {
+      opacity: 0.6,
+    },
+  });
+}
