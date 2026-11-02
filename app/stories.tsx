@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,7 +33,7 @@ import {
 } from '../src/lib/posts';
 
 import { supabase } from '../src/lib/supabase';
-import { theme } from '../src/lib/theme';
+import { useAppTheme } from '../src/contexts/ThemeContext';
 
 type Interaction = {
   liked: boolean;
@@ -41,7 +42,15 @@ type Interaction = {
   commentsCount: number;
 };
 
-function VideoPlayer({ uri }: { uri: string }) {
+type ScreenStyles = ReturnType<typeof createStyles>;
+
+function VideoPlayer({
+  uri,
+  styles,
+}: {
+  uri: string;
+  styles: ScreenStyles;
+}) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
   });
@@ -63,14 +72,21 @@ function ActionButton({
   label,
   onPress,
   active = false,
+  theme,
+  styles,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   onPress: () => void;
   active?: boolean;
+  theme: any;
+  styles: ScreenStyles;
 }) {
   return (
-    <Pressable style={styles.actionButton} onPress={onPress}>
+    <Pressable
+      style={styles.actionButton}
+      onPress={onPress}
+    >
       <View
         style={[
           styles.actionIcon,
@@ -80,7 +96,7 @@ function ActionButton({
         <Ionicons
           name={icon}
           size={19}
-          color={active ? theme.blueDark : theme.cyan}
+          color={active ? theme.purple : theme.cyan}
         />
       </View>
 
@@ -95,10 +111,14 @@ function SectionHeading({
   title,
   subtitle,
   icon,
+  theme,
+  styles,
 }: {
   title: string;
   subtitle: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
+  theme: any;
+  styles: ScreenStyles;
 }) {
   return (
     <View style={styles.sectionHeading}>
@@ -114,7 +134,15 @@ function SectionHeading({
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+function EmptyState({
+  text,
+  theme,
+  styles,
+}: {
+  text: string;
+  theme: any;
+  styles: ScreenStyles;
+}) {
   return (
     <View style={styles.emptyCard}>
       <Ionicons
@@ -129,6 +157,12 @@ function EmptyState({ text }: { text: string }) {
 
 export default function VideosScreen() {
   const { session } = useAuth();
+  const { theme } = useAppTheme();
+
+  const styles = useMemo(
+    () => createStyles(theme),
+    [theme]
+  );
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [interactions, setInteractions] = useState<
@@ -261,13 +295,16 @@ export default function VideosScreen() {
   const markBusy = (id: string, busy: boolean) => {
     setBusyIds(current =>
       busy
-        ? [...current, id]
+        ? current.includes(id)
+          ? current
+          : [...current, id]
         : current.filter(item => item !== id)
     );
   };
 
   const openComments = async (postId: string) => {
     setActivePostId(postId);
+    setComments([]);
     setCommentsLoading(true);
 
     try {
@@ -285,7 +322,10 @@ export default function VideosScreen() {
 
   const sendComment = async () => {
     if (!session) {
-      Alert.alert('Sign in required', 'Please sign in to comment.');
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to comment.'
+      );
       return;
     }
 
@@ -297,7 +337,7 @@ export default function VideosScreen() {
       await createComment(
         activePostId,
         session.user.id,
-        commentText
+        commentText.trim()
       );
 
       setCommentText('');
@@ -327,7 +367,10 @@ export default function VideosScreen() {
 
   const saveVideo = async (post: FeedPost) => {
     if (!session) {
-      Alert.alert('Sign in required', 'Sign in to save videos.');
+      Alert.alert(
+        'Sign in required',
+        'Sign in to save videos.'
+      );
       return;
     }
 
@@ -413,10 +456,11 @@ export default function VideosScreen() {
 
         if (error) throw error;
 
-        setFollowing(current => [
-          ...current,
-          post.user_id,
-        ]);
+        setFollowing(current =>
+          current.includes(post.user_id)
+            ? current
+            : [...current, post.user_id]
+        );
       }
     } catch (error: any) {
       Alert.alert(
@@ -459,11 +503,6 @@ export default function VideosScreen() {
 
     try {
       await Linking.openURL(media.url);
-
-      Alert.alert(
-        'Video opened',
-        'Your video has opened. Use the browser or video player download option if available.'
-      );
     } catch (error: any) {
       Alert.alert(
         'Could not open video',
@@ -480,7 +519,7 @@ export default function VideosScreen() {
       item => item.media_type === 'video'
     );
 
-    if (!media) return null;
+    if (!media?.url) return null;
 
     const author =
       post.author?.display_name ||
@@ -488,9 +527,7 @@ export default function VideosScreen() {
       'BRITUME member';
 
     const state = interactions[post.id];
-
     const isFollowing = following.includes(post.user_id);
-
     const busy = busyIds.includes(post.id);
 
     return (
@@ -501,12 +538,16 @@ export default function VideosScreen() {
               <ActionButton
                 icon="download-outline"
                 label="Download"
+                theme={theme}
+                styles={styles}
                 onPress={() => void downloadVideo(post)}
               />
 
               <ActionButton
                 icon="share-social-outline"
                 label="Share"
+                theme={theme}
+                styles={styles}
                 onPress={() => void shareVideo(post)}
               />
 
@@ -518,12 +559,16 @@ export default function VideosScreen() {
                 }
                 label="Save"
                 active={!!state?.saved}
+                theme={theme}
+                styles={styles}
                 onPress={() => void saveVideo(post)}
               />
 
               <ActionButton
                 icon="chatbubble-ellipses-outline"
                 label="Comment"
+                theme={theme}
+                styles={styles}
                 onPress={() => void openComments(post.id)}
               />
 
@@ -535,12 +580,17 @@ export default function VideosScreen() {
                 }
                 label={isFollowing ? 'Subscribed' : 'Subscribe'}
                 active={isFollowing}
+                theme={theme}
+                styles={styles}
                 onPress={() => void subscribeToCreator(post)}
               />
             </View>
 
             <View style={styles.reelContent}>
-              <VideoPlayer uri={media.url} />
+              <VideoPlayer
+                uri={media.url}
+                styles={styles}
+              />
 
               <Text style={styles.creatorName}>
                 {author}
@@ -595,7 +645,10 @@ export default function VideosScreen() {
               </Pressable>
             </View>
 
-            <VideoPlayer uri={media.url} />
+            <VideoPlayer
+              uri={media.url}
+              styles={styles}
+            />
 
             {!!post.content && (
               <Text style={styles.videoCaption}>
@@ -607,12 +660,16 @@ export default function VideosScreen() {
               <ActionButton
                 icon="download-outline"
                 label="Download"
+                theme={theme}
+                styles={styles}
                 onPress={() => void downloadVideo(post)}
               />
 
               <ActionButton
                 icon="chatbubble-ellipses-outline"
                 label={String(state?.commentsCount || 0)}
+                theme={theme}
+                styles={styles}
                 onPress={() => void openComments(post.id)}
               />
 
@@ -624,6 +681,8 @@ export default function VideosScreen() {
                 }
                 label="Save"
                 active={!!state?.saved}
+                theme={theme}
+                styles={styles}
                 onPress={() => void saveVideo(post)}
               />
 
@@ -635,6 +694,8 @@ export default function VideosScreen() {
                 }
                 label={isFollowing ? 'Subscribed' : 'Subscribe'}
                 active={isFollowing}
+                theme={theme}
+                styles={styles}
                 onPress={() => void subscribeToCreator(post)}
               />
             </View>
@@ -764,6 +825,8 @@ export default function VideosScreen() {
                   title="Reels"
                   subtitle="Short moments from creators"
                   icon="play-circle"
+                  theme={theme}
+                  styles={styles}
                 />
 
                 {reels.length > 0 ? (
@@ -777,6 +840,8 @@ export default function VideosScreen() {
                         ? 'No liked Reels found.'
                         : 'No Reels yet. Upload your first Reel!'
                     }
+                    theme={theme}
+                    styles={styles}
                   />
                 )}
 
@@ -784,6 +849,8 @@ export default function VideosScreen() {
                   title="Videos"
                   subtitle="Videos from the BRITUME community"
                   icon="videocam"
+                  theme={theme}
+                  styles={styles}
                 />
 
                 {videos.length > 0 ? (
@@ -797,6 +864,8 @@ export default function VideosScreen() {
                         ? 'No liked videos found.'
                         : 'No videos yet. Share your first video!'
                     }
+                    theme={theme}
+                    styles={styles}
                   />
                 )}
 
@@ -804,6 +873,8 @@ export default function VideosScreen() {
                   search.trim().length > 0 && (
                     <EmptyState
                       text="No videos match your search. Try another name or keyword."
+                      theme={theme}
+                      styles={styles}
                     />
                   )}
               </>
@@ -843,7 +914,9 @@ export default function VideosScreen() {
         >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Comments</Text>
+              <Text style={styles.modalTitle}>
+                Comments
+              </Text>
 
               <Pressable
                 onPress={() => setActivePostId(null)}
@@ -895,7 +968,11 @@ export default function VideosScreen() {
               />
 
               <Pressable
-                style={styles.sendButton}
+                style={[
+                  styles.sendButton,
+                  (!commentText.trim() || sendingComment) &&
+                    styles.sendButtonDisabled,
+                ]}
                 onPress={() => void sendComment()}
                 disabled={
                   sendingComment ||
@@ -920,391 +997,397 @@ export default function VideosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
+function createStyles(theme: any) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
 
-  content: {
-    padding: 15,
-    paddingBottom: 45,
-  },
+    content: {
+      padding: 15,
+      paddingBottom: 45,
+    },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    marginBottom: 20,
-  },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      marginBottom: 20,
+    },
 
-  logo: {
-    width: 49,
-    height: 49,
-    borderRadius: 17,
-    backgroundColor: theme.clayBlue,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    logo: {
+      width: 49,
+      height: 49,
+      borderRadius: 17,
+      backgroundColor: theme.clayBlue,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  logoText: {
-    color: theme.cyan,
-    fontSize: 30,
-    fontWeight: '900',
-  },
+    logoText: {
+      color: theme.cyan,
+      fontSize: 30,
+      fontWeight: '900',
+    },
 
-  title: {
-    color: theme.text,
-    fontSize: 21,
-    fontWeight: '900',
-  },
+    title: {
+      color: theme.text,
+      fontSize: 21,
+      fontWeight: '900',
+    },
 
-  subtitle: {
-    color: theme.muted,
-    fontSize: 11,
-    marginTop: 3,
-  },
+    subtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      marginTop: 3,
+    },
 
-  headerButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
-    backgroundColor: theme.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    headerButton: {
+      width: 43,
+      height: 43,
+      borderRadius: 15,
+      backgroundColor: theme.panel,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    padding: 10,
-    borderRadius: 22,
-    backgroundColor: theme.clayBlue,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    marginBottom: 23,
-    ...theme.clayShadow,
-  },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      padding: 10,
+      borderRadius: 22,
+      backgroundColor: theme.clayBlue,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 23,
+      ...theme.clayShadow,
+    },
 
-  searchBox: {
-    flex: 1,
-    minWidth: 80,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-  },
+    searchBox: {
+      flex: 1,
+      minWidth: 80,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: theme.panel,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 9,
+    },
 
-  searchInput: {
-    flex: 1,
-    color: theme.text,
-    fontSize: 11,
-    paddingLeft: 7,
-    paddingVertical: 8,
-  },
+    searchInput: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 11,
+      paddingLeft: 7,
+      paddingVertical: 8,
+    },
 
-  toolButton: {
-    minWidth: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 5,
-    borderRadius: 13,
-  },
+    toolButton: {
+      minWidth: 46,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+      paddingVertical: 5,
+      borderRadius: 13,
+    },
 
-  toolActive: {
-    backgroundColor: '#FFFFFF',
-    ...theme.clayPressedStyle,
-  },
+    toolActive: {
+      backgroundColor: theme.panel,
+      ...theme.clayPressedStyle,
+    },
 
-  toolLabel: {
-    color: theme.text,
-    fontSize: 9,
-    fontWeight: '800',
-    marginTop: 3,
-  },
+    toolLabel: {
+      color: theme.text,
+      fontSize: 9,
+      fontWeight: '800',
+      marginTop: 3,
+    },
 
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 13,
-  },
+    sectionHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 8,
+      marginBottom: 13,
+    },
 
-  sectionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    sectionIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  sectionTitle: {
-    color: theme.text,
-    fontSize: 20,
-    fontWeight: '900',
-  },
+    sectionTitle: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: '900',
+    },
 
-  sectionSubtitle: {
-    color: theme.muted,
-    fontSize: 11,
-    marginTop: 2,
-  },
+    sectionSubtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      marginTop: 2,
+    },
 
-  videoCard: {
-    padding: 11,
-    borderRadius: 23,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    marginBottom: 19,
-    ...theme.clayShadow,
-  },
+    videoCard: {
+      padding: 11,
+      borderRadius: 23,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 19,
+      ...theme.clayShadow,
+    },
 
-  reelLayout: {
-    flexDirection: 'row',
-    gap: 8,
-    minHeight: 260,
-  },
+    reelLayout: {
+      flexDirection: 'row',
+      gap: 8,
+      minHeight: 260,
+    },
 
-  actionRail: {
-    width: 58,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
+    actionRail: {
+      width: 58,
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      paddingVertical: 4,
+    },
 
-  actionButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 49,
-    minHeight: 48,
-  },
+    actionButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 49,
+      minHeight: 48,
+    },
 
-  actionIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 13,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    actionIcon: {
+      width: 35,
+      height: 35,
+      borderRadius: 13,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  actionIconActive: {
-    backgroundColor: theme.clayPurple,
-  },
+    actionIconActive: {
+      backgroundColor: theme.clayPurple,
+    },
 
-  actionLabel: {
-    color: theme.muted,
-    fontSize: 8,
-    fontWeight: '800',
-    marginTop: 4,
-    textAlign: 'center',
-  },
+    actionLabel: {
+      color: theme.muted,
+      fontSize: 8,
+      fontWeight: '800',
+      marginTop: 4,
+      textAlign: 'center',
+    },
 
-  reelContent: {
-    flex: 1,
-    minWidth: 0,
-  },
+    reelContent: {
+      flex: 1,
+      minWidth: 0,
+    },
 
-  player: {
-    width: '100%',
-    height: 270,
-    borderRadius: 17,
-    overflow: 'hidden',
-    backgroundColor: '#D5E6F5',
-  },
+    player: {
+      width: '100%',
+      height: 270,
+      borderRadius: 17,
+      overflow: 'hidden',
+      backgroundColor: theme.panel2,
+    },
 
-  creatorName: {
-    color: theme.text,
-    fontSize: 13,
-    fontWeight: '900',
-    marginTop: 9,
-  },
+    creatorName: {
+      color: theme.text,
+      fontSize: 13,
+      fontWeight: '900',
+      marginTop: 9,
+    },
 
-  caption: {
-    color: theme.muted,
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 4,
-  },
+    caption: {
+      color: theme.muted,
+      fontSize: 11,
+      lineHeight: 16,
+      marginTop: 4,
+    },
 
-  videoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginBottom: 10,
-  },
+    videoHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+      marginBottom: 10,
+    },
 
-  avatar: {
-    width: 37,
-    height: 37,
-    borderRadius: 14,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    avatar: {
+      width: 37,
+      height: 37,
+      borderRadius: 14,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  date: {
-    color: theme.muted,
-    fontSize: 10,
-    marginTop: 2,
-  },
+    date: {
+      color: theme.muted,
+      fontSize: 10,
+      marginTop: 2,
+    },
 
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    headerIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 13,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  videoCaption: {
-    color: theme.text,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 10,
-  },
+    videoCaption: {
+      color: theme.text,
+      fontSize: 13,
+      lineHeight: 19,
+      marginTop: 10,
+    },
 
-  videoActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
+    videoActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      marginTop: 10,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
 
-  loading: {
-    alignItems: 'center',
-    padding: 35,
-    gap: 10,
-  },
+    loading: {
+      alignItems: 'center',
+      padding: 35,
+      gap: 10,
+    },
 
-  muted: {
-    color: theme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-    padding: 12,
-  },
+    muted: {
+      color: theme.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      padding: 12,
+    },
 
-  emptyCard: {
-    minHeight: 105,
-    borderRadius: 19,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 17,
-    marginBottom: 17,
-    gap: 8,
-    ...theme.clayRaised,
-  },
+    emptyCard: {
+      minHeight: 105,
+      borderRadius: 19,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 17,
+      marginBottom: 17,
+      gap: 8,
+      ...theme.clayRaised,
+    },
 
-  emptyText: {
-    color: theme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
+    emptyText: {
+      color: theme.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
 
-  refreshButton: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    padding: 13,
-  },
+    refreshButton: {
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      padding: 13,
+    },
 
-  refreshText: {
-    color: theme.cyan,
-    fontWeight: '800',
-    fontSize: 12,
-  },
+    refreshText: {
+      color: theme.cyan,
+      fontWeight: '800',
+      fontSize: 12,
+    },
 
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(15,35,55,0.38)',
-    justifyContent: 'flex-end',
-  },
+    modalBackground: {
+      flex: 1,
+      backgroundColor: 'rgba(15,35,55,0.55)',
+      justifyContent: 'flex-end',
+    },
 
-  modalCard: {
-    maxHeight: '78%',
-    minHeight: '48%',
-    backgroundColor: theme.panel,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 18,
-    gap: 12,
-  },
+    modalCard: {
+      maxHeight: '78%',
+      minHeight: '48%',
+      backgroundColor: theme.panel,
+      borderTopLeftRadius: 25,
+      borderTopRightRadius: 25,
+      padding: 18,
+      gap: 12,
+    },
 
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
 
-  modalTitle: {
-    color: theme.text,
-    fontSize: 20,
-    fontWeight: '900',
-  },
+    modalTitle: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: '900',
+    },
 
-  commentCard: {
-    backgroundColor: theme.clayBlue,
-    borderRadius: 14,
-    padding: 11,
-    marginBottom: 9,
-  },
+    commentCard: {
+      backgroundColor: theme.clayBlue,
+      borderRadius: 14,
+      padding: 11,
+      marginBottom: 9,
+    },
 
-  commentAuthor: {
-    color: theme.text,
-    fontWeight: '900',
-    fontSize: 12,
-  },
+    commentAuthor: {
+      color: theme.text,
+      fontWeight: '900',
+      fontSize: 12,
+    },
 
-  commentText: {
-    color: theme.text,
-    fontSize: 13,
-    marginTop: 4,
-  },
+    commentText: {
+      color: theme.text,
+      fontSize: 13,
+      marginTop: 4,
+    },
 
-  commentComposer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
+    commentComposer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 8,
+    },
 
-  commentInput: {
-    flex: 1,
-    minHeight: 43,
-    maxHeight: 90,
-    backgroundColor: theme.clayBlue,
-    borderRadius: 14,
-    padding: 11,
-    color: theme.text,
-  },
+    commentInput: {
+      flex: 1,
+      minHeight: 43,
+      maxHeight: 90,
+      backgroundColor: theme.clayBlue,
+      borderRadius: 14,
+      padding: 11,
+      color: theme.text,
+    },
 
-  sendButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: theme.cyan,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+    sendButton: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: theme.cyan,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    sendButtonDisabled: {
+      opacity: 0.55,
+    },
+  });
+}
