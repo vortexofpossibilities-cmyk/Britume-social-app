@@ -1,4 +1,3 @@
-
 import React, { useMemo, useRef } from 'react';
 import {
   Animated,
@@ -9,7 +8,9 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
+
 import { AuthProvider } from '../src/auth/AuthProvider';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 
 function FloatingBritumeAI() {
   const { width, height } = useWindowDimensions();
@@ -45,12 +46,18 @@ function FloatingBritumeAI() {
         onPanResponderMove: (_, gesture) => {
           const x = Math.max(
             edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+            Math.min(
+              width - buttonSize - edgePadding,
+              startX.current + gesture.dx,
+            ),
           );
 
           const y = Math.max(
             65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+            Math.min(
+              height - buttonSize - 100,
+              startY.current + gesture.dy,
+            ),
           );
 
           position.setValue({ x, y });
@@ -59,7 +66,10 @@ function FloatingBritumeAI() {
         onPanResponderRelease: (_, gesture) => {
           const proposedX = Math.max(
             edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+            Math.min(
+              width - buttonSize - edgePadding,
+              startX.current + gesture.dx,
+            ),
           );
 
           const finalX =
@@ -69,7 +79,10 @@ function FloatingBritumeAI() {
 
           const finalY = Math.max(
             65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+            Math.min(
+              height - buttonSize - 100,
+              startY.current + gesture.dy,
+            ),
           );
 
           currentX.current = finalX;
@@ -117,20 +130,22 @@ function FloatingBritumeAI() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <View style={styles.root}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'fade',
-          }}
-        />
+    <ThemeProvider>
+      <AuthProvider>
+        <View style={styles.root}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+            }}
+          />
 
-        <View pointerEvents="box-none" style={styles.aiOverlay}>
-          <FloatingBritumeAI />
+          <View pointerEvents="box-none" style={styles.aiOverlay}>
+            <FloatingBritumeAI />
+          </View>
         </View>
-      </View>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
