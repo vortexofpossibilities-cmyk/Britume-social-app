@@ -15,13 +15,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 import {
   createCommunity,
   fetchCommunities,
   type Community,
 } from '../../src/lib/communities';
 import { supabase, supabaseConfigured } from '../../src/lib/supabase';
-import { theme } from '../../src/lib/theme';
 
 type CommunityStats = {
   members: number;
@@ -50,6 +50,9 @@ const getCommunityIcon = (
 
 export default function CommunitiesScreen() {
   const { session } = useAuth();
+  const { theme } = useAppTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [communities, setCommunities] = useState<Community[]>([]);
   const [stats, setStats] = useState<Record<string, CommunityStats>>({});
@@ -76,8 +79,6 @@ export default function CommunitiesScreen() {
         return;
       }
 
-      // The membership table is added by the SQL migration.
-      // Use a loose client type until Supabase types are regenerated.
       const db = supabase as any;
       const ids = list.map(item => item.id);
 
@@ -178,7 +179,6 @@ export default function CommunitiesScreen() {
         description,
       });
 
-      // Automatically make the creator the first member.
       if (supabase) {
         const db = supabase as any;
         const { error } = await db
@@ -208,6 +208,7 @@ export default function CommunitiesScreen() {
           ? error.message
           : 'Please try again.'
       );
+
       await loadCommunities(true);
     } finally {
       setSaving(false);
@@ -233,7 +234,6 @@ export default function CommunitiesScreen() {
 
     setBusyIds(items => [...items, community.id]);
 
-    // Optimistic update, reverted if Supabase rejects the action.
     setStats(previous => ({
       ...previous,
       [community.id]: {
@@ -335,7 +335,8 @@ export default function CommunitiesScreen() {
         </View>
 
         <Text style={styles.description}>
-          {community.description || 'A place to connect and share with people who have similar interests.'}
+          {community.description ||
+            'A place to connect and share with people who have similar interests.'}
         </Text>
 
         <View style={styles.cardFooter}>
@@ -438,6 +439,7 @@ export default function CommunitiesScreen() {
           size={20}
           color={theme.muted}
         />
+
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -445,6 +447,7 @@ export default function CommunitiesScreen() {
           placeholderTextColor={theme.muted}
           style={styles.searchInput}
         />
+
         {!!search && (
           <Pressable onPress={() => setSearch('')}>
             <Ionicons
@@ -480,6 +483,7 @@ export default function CommunitiesScreen() {
           </View>
 
           <Text style={styles.label}>Community name</Text>
+
           <TextInput
             value={name}
             onChangeText={setName}
@@ -490,6 +494,7 @@ export default function CommunitiesScreen() {
           />
 
           <Text style={styles.label}>Description</Text>
+
           <TextInput
             value={description}
             onChangeText={setDescription}
@@ -521,6 +526,7 @@ export default function CommunitiesScreen() {
                 color="#FFFFFF"
               />
             )}
+
             <Text style={styles.buttonText}>
               {saving ? 'Creating...' : 'Create community'}
             </Text>
@@ -599,363 +605,365 @@ export default function CommunitiesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
+function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
 
-  content: {
-    padding: 16,
-    paddingBottom: 45,
-    gap: 19,
-  },
+    content: {
+      padding: 16,
+      paddingBottom: 45,
+      gap: 19,
+    },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
 
-  logo: {
-    width: 53,
-    height: 53,
-    borderRadius: 18,
-    backgroundColor: theme.clayBlue,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    logo: {
+      width: 53,
+      height: 53,
+      borderRadius: 18,
+      backgroundColor: theme.clayBlue,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  logoB: {
-    color: theme.cyan,
-    fontSize: 30,
-    fontWeight: '900',
-  },
+    logoB: {
+      color: theme.cyan,
+      fontSize: 30,
+      fontWeight: '900',
+    },
 
-  title: {
-    color: theme.text,
-    fontSize: 23,
-    fontWeight: '900',
-  },
+    title: {
+      color: theme.text,
+      fontSize: 23,
+      fontWeight: '900',
+    },
 
-  subtitle: {
-    color: theme.muted,
-    fontSize: 11,
-    lineHeight: 17,
-    marginTop: 3,
-  },
+    subtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      lineHeight: 17,
+      marginTop: 3,
+    },
 
-  createIconButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
-    backgroundColor: theme.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    createIconButton: {
+      width: 43,
+      height: 43,
+      borderRadius: 15,
+      backgroundColor: theme.panel,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  notice: {
-    padding: 13,
-    borderRadius: 14,
-    backgroundColor: theme.panel2,
-    color: theme.text,
-    fontSize: 12,
-  },
+    notice: {
+      padding: 13,
+      borderRadius: 14,
+      backgroundColor: theme.panel2,
+      color: theme.text,
+      fontSize: 12,
+    },
 
-  searchCard: {
-    minHeight: 49,
-    borderRadius: 17,
-    backgroundColor: theme.clayBlue,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 13,
-    gap: 9,
-    ...theme.clayRaised,
-  },
+    searchCard: {
+      minHeight: 49,
+      borderRadius: 17,
+      backgroundColor: theme.clayBlue,
+      borderWidth: 1,
+      borderColor: theme.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 13,
+      gap: 9,
+      ...theme.clayRaised,
+    },
 
-  searchInput: {
-    flex: 1,
-    color: theme.text,
-    fontSize: 13,
-    paddingVertical: 10,
-  },
+    searchInput: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 13,
+      paddingVertical: 10,
+    },
 
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
 
-  sectionTitle: {
-    color: theme.text,
-    fontSize: 18,
-    fontWeight: '900',
-  },
+    sectionTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
 
-  sectionSubtitle: {
-    color: theme.muted,
-    fontSize: 11,
-    marginTop: 3,
-  },
+    sectionSubtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      marginTop: 3,
+    },
 
-  totalBadge: {
-    minWidth: 35,
-    height: 35,
-    borderRadius: 13,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    totalBadge: {
+      minWidth: 35,
+      height: 35,
+      borderRadius: 13,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  totalBadgeText: {
-    color: theme.cyan,
-    fontWeight: '900',
-    fontSize: 13,
-  },
+    totalBadgeText: {
+      color: theme.cyan,
+      fontWeight: '900',
+      fontSize: 13,
+    },
 
-  communityList: {
-    gap: 15,
-  },
+    communityList: {
+      gap: 15,
+    },
 
-  communityCard: {
-    padding: 15,
-    borderRadius: 22,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    gap: 13,
-    ...theme.clayShadow,
-  },
+    communityCard: {
+      padding: 15,
+      borderRadius: 22,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 13,
+      ...theme.clayShadow,
+    },
 
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-  },
+    cardTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+    },
 
-  communityPhoto: {
-    width: 57,
-    height: 57,
-    borderRadius: 19,
-    backgroundColor: theme.clayBlue,
-  },
+    communityPhoto: {
+      width: 57,
+      height: 57,
+      borderRadius: 19,
+      backgroundColor: theme.clayBlue,
+    },
 
-  communityIcon: {
-    width: 57,
-    height: 57,
-    borderRadius: 19,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
+    communityIcon: {
+      width: 57,
+      height: 57,
+      borderRadius: 19,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
 
-  communityInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
+    communityInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
 
-  communityName: {
-    color: theme.text,
-    fontSize: 15,
-    fontWeight: '900',
-  },
+    communityName: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '900',
+    },
 
-  creatorText: {
-    color: theme.muted,
-    fontSize: 10,
-    marginTop: 4,
-  },
+    creatorText: {
+      color: theme.muted,
+      fontSize: 10,
+      marginTop: 4,
+    },
 
-  memberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: theme.clayBlue,
-  },
+    memberBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 7,
+      borderRadius: 12,
+      backgroundColor: theme.clayBlue,
+    },
 
-  memberCount: {
-    color: theme.text,
-    fontSize: 11,
-    fontWeight: '900',
-  },
+    memberCount: {
+      color: theme.text,
+      fontSize: 11,
+      fontWeight: '900',
+    },
 
-  description: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 18,
-  },
+    description: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 18,
+    },
 
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    paddingTop: 11,
-  },
+    cardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      paddingTop: 11,
+    },
 
-  memberLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+    memberLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
 
-  memberLabelText: {
-    color: theme.muted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
+    memberLabelText: {
+      color: theme.muted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
 
-  joinButton: {
-    minWidth: 95,
-    minHeight: 37,
-    borderRadius: 13,
-    backgroundColor: theme.cyan,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    ...theme.clayRaised,
-  },
+    joinButton: {
+      minWidth: 95,
+      minHeight: 37,
+      borderRadius: 13,
+      backgroundColor: theme.cyan,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      paddingHorizontal: 12,
+      ...theme.clayRaised,
+    },
 
-  joinedButton: {
-    backgroundColor: theme.clayBlue,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
+    joinedButton: {
+      backgroundColor: theme.clayBlue,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
 
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '900',
-  },
+    joinButtonText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '900',
+    },
 
-  joinedButtonText: {
-    color: theme.cyan,
-  },
+    joinedButtonText: {
+      color: theme.cyan,
+    },
 
-  disabled: {
-    opacity: 0.55,
-  },
+    disabled: {
+      opacity: 0.55,
+    },
 
-  form: {
-    padding: 17,
-    backgroundColor: theme.panel,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    gap: 11,
-    ...theme.clayShadow,
-  },
+    form: {
+      padding: 17,
+      backgroundColor: theme.panel,
+      borderRadius: 21,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 11,
+      ...theme.clayShadow,
+    },
 
-  formHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 3,
-  },
+    formHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 3,
+    },
 
-  formTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+    formTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
 
-  label: {
-    color: theme.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
+    label: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
 
-  input: {
-    minHeight: 47,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 13,
-    paddingHorizontal: 13,
-    color: theme.text,
-    backgroundColor: theme.bg,
-    fontSize: 13,
-  },
+    input: {
+      minHeight: 47,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 13,
+      paddingHorizontal: 13,
+      color: theme.text,
+      backgroundColor: theme.bg,
+      fontSize: 13,
+    },
 
-  descriptionInput: {
-    minHeight: 85,
-    paddingTop: 12,
-    textAlignVertical: 'top',
-  },
+    descriptionInput: {
+      minHeight: 85,
+      paddingTop: 12,
+      textAlignVertical: 'top',
+    },
 
-  photoHint: {
-    color: theme.muted,
-    fontSize: 10,
-    lineHeight: 16,
-  },
+    photoHint: {
+      color: theme.muted,
+      fontSize: 10,
+      lineHeight: 16,
+    },
 
-  primaryButton: {
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: theme.cyan,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
+    primaryButton: {
+      minHeight: 48,
+      borderRadius: 14,
+      backgroundColor: theme.cyan,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
 
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '900',
-  },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '900',
+    },
 
-  loading: {
-    alignItems: 'center',
-    padding: 35,
-    gap: 12,
-  },
+    loading: {
+      alignItems: 'center',
+      padding: 35,
+      gap: 12,
+    },
 
-  empty: {
-    alignItems: 'center',
-    padding: 23,
-    gap: 13,
-    backgroundColor: theme.panel,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: theme.border,
-    ...theme.clayRaised,
-  },
+    empty: {
+      alignItems: 'center',
+      padding: 23,
+      gap: 13,
+      backgroundColor: theme.panel,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.clayRaised,
+    },
 
-  emptyIcon: {
-    width: 75,
-    height: 75,
-    borderRadius: 25,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    emptyIcon: {
+      width: 75,
+      height: 75,
+      borderRadius: 25,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  emptyTitle: {
-    color: theme.text,
-    fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: '900',
+      textAlign: 'center',
+    },
 
-  emptyText: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 19,
-    textAlign: 'center',
-  },
-});
+    emptyText: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 19,
+      textAlign: 'center',
+    },
+  });
+        }
