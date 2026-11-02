@@ -1,103 +1,288 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { theme } from '../src/lib/theme';
-import { supabase } from '../src/lib/supabase';
 
-type RowItem = {
-  label: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  highlight?: boolean;
+import { useAuth } from '../src/auth/AuthProvider';
+import { theme } from '../src/lib/theme';
+
+const SETTINGS_KEY = '@britume_settings_v1';
+
+type Preferences = {
+  language: string;
+  videoQuality: string;
+  autoplay: boolean;
+  captions: boolean;
+  dataSaver: boolean;
+  downloadQuality: string;
+  earlyAccess: boolean;
 };
 
-const sections: { title: string; rows: RowItem[] }[] = [
-  {
-    title: 'Account',
-    rows: [
-      { label: 'General', icon: 'settings-outline' },
-      { label: 'Switch or manage account', icon: 'people-outline' },
-      { label: 'Languages', icon: 'globe-outline' },
-      { label: 'Time management', icon: 'time-outline' },
-      { label: 'Get Britume Premium', icon: 'star-outline', highlight: true },
-      { label: 'Manage all history', icon: 'time-outline' },
-      { label: 'Privacy', icon: 'shield-checkmark-outline' },
-      { label: 'Connected apps', icon: 'link-outline' },
-    ],
-  },
-  {
-    title: 'Video and audio preferences',
-    rows: [
-      { label: 'Video quality pref', icon: 'videocam-outline' },
-      { label: 'Playback', icon: 'pause-outline' },
-      { label: 'Captions', icon: 'chatbubble-ellipses-outline' },
-      { label: 'Data saving', icon: 'server-outline' },
-      { label: 'Downloads pref', icon: 'download-outline' },
-      { label: 'Like chart', icon: 'bar-chart-outline' },
-      { label: 'Accessibility', icon: 'accessibility-outline' },
-    ],
-  },
-  {
-    title: 'Help and policy',
-    rows: [
-      { label: 'Help', icon: 'help-circle-outline' },
-      { label: 'Britume terms and services', icon: 'document-text-outline' },
-      { label: 'Send feedback', icon: 'chatbox-ellipses-outline' },
-      { label: 'About', icon: 'information-circle-outline' },
-    ],
-  },
-];
+const DEFAULTS: Preferences = {
+  language: 'English',
+  videoQuality: 'Auto',
+  autoplay: true,
+  captions: false,
+  dataSaver: false,
+  downloadQuality: 'Standard',
+  earlyAccess: false,
+};
+
+type SettingRowProps = {
+  label: string;
+  subtitle?: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+  accent?: 'blue' | 'purple' | 'gold' | 'danger';
+};
 
 export default function SettingsScreen() {
-  const [darkMode, setDarkMode] = useState(false);
+  const { session, signOut } = useAuth();
+
+  const [preferences, setPreferences] =
+    useState<Preferences>(DEFAULTS);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const openRow = (label: string) => {
-    Alert.alert(label, `${label} settings are not connected yet.`);
-  };
+  useEffect(() => {
+    let active = true;
 
-  const signOut = async () => {
-    if (!supabase) {
-      Alert.alert(
-        'Connection unavailable',
-        'BRITUME cannot connect to Supabase. Please check your app environment configuration.'
-      );
-      return;
+    async function loadSettings() {
+      try {
+        const stored = await AsyncStorage.getItem(SETTINGS_KEY);
+
+        if (stored && active) {
+          const parsed = JSON.parse(stored);
+
+          setPreferences({
+            ...DEFAULTS,
+            ...parsed,
+          });
+        }
+      } catch {
+        Alert.alert(
+          'Settings',
+          'Your saved preferences could not be loaded. Default settings will be used.'
+        );
+      } finally {
+        if (active) setLoading(false);
+      }
     }
 
-    if (signingOut) return;
-    setSigningOut(true);
+    void loadSettings();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const updatePreference = async (
+    key: keyof Preferences,
+    value: string | boolean
+  ) => {
+    const next = {
+      ...preferences,
+      [key]: value,
+    };
+
+    setPreferences(next);
+    setSaving(true);
 
     try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        Alert.alert('Sign out failed', error.message);
-        return;
-      }
-
-      router.replace('/(auth)/sign-in');
-    } catch (error) {
+      await AsyncStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(next)
+      );
+    } catch {
       Alert.alert(
-        'Sign out failed',
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred.'
+        'Could not save',
+        'Your device could not save this preference. Please try again.'
       );
     } finally {
-      setSigningOut(false);
+      setSaving(false);
     }
   };
+
+  const chooseOption = (
+    title: string,
+    options: string[],
+    current: string,
+    onChoose: (value: string) => void
+  ) => {
+    Alert.alert(
+      title,
+      `Current selection: ${current}`,
+      [
+        ...options.map(option => ({
+          text: option === current ? `✓ ${option}` : option,
+          onPress: () => onChoose(option),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
+  };
+
+  const openProfile = () => {
+    router.push('/profile-edit');
+  };
+
+  const openGeneral = () => {
+    Alert.alert(
+      'BRITUME account',
+      `Signed in as:\n${session?.user?.email ?? 'Account email unavailable'}`,
+      [
+        {
+          text: 'Edit profile',
+          onPress: openProfile,
+        },
+        { text: 'Close', style: 'cancel' },
+      ]
+    );
+  };
+
+  const openHistory = () => {
+    Alert.alert(
+      'Your BRITUME history',
+      'Your account activity and post history are stored in their respective BRITUME sections. A complete activity-history screen is not yet available.'
+    );
+  };
+
+  const openConnectedApps = () => {
+    Alert.alert(
+      'Connected apps',
+      'No third-party app integrations are currently configured in BRITUME.'
+    );
+  };
+
+  const openPremium = () => {
+    Alert.alert(
+      'BRITUME Premium',
+      'Premium is part of the BRITUME roadmap. Subscription plans and secure payment options are not available yet. You will not be charged from this screen.'
+    );
+  };
+
+  const openTerms = () => {
+    Alert.alert(
+      'BRITUME terms and services',
+      'The official BRITUME terms and services page has not yet been connected. Please check back when the company policy pages are published.'
+    );
+  };
+
+  const openHelp = () => {
+    Alert.alert(
+      'BRITUME Help',
+      'Need help? You can send feedback from this Settings screen. Include a description of the problem so it can be investigated.'
+    );
+  };
+
+  const sendFeedback = async () => {
+    try {
+      await Share.share({
+        title: 'BRITUME feedback',
+        message:
+          'BRITUME feedback\n\nApp: BRITUME – Vortex of Possibilities\n\nMy feedback or problem:\n',
+      });
+    } catch {
+      Alert.alert(
+        'Feedback',
+        'Your device could not open the sharing options.'
+      );
+    }
+  };
+
+  const openAbout = () => {
+    Alert.alert(
+      'About BRITUME',
+      'BRITUME\nVortex of Possibilities\n\nCreated by Brilliant Tumelo Mere.\n\nYour world. Your possibilities.'
+    );
+  };
+
+  const clearSettings = () => {
+    Alert.alert(
+      'Reset preferences?',
+      'This resets the preferences saved by this Settings screen. It will not delete your BRITUME account, posts, messages or profile.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(SETTINGS_KEY);
+              setPreferences(DEFAULTS);
+
+              Alert.alert(
+                'Preferences reset',
+                'Your BRITUME Settings preferences have been restored to their defaults.'
+              );
+            } catch {
+              Alert.alert(
+                'Reset failed',
+                'Your preferences could not be reset.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign out of BRITUME?',
+      'You will need to sign in again to access your account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: async () => {
+            if (signingOut) return;
+
+            setSigningOut(true);
+
+            try {
+              await signOut();
+              router.replace('/(auth)/sign-in');
+            } catch (error) {
+              Alert.alert(
+                'Sign out failed',
+                error instanceof Error
+                  ? error.message
+                  : 'Please try again.'
+              );
+            } finally {
+              setSigningOut(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator size="large" color={theme.cyan} />
+        <Text style={styles.loadingText}>
+          Loading BRITUME Settings...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -105,197 +290,369 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* BRITUME HEADER */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <View style={styles.brandMark}>
-          <Text style={styles.brandLetter}>B</Text>
+        <View style={styles.logo}>
+          <Text style={styles.logoLetter}>B</Text>
         </View>
 
-        <View style={styles.brandText}>
+        <View style={styles.brandInfo}>
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>Vortex of Possibilities</Text>
+          <Text style={styles.tagline}>
+            Vortex of Possibilities
+          </Text>
           <Text style={styles.byline}>by brilliant mere</Text>
         </View>
 
-        <View style={styles.pageBadge}>
-          <Text style={styles.pageTitle}>Settings</Text>
+        <View style={styles.headerBadge}>
+          <Ionicons
+            name="settings"
+            size={16}
+            color={theme.cyan}
+          />
+          <Text style={styles.headerBadgeText}>Settings</Text>
         </View>
 
         <Pressable
+          onPress={() => router.push('/(tabs)/more')}
           style={({ pressed }) => [
             styles.headerButton,
             pressed && styles.pressed,
           ]}
-          onPress={() => router.push('/(tabs)/more')}
         >
-          <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
+          <Ionicons
+            name="ellipsis-vertical"
+            size={21}
+            color={theme.text}
+          />
         </Pressable>
       </View>
 
-      {/* SETTINGS GROUPS */}
-      {sections.map((section, sectionIndex) => (
-        <View key={section.title} style={styles.section}>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+      {/* ACCOUNT */}
+      <Section title="Account and profile" icon="person-circle-outline">
+        <SettingRow
+          label="General account settings"
+          subtitle="View your signed-in account"
+          icon="person-outline"
+          onPress={openGeneral}
+        />
 
-          <View style={styles.clayCard}>
-            {section.rows.map((row, index) => (
-              <Pressable
-                key={row.label}
-                onPress={() => openRow(row.label)}
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  row.highlight && styles.premiumRow,
-                  index !== section.rows.length - 1 &&
-                    styles.rowDivider,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.iconClay,
-                    sectionIndex === 1 && styles.purpleClay,
-                    row.highlight && styles.goldClay,
-                  ]}
-                >
-                  <Ionicons
-                    name={row.icon}
-                    size={21}
-                    color={
-                      row.highlight
-                        ? '#B98500'
-                        : sectionIndex === 1
-                          ? theme.purple
-                          : theme.cyan
-                    }
-                  />
-                </View>
+        <SettingRow
+          label="Edit profile"
+          subtitle="Change your name, username, bio and visibility"
+          icon="create-outline"
+          onPress={openProfile}
+        />
 
-                <Text style={styles.rowLabel}>{row.label}</Text>
+        <SettingRow
+          label="Privacy and visibility"
+          subtitle="Manage whether your profile is public"
+          icon="shield-checkmark-outline"
+          onPress={openProfile}
+          accent="purple"
+        />
 
-                {row.highlight && (
-                  <View style={styles.premiumBadge}>
-                    <Ionicons name="sparkles" size={12} color="#A47700" />
-                    <Text style={styles.premiumText}>PRO</Text>
-                  </View>
-                )}
+        <SettingRow
+          label="Language"
+          subtitle={`Saved preference: ${preferences.language}`}
+          icon="globe-outline"
+          onPress={() =>
+            chooseOption(
+              'Choose language',
+              ['English', 'Setswana', 'French', 'Portuguese'],
+              preferences.language,
+              value => void updatePreference('language', value)
+            )
+          }
+        />
 
-                <Ionicons
-                  name="chevron-forward"
-                  size={19}
-                  color={theme.muted}
-                />
-              </Pressable>
-            ))}
-          </View>
+        <SettingRow
+          label="Time management"
+          subtitle="Your device controls BRITUME's local time"
+          icon="time-outline"
+          onPress={() =>
+            Alert.alert(
+              'Time management',
+              'BRITUME currently follows your phone’s date, time and time-zone settings. Change these in your Android device settings.'
+            )
+          }
+        />
+
+        <SettingRow
+          label="Manage history"
+          subtitle="Information about your account activity"
+          icon="calendar-outline"
+          onPress={openHistory}
+        />
+
+        <SettingRow
+          label="Connected apps"
+          subtitle="Third-party integrations"
+          icon="link-outline"
+          onPress={openConnectedApps}
+        />
+      </Section>
+
+      {/* PREMIUM */}
+      <Pressable
+        onPress={openPremium}
+        style={({ pressed }) => [
+          styles.premiumCard,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.premiumIcon}>
+          <Ionicons
+            name="sparkles"
+            size={27}
+            color="#A47700"
+          />
         </View>
-      ))}
 
-      {/* PERSONAL PREFERENCES */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal preferences</Text>
+        <View style={styles.premiumInfo}>
+          <Text style={styles.premiumTitle}>
+            BRITUME PREMIUM
+          </Text>
+          <Text style={styles.premiumSubtitle}>
+            Discover future premium experiences
+          </Text>
+        </View>
 
-        <View style={styles.clayCard}>
-          <View style={styles.switchRow}>
-            <View style={styles.iconClay}>
-              <Ionicons
-                name="moon-outline"
-                size={21}
-                color={theme.purple}
-              />
-            </View>
+        <Ionicons
+          name="chevron-forward"
+          size={21}
+          color="#A47700"
+        />
+      </Pressable>
 
-            <View style={styles.switchInfo}>
-              <Text style={styles.rowLabel}>Dark mode</Text>
-              <Text style={styles.description}>
-                Choose your preferred appearance
-              </Text>
-            </View>
+      {/* VIDEO */}
+      <Section title="Video and audio" icon="videocam-outline">
+        <SettingRow
+          label="Video quality"
+          subtitle={`Preferred quality: ${preferences.videoQuality}`}
+          icon="videocam-outline"
+          accent="purple"
+          onPress={() =>
+            chooseOption(
+              'Video quality',
+              ['Auto', 'Low', 'Medium', 'High', '1080p'],
+              preferences.videoQuality,
+              value => void updatePreference('videoQuality', value)
+            )
+          }
+        />
 
-            <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{
-                false: theme.borderStrong,
-                true: theme.cyan,
-              }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor={theme.border}
-            />
-          </View>
+        <PreferenceSwitch
+          label="Autoplay preference"
+          subtitle="Save whether you prefer videos to autoplay"
+          icon="play-circle-outline"
+          value={preferences.autoplay}
+          onChange={value =>
+            void updatePreference('autoplay', value)
+          }
+        />
 
-          <ActionRow
-            label="Clear space"
-            icon="trash-outline"
-            onPress={() => openRow('Clear space')}
-          />
+        <PreferenceSwitch
+          label="Captions preference"
+          subtitle="Save your preferred captions setting"
+          icon="chatbubble-ellipses-outline"
+          value={preferences.captions}
+          onChange={value =>
+            void updatePreference('captions', value)
+          }
+        />
 
-          <ActionRow
-            label="Early access"
-            icon="flask-outline"
-            onPress={() => openRow('Early access')}
-          />
+        <PreferenceSwitch
+          label="Data saving"
+          subtitle="Save your preference for lower data usage"
+          icon="server-outline"
+          value={preferences.dataSaver}
+          onChange={value =>
+            void updatePreference('dataSaver', value)
+          }
+        />
 
-          <ActionRow
-            label="Switch account"
-            icon="repeat-outline"
-            onPress={() => openRow('Switch account')}
-          />
+        <SettingRow
+          label="Download quality"
+          subtitle={`Preferred quality: ${preferences.downloadQuality}`}
+          icon="download-outline"
+          onPress={() =>
+            chooseOption(
+              'Download quality',
+              ['Standard', 'High', 'Data saver'],
+              preferences.downloadQuality,
+              value => void updatePreference('downloadQuality', value)
+            )
+          }
+        />
+      </Section>
 
-          <Pressable
-            disabled={signingOut}
-            onPress={() =>
-              Alert.alert(
-                'Sign out',
-                'Are you sure you want to sign out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Sign out',
-                    style: 'destructive',
-                    onPress: () => void signOut(),
-                  },
-                ]
-              )
-            }
-            style={({ pressed }) => [
-              styles.settingRow,
-              styles.signOutRow,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.dangerClay}>
-              {signingOut ? (
-                <ActivityIndicator size="small" color={theme.danger} />
-              ) : (
-                <Ionicons
-                  name="log-out-outline"
-                  size={21}
-                  color={theme.danger}
-                />
-              )}
-            </View>
-
-            <Text style={[styles.rowLabel, styles.dangerText]}>
-              {signingOut ? 'Signing out…' : 'Sign out'}
-            </Text>
-
+      {/* APPEARANCE */}
+      <Section title="Appearance" icon="color-palette-outline">
+        <View style={styles.infoRow}>
+          <View style={styles.iconTile}>
             <Ionicons
-              name="chevron-forward"
-              size={19}
-              color={theme.danger}
+              name="sunny-outline"
+              size={21}
+              color={theme.cyan}
             />
-          </Pressable>
-        </View>
-      </View>
+          </View>
 
-      {/* BRAND FOOTER */}
-      <View style={styles.footerCard}>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>BRITUME light theme</Text>
+            <Text style={styles.rowSubtitle}>
+              Your current app theme is soft blue and white.
+            </Text>
+          </View>
+
+          <View style={styles.activeBadge}>
+            <Text style={styles.activeText}>ACTIVE</Text>
+          </View>
+        </View>
+
+        <View style={styles.notice}>
+          <Ionicons
+            name="information-circle-outline"
+            size={18}
+            color={theme.muted}
+          />
+          <Text style={styles.noticeText}>
+            A global dark-mode switch is not connected yet. This screen
+            will not show a switch that changes only itself.
+          </Text>
+        </View>
+      </Section>
+
+      {/* HELP */}
+      <Section title="Help and BRITUME" icon="help-circle-outline">
+        <SettingRow
+          label="Help and support"
+          subtitle="Information about getting assistance"
+          icon="help-circle-outline"
+          onPress={openHelp}
+        />
+
+        <SettingRow
+          label="Send feedback"
+          subtitle="Share your suggestions or report a problem"
+          icon="chatbox-ellipses-outline"
+          onPress={() => void sendFeedback()}
+        />
+
+        <SettingRow
+          label="Terms and services"
+          subtitle="BRITUME policy information"
+          icon="document-text-outline"
+          onPress={openTerms}
+        />
+
+        <SettingRow
+          label="About BRITUME"
+          subtitle="Company and app information"
+          icon="information-circle-outline"
+          onPress={openAbout}
+        />
+
+        <SettingRow
+          label="Early access"
+          subtitle={
+            preferences.earlyAccess
+              ? 'You have opted in'
+              : 'Opt in to express interest in future features'
+          }
+          icon="flask-outline"
+          accent="purple"
+          onPress={() =>
+            Alert.alert(
+              'Early access',
+              'Would you like to save your interest in future BRITUME early-access features?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: preferences.earlyAccess ? 'Turn off' : 'Opt in',
+                  onPress: () =>
+                    void updatePreference(
+                      'earlyAccess',
+                      !preferences.earlyAccess
+                    ),
+                },
+              ]
+            )
+          }
+        />
+      </Section>
+
+      {/* DEVICE SETTINGS */}
+      <Section title="Device preferences" icon="phone-portrait-outline">
+        <SettingRow
+          label="Reset saved preferences"
+          subtitle="Restore this screen's settings to defaults"
+          icon="refresh-outline"
+          onPress={clearSettings}
+        />
+
+        <SettingRow
+          label="Clear space"
+          subtitle="Manage storage from your device settings"
+          icon="trash-outline"
+          onPress={() =>
+            Alert.alert(
+              'Clear space',
+              'This version of BRITUME does not yet have a complete media-cache manager. You can review app storage in Android Settings → Apps → BRITUME → Storage. Avoid choosing Clear data unless you understand that it may remove local app information.'
+            )
+          }
+        />
+      </Section>
+
+      {/* SIGN OUT */}
+      <Pressable
+        disabled={signingOut}
+        onPress={handleSignOut}
+        style={({ pressed }) => [
+          styles.signOutButton,
+          pressed && styles.pressed,
+        ]}
+      >
+        {signingOut ? (
+          <ActivityIndicator color={theme.danger} />
+        ) : (
+          <Ionicons
+            name="log-out-outline"
+            size={22}
+            color={theme.danger}
+          />
+        )}
+
+        <Text style={styles.signOutText}>
+          {signingOut ? 'Signing out...' : 'Sign out of BRITUME'}
+        </Text>
+
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={theme.danger}
+        />
+      </Pressable>
+
+      {saving && (
+        <View style={styles.savingInfo}>
+          <ActivityIndicator size="small" color={theme.cyan} />
+          <Text style={styles.savingText}>
+            Saving preference...
+          </Text>
+        </View>
+      )}
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
         <View style={styles.footerLogo}>
           <Text style={styles.footerLetter}>B</Text>
         </View>
 
         <Text style={styles.footerBrand}>BRITUME</Text>
-        <Text style={styles.footerTagline}>Vortex of Possibilities</Text>
+        <Text style={styles.footerTagline}>
+          Vortex of Possibilities
+        </Text>
         <Text style={styles.footerCaption}>
           Your world. Your possibilities.
         </Text>
@@ -304,28 +661,75 @@ export default function SettingsScreen() {
   );
 }
 
-function ActionRow({
+function Section({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeading}>
+        <Ionicons name={icon} size={19} color={theme.cyan} />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+
+      <View style={styles.card}>{children}</View>
+    </View>
+  );
+}
+
+function SettingRow({
   label,
+  subtitle,
   icon,
   onPress,
-}: {
-  label: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  onPress: () => void;
-}) {
+  accent = 'blue',
+}: SettingRowProps) {
+  const iconColor =
+    accent === 'purple'
+      ? theme.purple
+      : accent === 'gold'
+        ? '#A47700'
+        : accent === 'danger'
+          ? theme.danger
+          : theme.cyan;
+
+  const iconBackground =
+    accent === 'purple'
+      ? theme.clayPurple
+      : accent === 'gold'
+        ? '#FFF2C5'
+        : accent === 'danger'
+          ? '#FFF0F1'
+          : theme.clayBlue;
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        styles.settingRow,
+        styles.row,
         pressed && styles.pressed,
       ]}
     >
-      <View style={styles.iconClay}>
-        <Ionicons name={icon} size={21} color={theme.cyan} />
+      <View
+        style={[
+          styles.iconTile,
+          { backgroundColor: iconBackground },
+        ]}
+      >
+        <Ionicons name={icon} size={21} color={iconColor} />
       </View>
 
-      <Text style={styles.rowLabel}>{label}</Text>
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowTitle}>{label}</Text>
+        {subtitle ? (
+          <Text style={styles.rowSubtitle}>{subtitle}</Text>
+        ) : null}
+      </View>
 
       <Ionicons
         name="chevron-forward"
@@ -333,6 +737,44 @@ function ActionRow({
         color={theme.muted}
       />
     </Pressable>
+  );
+}
+
+function PreferenceSwitch({
+  label,
+  subtitle,
+  icon,
+  value,
+  onChange,
+}: {
+  label: string;
+  subtitle: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.iconTile}>
+        <Ionicons name={icon} size={21} color={theme.purple} />
+      </View>
+
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowTitle}>{label}</Text>
+        <Text style={styles.rowSubtitle}>{subtitle}</Text>
+      </View>
+
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{
+          false: theme.borderStrong,
+          true: theme.cyan,
+        }}
+        thumbColor="#FFFFFF"
+        ios_backgroundColor={theme.border}
+      />
+    </View>
   );
 }
 
@@ -348,35 +790,49 @@ const styles = StyleSheet.create({
     paddingBottom: 45,
   },
 
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: theme.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+
+  loadingText: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 27,
+    marginBottom: 25,
   },
 
-  brandMark: {
-    width: 53,
-    height: 53,
-    borderRadius: 19,
+  logo: {
+    width: 51,
+    height: 51,
+    borderRadius: 18,
     backgroundColor: theme.cyan,
     borderWidth: 3,
-    borderColor: theme.panel,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: theme.blueDark,
-    shadowOffset: { width: 6, height: 7 },
-    shadowOpacity: 0.26,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 5, height: 6 },
+    shadowOpacity: 0.24,
+    shadowRadius: 9,
+    elevation: 7,
   },
 
-  brandLetter: {
+  logoLetter: {
     color: '#FFFFFF',
-    fontSize: 29,
+    fontSize: 28,
     fontWeight: '900',
   },
 
-  brandText: {
+  brandInfo: {
     flex: 1,
     marginLeft: 10,
   },
@@ -399,217 +855,257 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
-  pageBadge: {
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 15,
     backgroundColor: theme.clayBlue,
-    borderRadius: 17,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 5, height: 6 },
-    shadowOpacity: 0.20,
-    shadowRadius: 9,
-    elevation: 6,
+    ...theme.clayRaised,
   },
 
-  pageTitle: {
+  headerBadgeText: {
     color: theme.text,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
   },
 
   headerButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 16,
-    backgroundColor: theme.clay,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
+    width: 41,
+    height: 41,
+    borderRadius: 15,
+    backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    shadowColor: theme.shadowDark,
-    shadowOffset: { width: 4, height: 5 },
-    shadowOpacity: 0.20,
-    shadowRadius: 7,
-    elevation: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 7,
+    ...theme.clayRaised,
   },
 
   section: {
-    marginBottom: 23,
+    marginBottom: 21,
+  },
+
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    marginLeft: 5,
   },
 
   sectionTitle: {
     color: theme.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    marginBottom: 12,
-    marginLeft: 5,
   },
 
-  clayCard: {
-    backgroundColor: theme.clay,
-    borderRadius: 25,
+  card: {
+    backgroundColor: theme.panel,
+    borderRadius: 23,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    paddingVertical: 6,
-    shadowColor: theme.shadowDark,
-    shadowOffset: { width: 8, height: 9 },
-    shadowOpacity: 0.22,
-    shadowRadius: 13,
-    elevation: 9,
-  },
-
-  settingRow: {
-    minHeight: 65,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-
-  rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-
-  iconClay: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 4, height: 5 },
-    shadowOpacity: 0.23,
-    shadowRadius: 7,
-    elevation: 5,
-  },
-
-  purpleClay: {
-    backgroundColor: theme.clayPurple,
-  },
-
-  goldClay: {
-    backgroundColor: '#FFF2C5',
-    borderColor: '#FFE49A',
-  },
-
-  rowLabel: {
-    flex: 1,
-    color: theme.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  premiumRow: {
-    backgroundColor: '#FFFCF1',
-    borderRadius: 18,
-    marginHorizontal: 5,
-    marginVertical: 4,
-    shadowColor: '#D4A72C',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF0B9',
-    paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 10,
-    marginRight: 7,
-    shadowColor: '#C99A28',
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    overflow: 'hidden',
+    ...theme.clayShadow,
   },
 
-  premiumText: {
-    color: '#9A7100',
-    fontSize: 9,
-    fontWeight: '900',
-    marginLeft: 3,
-  },
-
-  switchRow: {
-    minHeight: 79,
+  row: {
+    minHeight: 67,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
 
-  switchInfo: {
+  iconTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    ...theme.clayRaised,
+  },
+
+  rowInfo: {
+    flex: 1,
+    paddingRight: 7,
+  },
+
+  rowTitle: {
+    color: theme.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  rowSubtitle: {
+    color: theme.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 3,
+  },
+
+  switchRow: {
+    minHeight: 69,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+
+  premiumCard: {
+    minHeight: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    marginBottom: 23,
+    borderRadius: 23,
+    backgroundColor: '#FFFCF1',
+    borderWidth: 1,
+    borderColor: '#FFE49A',
+    shadowColor: '#D4A72C',
+    shadowOffset: { width: 6, height: 7 },
+    shadowOpacity: 0.19,
+    shadowRadius: 10,
+    elevation: 7,
+  },
+
+  premiumIcon: {
+    width: 47,
+    height: 47,
+    borderRadius: 17,
+    backgroundColor: '#FFF0B9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#FFE49A',
+  },
+
+  premiumInfo: {
     flex: 1,
   },
 
-  description: {
-    color: theme.muted,
+  premiumTitle: {
+    color: '#956D00',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+
+  premiumSubtitle: {
+    color: '#9C8549',
     fontSize: 10,
     marginTop: 4,
   },
 
-  dangerClay: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: '#FFF0F1',
+  infoRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+
+  activeBadge: {
+    backgroundColor: '#E3F8EF',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+  },
+
+  activeText: {
+    color: theme.success,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    padding: 11,
+    backgroundColor: theme.panel2,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+
+  noticeText: {
+    flex: 1,
+    color: theme.muted,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+
+  signOutButton: {
+    minHeight: 59,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 13,
-    shadowColor: theme.danger,
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
-    elevation: 3,
+    gap: 11,
+    paddingHorizontal: 15,
+    borderRadius: 19,
+    backgroundColor: '#FFF0F1',
+    borderWidth: 1,
+    borderColor: '#F5D0D3',
+    ...theme.clayRaised,
   },
 
-  dangerText: {
+  signOutText: {
+    flex: 1,
     color: theme.danger,
+    fontSize: 14,
+    fontWeight: '900',
   },
 
-  signOutRow: {
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    marginTop: 5,
+  savingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 13,
+  },
+
+  savingText: {
+    color: theme.muted,
+    fontSize: 11,
   },
 
   pressed: {
     backgroundColor: theme.clayPressed,
-    transform: [{ scale: 0.975 }],
+    transform: [{ scale: 0.98 }],
   },
 
-  footerCard: {
+  footer: {
+    alignItems: 'center',
+    marginTop: 28,
+    padding: 22,
+    borderRadius: 24,
     backgroundColor: theme.clayBlue,
-    borderRadius: 26,
     borderWidth: 1,
     borderColor: theme.glassBorder,
-    alignItems: 'center',
-    padding: 22,
-    marginTop: 4,
-    shadowColor: theme.shadowDark,
-    shadowOffset: { width: 7, height: 8 },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    elevation: 7,
+    ...theme.clayRaised,
   },
 
   footerLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 17,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: theme.cyan,
     alignItems: 'center',
     justifyContent: 'center',
@@ -619,7 +1115,7 @@ const styles = StyleSheet.create({
 
   footerLetter: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 25,
     fontWeight: '900',
   },
 
@@ -640,6 +1136,6 @@ const styles = StyleSheet.create({
   footerCaption: {
     color: theme.muted,
     fontSize: 10,
-    marginTop: 10,
+    marginTop: 9,
   },
 });
