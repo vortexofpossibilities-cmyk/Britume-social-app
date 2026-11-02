@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
-import { theme } from '../../src/lib/theme';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 type Profile = {
   user_id: string;
@@ -34,6 +34,9 @@ type FriendRequest = {
 };
 
 export default function DiscoverScreen() {
+  const { theme } = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const [myId, setMyId] = useState('');
   const [people, setPeople] = useState<Profile[]>([]);
   const [recent, setRecent] = useState<Profile[]>([]);
@@ -49,9 +52,7 @@ export default function DiscoverScreen() {
   const [working, setWorking] = useState(false);
 
   const nameOf = (person: Profile) =>
-    person.display_name?.trim() ||
-    person.username ||
-    'BRITUME member';
+    person.display_name?.trim() || person.username || 'BRITUME member';
 
   const loadDiscover = useCallback(async () => {
     if (!supabase) {
@@ -127,9 +128,7 @@ export default function DiscoverScreen() {
       setFriends(
         allRequests
           .filter((r) => r.status === 'accepted')
-          .map((r) =>
-            r.sender_id === uid ? r.recipient_id : r.sender_id
-          )
+          .map((r) => r.sender_id === uid ? r.recipient_id : r.sender_id)
       );
 
       setFollowing((followResult.data || []).map((r: any) => r.following_id));
@@ -139,16 +138,13 @@ export default function DiscoverScreen() {
         (r: any) => r.profile_id
       );
 
-      const recentPeople = recentIds
-        .map((id: string) => allPeople.find((p) => p.user_id === id))
-        .filter(Boolean) as Profile[];
-
-      setRecent(recentPeople);
-    } catch (error: any) {
-      Alert.alert(
-        'Discover could not load',
-        error?.message || 'Please try again.'
+      setRecent(
+        recentIds
+          .map((id: string) => allPeople.find((p) => p.user_id === id))
+          .filter(Boolean) as Profile[]
       );
+    } catch (error: any) {
+      Alert.alert('Discover could not load', error?.message || 'Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -163,7 +159,7 @@ export default function DiscoverScreen() {
     const term = search.trim();
 
     if (!term || !supabase) {
-      setPeople([]);
+      await loadDiscover();
       return;
     }
 
@@ -177,13 +173,10 @@ export default function DiscoverScreen() {
         .select('user_id,username,display_name,bio,avatar_url,is_public')
         .eq('is_public', true)
         .neq('user_id', myId)
-        .or(
-          `display_name.ilike.%${safeTerm}%,username.ilike.%${safeTerm}%`
-        )
+        .or(`display_name.ilike.%${safeTerm}%,username.ilike.%${safeTerm}%`)
         .limit(30);
 
       if (error) throw error;
-
       setPeople((data || []) as Profile[]);
     } catch (error: any) {
       Alert.alert('Search failed', error?.message || 'Please try again.');
@@ -281,7 +274,6 @@ export default function DiscoverScreen() {
           .eq('following_id', person.user_id);
 
         if (error) throw error;
-
         setFollowing((old) => old.filter((id) => id !== person.user_id));
       } else {
         const { error } = await supabase
@@ -292,7 +284,6 @@ export default function DiscoverScreen() {
           });
 
         if (error) throw error;
-
         setFollowing((old) => [...old, person.user_id]);
       }
     } catch (error: any) {
@@ -318,7 +309,6 @@ export default function DiscoverScreen() {
           .eq('profile_id', person.user_id);
 
         if (error) throw error;
-
         setPinned((old) => old.filter((id) => id !== person.user_id));
       } else {
         const { error } = await supabase
@@ -329,7 +319,6 @@ export default function DiscoverScreen() {
           });
 
         if (error) throw error;
-
         setPinned((old) => [...old, person.user_id]);
       }
     } catch (error: any) {
@@ -358,9 +347,9 @@ export default function DiscoverScreen() {
                   (r.recipient_id === myId && r.sender_id === person.user_id))
             );
 
-            if (!request) return;
+            if (!request || !supabase) return;
 
-            const { error } = await supabase!
+            const { error } = await supabase
               .from('friend_requests')
               .delete()
               .eq('id', request.id);
@@ -396,6 +385,32 @@ export default function DiscoverScreen() {
     setRecent((old) => old.filter((p) => p.user_id !== person.user_id));
   };
 
+  const clearRecent = () => {
+    if (!recent.length) {
+      Alert.alert('Recent users', 'There are no recent profiles to delete.');
+      return;
+    }
+
+    Alert.alert('Clear recent users?', 'Delete all your recent profile visits?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete all',
+        style: 'destructive',
+        onPress: async () => {
+          if (!supabase) return;
+
+          const { error } = await supabase
+            .from('recent_profiles')
+            .delete()
+            .eq('user_id', myId);
+
+          if (error) Alert.alert('Could not delete', error.message);
+          else setRecent([]);
+        },
+      },
+    ]);
+  };
+
   const Avatar = ({
     person,
     size = 60,
@@ -403,12 +418,7 @@ export default function DiscoverScreen() {
     person: Profile;
     size?: number;
   }) => (
-    <View
-      style={[
-        styles.avatar,
-        { width: size, height: size, borderRadius: size / 2 },
-      ]}
-    >
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
       {person.avatar_url ? (
         <Image
           source={{ uri: person.avatar_url }}
@@ -428,11 +438,9 @@ export default function DiscoverScreen() {
     isRecent?: boolean;
   }) => (
     <View style={styles.personCard}>
-      <Pressable
-        style={styles.personMain}
-        onPress={() => openProfile(person)}
-      >
+      <Pressable style={styles.personMain} onPress={() => openProfile(person)}>
         <Avatar person={person} size={59} />
+
         <View style={styles.personInfo}>
           <Text style={styles.personName} numberOfLines={1}>
             {nameOf(person)}
@@ -444,42 +452,29 @@ export default function DiscoverScreen() {
             {person.bio || 'Discover this BRITUME member'}
           </Text>
         </View>
+
         <Ionicons name="chevron-forward" size={20} color={theme.muted} />
       </Pressable>
 
       <View style={styles.cardActions}>
-        <Pressable
-          style={styles.smallAction}
-          onPress={() => openProfile(person)}
-        >
+        <Pressable style={styles.smallAction} onPress={() => openProfile(person)}>
           <Ionicons name="person-outline" size={16} color={theme.blue} />
           <Text style={styles.smallActionText}>View</Text>
         </Pressable>
 
         {friends.includes(person.user_id) ? (
-          <Pressable
-            style={styles.smallAction}
-            onPress={() => removeFriend(person)}
-          >
+          <Pressable style={styles.smallAction} onPress={() => removeFriend(person)}>
             <Ionicons name="person-remove-outline" size={16} color={theme.danger} />
-            <Text style={[styles.smallActionText, { color: theme.danger }]}>
-              Remove
-            </Text>
+            <Text style={[styles.smallActionText, { color: theme.danger }]}>Remove</Text>
           </Pressable>
         ) : (
-          <Pressable
-            style={styles.smallAction}
-            onPress={() => sendFriendRequest(person)}
-          >
+          <Pressable style={styles.smallAction} onPress={() => sendFriendRequest(person)}>
             <Ionicons name="person-add-outline" size={16} color={theme.blue} />
             <Text style={styles.smallActionText}>Add</Text>
           </Pressable>
         )}
 
-        <Pressable
-          style={styles.smallAction}
-          onPress={() => toggleFollow(person)}
-        >
+        <Pressable style={styles.smallAction} onPress={() => toggleFollow(person)}>
           <Ionicons
             name={following.includes(person.user_id) ? 'checkmark-circle' : 'star-outline'}
             size={16}
@@ -490,10 +485,7 @@ export default function DiscoverScreen() {
           </Text>
         </Pressable>
 
-        <Pressable
-          style={styles.iconAction}
-          onPress={() => togglePin(person)}
-        >
+        <Pressable style={styles.iconAction} onPress={() => togglePin(person)}>
           <Ionicons
             name={pinned.includes(person.user_id) ? 'pin' : 'pin-outline'}
             size={18}
@@ -502,10 +494,7 @@ export default function DiscoverScreen() {
         </Pressable>
 
         {isRecent && (
-          <Pressable
-            style={styles.iconAction}
-            onPress={() => deleteRecent(person)}
-          >
+          <Pressable style={styles.iconAction} onPress={() => deleteRecent(person)}>
             <Ionicons name="trash-outline" size={18} color={theme.danger} />
           </Pressable>
         )}
@@ -557,7 +546,6 @@ export default function DiscoverScreen() {
           />
         }
       >
-        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.brand}>
             <View style={styles.logo}>
@@ -573,7 +561,7 @@ export default function DiscoverScreen() {
             style={styles.headerButton}
             onPress={() => {
               setSearch('');
-              setPeople([]);
+              loadDiscover();
             }}
           >
             <Ionicons name="refresh" size={22} color={theme.blueDark} />
@@ -585,24 +573,15 @@ export default function DiscoverScreen() {
           Find people, creators and new connections.
         </Text>
 
-        {/* ICON ACTIONS */}
         <View style={styles.toolsRow}>
-          <Pressable
-            style={styles.tool}
-            onPress={() => {
-              setSearch('');
-              setPeople([]);
-            }}
-          >
+          <Pressable style={styles.tool} onPress={() => setSearch('')}>
             <Ionicons name="search" size={24} color={theme.blue} />
             <Text style={styles.toolText}>Search</Text>
           </Pressable>
 
           <Pressable
             style={styles.tool}
-            onPress={() => {
-              Alert.alert('Add people', 'Search for a BRITUME member below and tap Add.');
-            }}
+            onPress={() => Alert.alert('Add people', 'Search for a BRITUME member below and tap Add.')}
           >
             <Ionicons name="person-add" size={24} color={theme.success} />
             <Text style={styles.toolText}>Add</Text>
@@ -611,51 +590,20 @@ export default function DiscoverScreen() {
           <Pressable
             style={styles.tool}
             onPress={() => {
-              if (!selected) {
-                Alert.alert('Remove', 'Open a profile to remove a friend.');
-              } else {
-                removeFriend(selected);
-              }
+              if (selected) removeFriend(selected);
+              else Alert.alert('Remove', 'Open a profile to remove a friend.');
             }}
           >
             <Ionicons name="person-remove" size={24} color={theme.danger} />
             <Text style={styles.toolText}>Remove</Text>
           </Pressable>
 
-          <Pressable
-            style={styles.tool}
-            onPress={() => {
-              if (recent.length === 0) {
-                Alert.alert('Recent users', 'There are no recent profiles to delete.');
-                return;
-              }
-              Alert.alert('Clear recent users?', 'Delete all your recent profile visits?', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete all',
-                  style: 'destructive',
-                  onPress: async () => {
-                    if (!supabase) return;
-                    const { error } = await supabase
-                      .from('recent_profiles')
-                      .delete()
-                      .eq('user_id', myId);
-                    if (error) {
-                      Alert.alert('Could not delete', error.message);
-                    } else {
-                      setRecent([]);
-                    }
-                  },
-                },
-              ]);
-            }}
-          >
+          <Pressable style={styles.tool} onPress={clearRecent}>
             <Ionicons name="trash" size={24} color={theme.danger} />
             <Text style={styles.toolText}>Delete</Text>
           </Pressable>
         </View>
 
-        {/* SEARCH */}
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={21} color={theme.muted} />
           <TextInput
@@ -677,7 +625,6 @@ export default function DiscoverScreen() {
           </Pressable>
         </View>
 
-        {/* PINNED */}
         {pinnedPeople.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
@@ -693,7 +640,6 @@ export default function DiscoverScreen() {
           </View>
         )}
 
-        {/* RECENT USERS */}
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
             <View style={styles.headingIcon}>
@@ -705,27 +651,7 @@ export default function DiscoverScreen() {
                 Profiles you have recently visited
               </Text>
             </View>
-            <Pressable
-              onPress={() => {
-                if (recent.length === 0) return;
-                Alert.alert('Delete recent users?', 'Clear your recent profile history?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                      if (!supabase) return;
-                      const { error } = await supabase
-                        .from('recent_profiles')
-                        .delete()
-                        .eq('user_id', myId);
-                      if (error) Alert.alert('Error', error.message);
-                      else setRecent([]);
-                    },
-                  },
-                ]);
-              }}
-            >
+            <Pressable onPress={clearRecent}>
               <Text style={styles.clearText}>Clear</Text>
             </Pressable>
           </View>
@@ -740,16 +666,11 @@ export default function DiscoverScreen() {
             </View>
           ) : (
             recent.map((person) => (
-              <ProfileCard
-                key={person.user_id}
-                person={person}
-                isRecent
-              />
+              <ProfileCard key={person.user_id} person={person} isRecent />
             ))
           )}
         </View>
 
-        {/* ALL PEOPLE */}
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
             <View style={styles.headingIcon}>
@@ -778,12 +699,9 @@ export default function DiscoverScreen() {
           )}
         </View>
 
-        <Text style={styles.footer}>
-          BRITUME • Vortex of Possibilities
-        </Text>
+        <Text style={styles.footer}>BRITUME • Vortex of Possibilities</Text>
       </ScrollView>
 
-      {/* PUBLIC PROFILE VIEW */}
       <Modal
         visible={!!selected}
         transparent
@@ -806,9 +724,7 @@ export default function DiscoverScreen() {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.profileCenter}>
                   <Avatar person={selected} size={105} />
-                  <Text style={styles.profileName}>
-                    {nameOf(selected)}
-                  </Text>
+                  <Text style={styles.profileName}>{nameOf(selected)}</Text>
                   <Text style={styles.profileUsername}>
                     {selected.username ? `@${selected.username}` : 'BRITUME member'}
                   </Text>
@@ -882,360 +798,362 @@ export default function DiscoverScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  content: {
-    paddingHorizontal: 17,
-    paddingTop: 16,
-    paddingBottom: 45,
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    color: theme.muted,
-    marginTop: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 26,
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logo: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    backgroundColor: theme.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  brandName: {
-    color: theme.text,
-    fontWeight: '900',
-    fontSize: 16,
-    letterSpacing: 1,
-  },
-  tagline: {
-    color: theme.muted,
-    fontSize: 9,
-    marginTop: 2,
-  },
-  headerButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 16,
-    backgroundColor: theme.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
-  title: {
-    color: theme.text,
-    fontSize: 30,
-    fontWeight: '900',
-  },
-  subtitle: {
-    color: theme.muted,
-    fontSize: 13,
-    marginTop: 5,
-    marginBottom: 21,
-  },
-  toolsRow: {
-    flexDirection: 'row',
-    gap: 9,
-    marginBottom: 20,
-  },
-  tool: {
-    flex: 1,
-    backgroundColor: theme.panel,
-    borderRadius: 18,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
-  toolText: {
-    color: theme.text,
-    fontSize: 10,
-    fontWeight: '800',
-    marginTop: 7,
-  },
-  searchBox: {
-    minHeight: 55,
-    borderRadius: 19,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.glassBorder,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 13,
-    gap: 10,
-    ...theme.clayRaised,
-  },
-  searchInput: {
-    flex: 1,
-    color: theme.text,
-    fontSize: 13,
-    paddingVertical: 12,
-  },
-  searchButton: {
-    width: 39,
-    height: 39,
-    borderRadius: 13,
-    backgroundColor: theme.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  section: {
-    marginTop: 27,
-  },
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  headingIcon: {
-    width: 39,
-    height: 39,
-    borderRadius: 14,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
-  sectionTitle: {
-    color: theme.text,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  sectionSubtitle: {
-    color: theme.muted,
-    fontSize: 11,
-    marginTop: 3,
-  },
-  clearText: {
-    color: theme.danger,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  personCard: {
-    backgroundColor: theme.panel,
-    borderRadius: 23,
-    padding: 13,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: theme.glassBorder,
-    ...theme.clayShadow,
-  },
-  personMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...theme.clayRaised,
-  },
-  personInfo: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 7,
-  },
-  personName: {
-    color: theme.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  username: {
-    color: theme.blue,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  bio: {
-    color: theme.muted,
-    fontSize: 10,
-    marginTop: 5,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    marginTop: 13,
-    paddingTop: 11,
-    gap: 5,
-  },
-  smallAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 5,
-  },
-  smallActionText: {
-    color: theme.blue,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  iconAction: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
-    backgroundColor: theme.clayBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCard: {
-    backgroundColor: theme.panel,
-    borderRadius: 23,
-    padding: 25,
-    alignItems: 'center',
-    ...theme.clayShadow,
-  },
-  emptyTitle: {
-    color: theme.text,
-    fontSize: 15,
-    fontWeight: '900',
-    marginTop: 13,
-  },
-  emptyText: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 7,
-  },
-  footer: {
-    color: theme.muted,
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 30,
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(25,51,77,0.42)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: theme.bg,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 21,
-    paddingBottom: 35,
-    maxHeight: '85%',
-  },
-  modalTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
-  modalHeading: {
-    color: theme.text,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  closeButton: {
-    width: 39,
-    height: 39,
-    borderRadius: 13,
-    backgroundColor: theme.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.clayRaised,
-  },
-  profileCenter: {
-    alignItems: 'center',
-    paddingVertical: 13,
-  },
-  profileName: {
-    color: theme.text,
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: 15,
-  },
-  profileUsername: {
-    color: theme.blue,
-    fontSize: 13,
-    marginTop: 5,
-  },
-  profileBio: {
-    color: theme.muted,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 13,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 22,
-    marginBottom: 10,
-  },
-  modalPrimary: {
-    minHeight: 49,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: theme.blue,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    marginTop: 9,
-    ...theme.clayRaised,
-  },
-  modalPrimaryText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  modalSecondary: {
-    minHeight: 49,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: theme.panel,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    marginTop: 9,
-    ...theme.clayRaised,
-  },
-  modalSecondaryText: {
-    color: theme.blue,
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  modalNote: {
-    color: theme.muted,
-    fontSize: 10,
-    lineHeight: 16,
-    textAlign: 'center',
-    marginTop: 18,
-  },
-});
+function createStyles(theme: any) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+    content: {
+      paddingHorizontal: 17,
+      paddingTop: 16,
+      paddingBottom: 45,
+    },
+    loading: {
+      flex: 1,
+      backgroundColor: theme.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    loadingText: {
+      color: theme.muted,
+      marginTop: 12,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 26,
+    },
+    brand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    logo: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      backgroundColor: theme.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    logoText: {
+      color: '#FFFFFF',
+      fontSize: 26,
+      fontWeight: '900',
+    },
+    brandName: {
+      color: theme.text,
+      fontWeight: '900',
+      fontSize: 16,
+      letterSpacing: 1,
+    },
+    tagline: {
+      color: theme.muted,
+      fontSize: 9,
+      marginTop: 2,
+    },
+    headerButton: {
+      width: 45,
+      height: 45,
+      borderRadius: 16,
+      backgroundColor: theme.panel,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    title: {
+      color: theme.text,
+      fontSize: 30,
+      fontWeight: '900',
+    },
+    subtitle: {
+      color: theme.muted,
+      fontSize: 13,
+      marginTop: 5,
+      marginBottom: 21,
+    },
+    toolsRow: {
+      flexDirection: 'row',
+      gap: 9,
+      marginBottom: 20,
+    },
+    tool: {
+      flex: 1,
+      backgroundColor: theme.panel,
+      borderRadius: 18,
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    toolText: {
+      color: theme.text,
+      fontSize: 10,
+      fontWeight: '800',
+      marginTop: 7,
+    },
+    searchBox: {
+      minHeight: 55,
+      borderRadius: 19,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 13,
+      gap: 10,
+      ...theme.clayRaised,
+    },
+    searchInput: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 13,
+      paddingVertical: 12,
+    },
+    searchButton: {
+      width: 39,
+      height: 39,
+      borderRadius: 13,
+      backgroundColor: theme.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    section: {
+      marginTop: 27,
+    },
+    sectionHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    headingIcon: {
+      width: 39,
+      height: 39,
+      borderRadius: 14,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    sectionTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    sectionSubtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      marginTop: 3,
+    },
+    clearText: {
+      color: theme.danger,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    personCard: {
+      backgroundColor: theme.panel,
+      borderRadius: 23,
+      padding: 13,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+      ...theme.clayShadow,
+    },
+    personMain: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    avatar: {
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      borderWidth: 2,
+      borderColor: theme.border,
+      ...theme.clayRaised,
+    },
+    personInfo: {
+      flex: 1,
+      marginLeft: 12,
+      marginRight: 7,
+    },
+    personName: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: '900',
+    },
+    username: {
+      color: theme.blue,
+      fontSize: 11,
+      marginTop: 4,
+    },
+    bio: {
+      color: theme.muted,
+      fontSize: 10,
+      marginTop: 5,
+    },
+    cardActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      marginTop: 13,
+      paddingTop: 11,
+      gap: 5,
+    },
+    smallAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 5,
+    },
+    smallActionText: {
+      color: theme.blue,
+      fontSize: 10,
+      fontWeight: '800',
+    },
+    iconAction: {
+      width: 32,
+      height: 32,
+      borderRadius: 11,
+      backgroundColor: theme.clayBlue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyCard: {
+      backgroundColor: theme.panel,
+      borderRadius: 23,
+      padding: 25,
+      alignItems: 'center',
+      ...theme.clayShadow,
+    },
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '900',
+      marginTop: 13,
+    },
+    emptyText: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 19,
+      textAlign: 'center',
+      marginTop: 7,
+    },
+    footer: {
+      color: theme.muted,
+      fontSize: 10,
+      textAlign: 'center',
+      marginTop: 30,
+    },
+    modalBackground: {
+      flex: 1,
+      backgroundColor: 'rgba(25,51,77,0.55)',
+      justifyContent: 'flex-end',
+    },
+    modalCard: {
+      backgroundColor: theme.bg,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      padding: 21,
+      paddingBottom: 35,
+      maxHeight: '85%',
+    },
+    modalTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 22,
+    },
+    modalHeading: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    closeButton: {
+      width: 39,
+      height: 39,
+      borderRadius: 13,
+      backgroundColor: theme.panel,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.clayRaised,
+    },
+    profileCenter: {
+      alignItems: 'center',
+      paddingVertical: 13,
+    },
+    profileName: {
+      color: theme.text,
+      fontSize: 22,
+      fontWeight: '900',
+      marginTop: 15,
+    },
+    profileUsername: {
+      color: theme.blue,
+      fontSize: 13,
+      marginTop: 5,
+    },
+    profileBio: {
+      color: theme.muted,
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginTop: 13,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 22,
+      marginBottom: 10,
+    },
+    modalPrimary: {
+      minHeight: 49,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: theme.blue,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      marginTop: 9,
+      ...theme.clayRaised,
+    },
+    modalPrimaryText: {
+      color: '#FFFFFF',
+      fontWeight: '900',
+      fontSize: 12,
+    },
+    modalSecondary: {
+      minHeight: 49,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: theme.panel,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      marginTop: 9,
+      ...theme.clayRaised,
+    },
+    modalSecondaryText: {
+      color: theme.blue,
+      fontWeight: '900',
+      fontSize: 12,
+    },
+    modalNote: {
+      color: theme.muted,
+      fontSize: 10,
+      lineHeight: 16,
+      textAlign: 'center',
+      marginTop: 18,
+    },
+  });
+}
