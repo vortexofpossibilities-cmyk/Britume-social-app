@@ -1,8 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,8 @@ import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/auth/AuthProvider';
 import { theme } from '../src/lib/theme';
 
+type FilterType = 'All' | 'Likes' | 'Comments' | 'Followers' | 'Other';
+
 type NotificationItem = {
   id: string;
   recipient_id: string;
@@ -25,58 +26,155 @@ type NotificationItem = {
   message: string;
   read_at: string | null;
   created_at: string;
+  destination_type: string | null;
+  destination_id: string | null;
+  destination_url: string | null;
   actor?: {
     display_name: string | null;
     username: string | null;
-    avatar_url: string | null;
   };
 };
 
 const BLUE = '#168BFF';
 
-function timeAgo(date: string) {
+const filters: FilterType[] = [
+  'All',
+  'Likes',
+  'Comments',
+  'Followers',
+  'Other',
+];
+
+function timeAgo(value: string) {
   const seconds = Math.max(
     0,
-    Math.floor((Date.now() - new Date(date).getTime()) / 1000),
+    Math.floor((Date.now() - new Date(value).getTime()) / 1000),
   );
 
   if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
 
-  return new Date(date).toLocaleDateString();
+  return new Date(value).toLocaleDateString();
 }
 
-function notificationIcon(type: string) {
-  switch (type) {
+function getNotificationStyle(type: string) {
+  switch (type.toLowerCase()) {
     case 'like':
-      return { name: 'heart' as const, color: '#E84D75' };
+      return {
+        icon: 'heart' as const,
+        color: '#E84D75',
+        label: 'POST LIKE',
+        source: 'Home feed',
+      };
     case 'comment':
-      return { name: 'chatbubble-ellipses' as const, color: BLUE };
+      return {
+        icon: 'chatbubble-ellipses' as const,
+        color: BLUE,
+        label: 'COMMENT',
+        source: 'Home feed',
+      };
     case 'follow':
-      return { name: 'person-add' as const, color: '#8C83FF' };
+      return {
+        icon: 'person-add' as const,
+        color: '#8C83FF',
+        label: 'NEW FOLLOWER',
+        source: 'Member profile',
+      };
     case 'community':
-      return { name: 'people' as const, color: '#20B878' };
+      return {
+        icon: 'people' as const,
+        color: '#20B878',
+        label: 'COMMUNITY',
+        source: 'Communities',
+      };
     case 'mention':
-      return { name: 'at' as const, color: '#E9A928' };
+      return {
+        icon: 'at' as const,
+        color: '#E9A928',
+        label: 'MENTION',
+        source: 'BRITUME activity',
+      };
+    case 'message':
+      return {
+        icon: 'mail' as const,
+        color: '#168BFF',
+        label: 'MESSAGE',
+        source: 'Messages',
+      };
     default:
-      return { name: 'notifications' as const, color: BLUE };
+      return {
+        icon: 'notifications' as const,
+        color: BLUE,
+        label: 'ACTIVITY',
+        source: 'BRITUME',
+      };
   }
+}
+
+function getFilter(type: string): FilterType {
+  switch (type.toLowerCase()) {
+    case 'like':
+      return 'Likes';
+    case 'comment':
+      return 'Comments';
+    case 'follow':
+      return 'Followers';
+    default:
+      return 'Other';
+  }
+}
+
+function getDestination(item: NotificationItem) {
+  if (item.destination_url) {
+    return item.destination_url;
+  }
+
+  if (item.type === 'follow' && item.actor_id) {
+    return `/(tabs)/profile?userId=${item.actor_id}`;
+  }
+
+  if (
+    (item.type === 'like' || item.type === 'comment') &&
+    item.entity_id
+  ) {
+    return `/(tabs)?postId=${item.entity_id}`;
+  }
+
+  if (item.type === 'message') {
+    return '/messages';
+  }
+
+  if (item.type === 'community') {
+    return '/(tabs)/communities';
+  }
+
+  return '/(tabs)';
 }
 
 export default function NotificationsScreen() {
   const { session } = useAuth();
 
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [filter, setFilter] = useState<FilterType>('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
 
+  const userId = session?.user?.id;
   const unreadCount = items.filter(item => !item.read_at).length;
 
+  const filteredItems = useMemo(() => {
+    if (filter === 'All') return items;
+
+    return items.filter(
+      item => getFilter(item.type) === filter,
+    );
+  }, [items, filter]);
+
   const loadNotifications = useCallback(async (refresh = false) => {
-    if (!supabase || !session?.user?.id) {
+    if (!supabase || !userId) {
       setItems([]);
       setLoading(false);
       setRefreshing(false);
@@ -90,9 +188,9 @@ export default function NotificationsScreen() {
       const { data, error } = await supabase
         .from('notifications')
         .select(
-          'id, recipient_id, actor_id, type, entity_id, message, read_at, created_at',
+          'id, recipient_id, actor_id, type, entity_id, message, read_at, created_at, destination_type, destination_id, destination_url',
         )
-        .eq('recipient_id', session.user.id)
+        .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -108,13 +206,17 @@ export default function NotificationsScreen() {
         ),
       ];
 
-      let profiles: any[] = [];
+      let profiles: {
+        user_id: string;
+        display_name: string | null;
+        username: string | null;
+      }[] = [];
 
       if (actorIds.length > 0) {
         const { data: profileData, error: profileError } =
           await supabase
             .from('profiles')
-            .select('user_id, display_name, username, avatar_url')
+            .select('user_id, display_name, username')
             .in('user_id', actorIds);
 
         if (profileError) throw profileError;
@@ -145,7 +247,7 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [session?.user?.id]);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,48 +256,52 @@ export default function NotificationsScreen() {
   );
 
   const markAsRead = async (item: NotificationItem) => {
-    if (!supabase || !session?.user?.id || item.read_at) return;
+    if (!supabase || !userId || item.read_at) return;
 
-    setWorkingId(item.id);
+    const now = new Date().toISOString();
+
+    setItems(current =>
+      current.map(value =>
+        value.id === item.id
+          ? { ...value, read_at: now }
+          : value,
+      ),
+    );
 
     try {
-      const now = new Date().toISOString();
-
       const { error } = await supabase
         .from('notifications')
         .update({ read_at: now })
         .eq('id', item.id)
-        .eq('recipient_id', session.user.id);
+        .eq('recipient_id', userId);
 
       if (error) throw error;
-
+    } catch (error) {
       setItems(current =>
-        current.map(notification =>
-          notification.id === item.id
-            ? { ...notification, read_at: now }
-            : notification,
+        current.map(value =>
+          value.id === item.id
+            ? { ...value, read_at: null }
+            : value,
         ),
       );
-    } catch (error) {
+
       Alert.alert(
         'Could not update',
         error instanceof Error ? error.message : 'Please try again.',
       );
-    } finally {
-      setWorkingId(null);
     }
   };
 
   const markAllAsRead = async () => {
-    if (!supabase || !session?.user?.id || unreadCount === 0) return;
+    if (!supabase || !userId || unreadCount === 0) return;
+
+    const now = new Date().toISOString();
 
     try {
-      const now = new Date().toISOString();
-
       const { error } = await supabase
         .from('notifications')
         .update({ read_at: now })
-        .eq('recipient_id', session.user.id)
+        .eq('recipient_id', userId)
         .is('read_at', null);
 
       if (error) throw error;
@@ -217,14 +323,14 @@ export default function NotificationsScreen() {
   const deleteNotification = (item: NotificationItem) => {
     Alert.alert(
       'Delete notification?',
-      'This notification will be removed from your list.',
+      'This notification will be removed from your activity.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            if (!supabase || !session?.user?.id) return;
+            if (!supabase || !userId) return;
 
             setWorkingId(item.id);
 
@@ -233,17 +339,19 @@ export default function NotificationsScreen() {
                 .from('notifications')
                 .delete()
                 .eq('id', item.id)
-                .eq('recipient_id', session.user.id);
+                .eq('recipient_id', userId);
 
               if (error) throw error;
 
               setItems(current =>
-                current.filter(notification => notification.id !== item.id),
+                current.filter(value => value.id !== item.id),
               );
             } catch (error) {
               Alert.alert(
                 'Delete failed',
-                error instanceof Error ? error.message : 'Please try again.',
+                error instanceof Error
+                  ? error.message
+                  : 'Please try again.',
               );
             } finally {
               setWorkingId(null);
@@ -257,21 +365,19 @@ export default function NotificationsScreen() {
   const openNotification = async (item: NotificationItem) => {
     await markAsRead(item);
 
-    if (item.type === 'follow') {
-      router.push('/(tabs)/discover');
-    } else if (item.type === 'like' || item.type === 'comment') {
-      router.push('/(tabs)');
-    } else {
-      router.push('/(tabs)/communities');
-    }
+    const destination = getDestination(item);
+
+    router.push(destination as any);
   };
 
-  const renderNotification = (item: NotificationItem) => {
-    const icon = notificationIcon(item.type);
+  const renderCard = (item: NotificationItem) => {
+    const style = getNotificationStyle(item.type);
     const actorName =
       item.actor?.display_name ||
       item.actor?.username ||
       'A BRITUME member';
+
+    const destination = getDestination(item);
 
     return (
       <Pressable
@@ -282,77 +388,124 @@ export default function NotificationsScreen() {
           !item.read_at && styles.unreadCard,
         ]}
       >
-        <View style={styles.avatarWrap}>
-          {item.actor?.avatar_url ? (
-            <Image
-              source={{ uri: item.actor.avatar_url }}
-              style={styles.avatar}
+        <View style={styles.iconColumn}>
+          <View style={styles.iconCircle}>
+            <Ionicons
+              name={style.icon}
+              size={23}
+              color={style.color}
             />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Ionicons name="person" size={23} color={BLUE} />
-            </View>
-          )}
-
-          <View style={[styles.typeBadge, { backgroundColor: icon.color }]}>
-            <Ionicons name={icon.name} size={12} color="#FFFFFF" />
           </View>
+
+          {!item.read_at && <View style={styles.unreadDot} />}
         </View>
 
-        <View style={styles.notificationBody}>
-          <Text style={styles.notificationText}>
+        <View style={styles.cardContent}>
+          <View style={styles.cardTop}>
+            <Text style={[styles.category, { color: style.color }]}>
+              {style.label}
+            </Text>
+
+            <Text style={styles.time}>
+              {timeAgo(item.created_at)}
+            </Text>
+          </View>
+
+          <Text style={styles.message}>
             <Text style={styles.actorName}>{actorName}</Text>
             {' '}{item.message}
           </Text>
 
-          <Text style={styles.notificationTime}>
-            {timeAgo(item.created_at)}
-          </Text>
-
-          {!item.read_at ? (
-            <Text style={styles.newLabel}>NEW</Text>
-          ) : null}
-        </View>
-
-        <View style={styles.cardActions}>
-          {!item.read_at ? (
-            <Pressable
-              hitSlop={10}
-              onPress={() => void markAsRead(item)}
-              accessibilityLabel="Mark as read"
-            >
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={21}
-                color={BLUE}
-              />
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            hitSlop={10}
-            onPress={() => deleteNotification(item)}
-            accessibilityLabel="Delete notification"
-          >
+          <View style={styles.sourceRow}>
             <Ionicons
-              name="close-circle-outline"
-              size={21}
+              name="git-branch-outline"
+              size={13}
               color={theme.muted}
             />
-          </Pressable>
+            <Text style={styles.sourceText}>
+              Source: {style.source}
+            </Text>
+          </View>
+
+          <View style={styles.destinationBox}>
+            <View style={styles.destinationHeading}>
+              <Ionicons
+                name="link-outline"
+                size={13}
+                color={BLUE}
+              />
+              <Text style={styles.destinationLabel}>
+                NOTIFICATION URL
+              </Text>
+            </View>
+
+            <Text
+              style={styles.destinationUrl}
+              numberOfLines={2}
+            >
+              {destination}
+            </Text>
+
+            <View style={styles.openRow}>
+              <Text style={styles.openText}>Tap to view activity</Text>
+              <Ionicons
+                name="arrow-forward-circle"
+                size={17}
+                color={BLUE}
+              />
+            </View>
+          </View>
+
+          <View style={styles.cardBottom}>
+            {!item.read_at ? (
+              <Text style={styles.newText}>UNREAD</Text>
+            ) : (
+              <Text style={styles.readText}>READ</Text>
+            )}
+
+            <Pressable
+              onPress={event => {
+                event.stopPropagation();
+                deleteNotification(item);
+              }}
+              hitSlop={10}
+              style={styles.deleteButton}
+            >
+              {workingId === item.id ? (
+                <ActivityIndicator size="small" color={theme.muted} />
+              ) : (
+                <Ionicons
+                  name="trash-outline"
+                  size={17}
+                  color={theme.muted}
+                />
+              )}
+            </Pressable>
+          </View>
         </View>
       </Pressable>
     );
   };
 
-  if (!session?.user?.id) {
+  if (!userId) {
     return (
       <View style={styles.centerScreen}>
-        <Ionicons name="notifications-outline" size={54} color={BLUE} />
-        <Text style={styles.emptyTitle}>Sign in to see notifications</Text>
+        <View style={styles.bigIcon}>
+          <Ionicons
+            name="notifications-outline"
+            size={42}
+            color={BLUE}
+          />
+        </View>
+
+        <Text style={styles.emptyTitle}>
+          Sign in to see notifications
+        </Text>
+
         <Text style={styles.emptyText}>
           Your BRITUME activity will appear here.
         </Text>
+
         <Pressable
           style={styles.primaryButton}
           onPress={() => router.push('/(auth)/sign-in')}
@@ -378,16 +531,20 @@ export default function NotificationsScreen() {
       >
         <View style={styles.header}>
           <Pressable
-            style={styles.backButton}
+            style={styles.headerButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={22} color={theme.text} />
+            <Ionicons
+              name="arrow-back"
+              size={22}
+              color={theme.text}
+            />
           </Pressable>
 
-          <View style={styles.headerTitleWrap}>
+          <View style={styles.headerText}>
             <Text style={styles.title}>Notifications</Text>
             <Text style={styles.subtitle}>
-              Your BRITUME activity, all in one place
+              Your activity vortex
             </Text>
           </View>
 
@@ -397,80 +554,136 @@ export default function NotificationsScreen() {
               size={23}
               color={BLUE}
             />
-            {unreadCount > 0 ? (
-              <View style={styles.countBadge}>
-                <Text style={styles.countText}>
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Text>
               </View>
-            ) : null}
+            )}
           </View>
         </View>
 
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryIcon}>
-            <Ionicons name="sparkles" size={24} color={BLUE} />
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <Ionicons
+              name="sparkles"
+              size={26}
+              color={BLUE}
+            />
           </View>
 
-          <View style={styles.summaryText}>
-            <Text style={styles.summaryTitle}>
-              You're all caught up?
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>
+              Your activity centre
             </Text>
-            <Text style={styles.summarySubtitle}>
+            <Text style={styles.heroSubtitle}>
               {unreadCount === 0
-                ? 'You have no unread notifications.'
-                : `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}.`}
+                ? 'You are all caught up!'
+                : `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`}
             </Text>
           </View>
 
-          {unreadCount > 0 ? (
-            <Pressable onPress={() => void markAllAsRead()}>
-              <Text style={styles.markAllText}>Read all</Text>
+          {unreadCount > 0 && (
+            <Pressable
+              onPress={() => void markAllAsRead()}
+              style={styles.readAllButton}
+            >
+              <Text style={styles.readAllText}>Read all</Text>
             </Pressable>
-          ) : null}
+          )}
         </View>
+
+        <View style={styles.filterHeading}>
+          <Text style={styles.sectionTitle}>Activity filters</Text>
+          <Text style={styles.totalText}>
+            {filteredItems.length} items
+          </Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filters}
+        >
+          {filters.map(value => {
+            const selected = filter === value;
+
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setFilter(value)}
+                style={[
+                  styles.filterChip,
+                  selected && styles.filterChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selected && styles.filterTextActive,
+                  ]}
+                >
+                  {value}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionTitle}>Recent activity</Text>
-          <Text style={styles.sectionCount}>{items.length}</Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{items.length}</Text>
+          </View>
         </View>
 
         {loading ? (
-          <View style={styles.loadingBox}>
+          <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={BLUE} />
-            <Text style={styles.loadingText}>
-              Loading your notifications...
+            <Text style={styles.emptyText}>
+              Loading your activity...
             </Text>
           </View>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <View style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
+            <View style={styles.bigIcon}>
               <Ionicons
                 name="notifications-off-outline"
-                size={42}
+                size={40}
                 color={BLUE}
               />
             </View>
 
-            <Text style={styles.emptyTitle}>Nothing to see yet</Text>
-            <Text style={styles.emptyText}>
-              When someone likes or comments on your posts, follows you,
-              or interacts with your communities, you'll see it here.
+            <Text style={styles.emptyTitle}>
+              {items.length === 0
+                ? 'Nothing here yet'
+                : 'No activity in this category'}
             </Text>
 
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push('/(tabs)')}
-            >
-              <Text style={styles.primaryButtonText}>Explore BRITUME</Text>
-            </Pressable>
+            <Text style={styles.emptyText}>
+              {items.length === 0
+                ? 'Likes, comments, followers and community activity will appear here.'
+                : 'Try another filter to see more BRITUME activity.'}
+            </Text>
+
+            {items.length === 0 && (
+              <Pressable
+                style={styles.primaryButton}
+                onPress={() => router.push('/(tabs)')}
+              >
+                <Text style={styles.primaryButtonText}>
+                  Explore BRITUME
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : (
-          items.map(renderNotification)
+          filteredItems.map(renderCard)
         )}
 
         <Text style={styles.footer}>
-          BRITUME • Vortex of Possibilities
+          BRITUME · Vortex of Possibilities
         </Text>
       </ScrollView>
     </View>
@@ -483,39 +696,39 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    paddingHorizontal: 17,
+    paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 45,
+    paddingBottom: 50,
   },
   centerScreen: {
     flex: 1,
     backgroundColor: theme.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 28,
+    padding: 25,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
     gap: 12,
+    marginBottom: 22,
   },
-  backButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     backgroundColor: theme.panel,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.clayRaised,
   },
-  headerTitleWrap: {
+  headerText: {
     flex: 1,
   },
   title: {
-    fontSize: 25,
-    fontWeight: '900',
     color: theme.text,
+    fontSize: 24,
+    fontWeight: '900',
   },
   subtitle: {
     color: theme.muted,
@@ -525,169 +738,276 @@ const styles = StyleSheet.create({
   bellButton: {
     width: 46,
     height: 46,
-    borderRadius: 16,
+    borderRadius: 17,
     backgroundColor: theme.panel,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.clayRaised,
   },
-  countBadge: {
+  badge: {
     position: 'absolute',
     top: -5,
     right: -5,
     minWidth: 19,
     height: 19,
     borderRadius: 10,
+    paddingHorizontal: 4,
     backgroundColor: '#E84D75',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
   },
-  countText: {
+  badgeText: {
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '900',
   },
-  summaryCard: {
+  heroCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     backgroundColor: theme.panel,
-    borderRadius: 21,
-    padding: 14,
-    marginBottom: 27,
-    gap: 11,
-    ...theme.clayRaised,
+    borderRadius: 23,
+    padding: 15,
+    marginBottom: 25,
+    ...theme.clayShadow,
   },
-  summaryIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
+  heroIcon: {
+    width: 49,
+    height: 49,
+    borderRadius: 18,
     backgroundColor: theme.clayBlue,
     alignItems: 'center',
     justifyContent: 'center',
+    ...theme.clayPressedStyle,
   },
-  summaryText: {
+  heroContent: {
     flex: 1,
   },
-  summaryTitle: {
+  heroTitle: {
     color: theme.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
   },
-  summarySubtitle: {
+  heroSubtitle: {
     color: theme.muted,
-    fontSize: 10,
+    fontSize: 11,
     marginTop: 4,
   },
-  markAllText: {
+  readAllButton: {
+    backgroundColor: theme.clayBlue,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 13,
+    ...theme.clayPressedStyle,
+  },
+  readAllText: {
     color: BLUE,
     fontWeight: '900',
+    fontSize: 10,
+  },
+  filterHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  totalText: {
+    color: theme.muted,
+    fontSize: 10,
+  },
+  filters: {
+    gap: 9,
+    paddingVertical: 5,
+    paddingHorizontal: 2,
+    marginBottom: 22,
+  },
+  filterChip: {
+    backgroundColor: theme.panel,
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...theme.clayPressedStyle,
+  },
+  filterChipActive: {
+    backgroundColor: theme.clayBlue,
+    borderColor: '#A9D5FF',
+    ...theme.clayRaised,
+  },
+  filterText: {
+    color: theme.muted,
     fontSize: 11,
+    fontWeight: '800',
+  },
+  filterTextActive: {
+    color: BLUE,
   },
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 13,
     gap: 9,
+    marginBottom: 14,
   },
-  sectionTitle: {
-    color: theme.text,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  sectionCount: {
-    color: BLUE,
+  countPill: {
     backgroundColor: theme.clayBlue,
-    overflow: 'hidden',
     borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    fontSize: 11,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  countPillText: {
+    color: BLUE,
+    fontSize: 10,
     fontWeight: '900',
   },
   notificationCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
     backgroundColor: theme.panel,
-    borderRadius: 20,
-    padding: 13,
-    marginBottom: 11,
+    borderRadius: 23,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: theme.border,
-    gap: 11,
-    ...theme.clayRaised,
+    ...theme.clayShadow,
   },
   unreadCard: {
-    borderColor: '#8CC8FF',
-    backgroundColor: '#F7FBFF',
+    borderColor: '#A5D3FF',
+    backgroundColor: '#F9FCFF',
   },
-  avatarWrap: {
-    width: 49,
-    height: 49,
-    position: 'relative',
+  iconColumn: {
+    width: 43,
+    alignItems: 'center',
+    paddingTop: 3,
   },
-  avatar: {
-    width: 47,
-    height: 47,
-    borderRadius: 17,
-    backgroundColor: theme.clayBlue,
-  },
-  avatarFallback: {
-    width: 47,
-    height: 47,
-    borderRadius: 17,
+  iconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
     backgroundColor: theme.clayBlue,
     alignItems: 'center',
     justifyContent: 'center',
+    ...theme.clayPressedStyle,
   },
-  typeBadge: {
-    position: 'absolute',
-    right: -4,
-    bottom: -3,
-    width: 21,
-    height: 21,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: theme.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: BLUE,
+    marginTop: 9,
   },
-  notificationBody: {
+  cardContent: {
     flex: 1,
   },
-  notificationText: {
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  category: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  time: {
+    color: theme.muted,
+    fontSize: 9,
+  },
+  message: {
     color: theme.text,
     fontSize: 12,
     lineHeight: 18,
+    marginTop: 8,
   },
   actorName: {
     fontWeight: '900',
   },
-  notificationTime: {
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 9,
+  },
+  sourceText: {
     color: theme.muted,
     fontSize: 10,
-    marginTop: 5,
   },
-  newLabel: {
+  destinationBox: {
+    backgroundColor: theme.clayBlue,
+    borderRadius: 15,
+    padding: 11,
+    marginTop: 11,
+    borderWidth: 1,
+    borderColor: '#D0E7FC',
+    ...theme.clayPressedStyle,
+  },
+  destinationHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  destinationLabel: {
     color: BLUE,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '900',
-    marginTop: 5,
+    letterSpacing: 0.6,
   },
-  cardActions: {
+  destinationUrl: {
+    color: theme.liquidText,
+    fontSize: 10,
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  openRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 9,
+  },
+  openText: {
+    color: BLUE,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  cardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  newText: {
+    color: BLUE,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  readText: {
+    color: theme.muted,
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  deleteButton: {
+    width: 31,
+    height: 31,
+    borderRadius: 11,
+    backgroundColor: theme.panel2,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingLeft: 3,
+    ...theme.clayPressedStyle,
   },
-  loadingBox: {
+  loadingCard: {
+    backgroundColor: theme.panel,
+    borderRadius: 23,
+    padding: 35,
     alignItems: 'center',
-    paddingVertical: 50,
-  },
-  loadingText: {
-    color: theme.muted,
-    fontSize: 12,
-    marginTop: 12,
+    ...theme.clayShadow,
   },
   emptyCard: {
     backgroundColor: theme.panel,
@@ -696,44 +1016,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...theme.clayShadow,
   },
-  emptyIcon: {
-    width: 83,
-    height: 83,
+  bigIcon: {
+    width: 82,
+    height: 82,
     borderRadius: 28,
     backgroundColor: theme.clayBlue,
     alignItems: 'center',
     justifyContent: 'center',
+    ...theme.clayRaised,
   },
   emptyTitle: {
     color: theme.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
-    marginTop: 17,
+    textAlign: 'center',
+    marginTop: 16,
   },
   emptyText: {
     color: theme.muted,
-    fontSize: 12,
-    lineHeight: 19,
+    fontSize: 11,
+    lineHeight: 18,
     textAlign: 'center',
     marginTop: 8,
   },
   primaryButton: {
     backgroundColor: BLUE,
-    borderRadius: 15,
+    borderRadius: 16,
     paddingHorizontal: 21,
     paddingVertical: 13,
-    marginTop: 19,
+    marginTop: 18,
     ...theme.clayRaised,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
   },
   footer: {
     color: theme.muted,
     fontSize: 10,
     textAlign: 'center',
-    marginTop: 28,
+    marginTop: 27,
   },
 });
