@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -61,22 +62,13 @@ export function AuthProvider({
       try {
         const { data, error } = await client.auth.getSession();
 
-        if (error) {
-          console.warn(
-            'BRITUME session check failed:',
-            error.message
-          );
-          return;
-        }
+        if (error) throw error;
 
         if (mounted) {
           setSession(data.session);
         }
       } catch (error) {
-        console.warn(
-          'BRITUME session check failed:',
-          error
-        );
+        console.warn('BRITUME session check failed:', error);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -103,15 +95,15 @@ export function AuthProvider({
       password,
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
   };
 
   const signOut = async (): Promise<void> => {
     const client = getSupabaseClient();
 
-    const { error } = await client.auth.signOut();
+    const { error } = await client.auth.signOut({
+      scope: 'local',
+    });
 
     if (error) {
       throw error;
