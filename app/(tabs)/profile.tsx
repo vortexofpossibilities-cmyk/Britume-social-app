@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,14 +11,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+
 import { useAuth } from '../../src/auth/AuthProvider';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 import {
   fetchCurrentUserProfile,
   getProfileName,
   updateOwnProfile,
   type ProfileRecord,
 } from '../../src/lib/profile';
-import { theme } from '../../src/lib/theme';
 
 type ProfileTab = 'Photos' | 'Create' | 'Hosts';
 
@@ -27,6 +27,9 @@ const profileTabs: ProfileTab[] = ['Photos', 'Create', 'Hosts'];
 
 export default function ProfileScreen() {
   const { session } = useAuth();
+  const { theme, isDark } = useAppTheme();
+
+  const styles = createStyles(theme);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('Photos');
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
@@ -44,7 +47,7 @@ export default function ProfileScreen() {
       setLoading(true);
 
       const nextProfile = await fetchCurrentUserProfile(
-        session.user.id
+        session.user.id,
       );
 
       setProfile(nextProfile);
@@ -53,7 +56,7 @@ export default function ProfileScreen() {
         'Profile unavailable',
         error instanceof Error
           ? error.message
-          : 'Could not load your profile.'
+          : 'Could not load your profile.',
       );
     } finally {
       setLoading(false);
@@ -63,11 +66,11 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
-    }, [loadProfile])
+    }, [loadProfile]),
   );
 
   const handleTogglePublic = async (value: boolean) => {
-    if (!session?.user?.id) {
+    if (!session?.user?.id || saving) {
       return;
     }
 
@@ -88,7 +91,7 @@ export default function ProfileScreen() {
         'Update failed',
         error instanceof Error
           ? error.message
-          : 'Could not update your visibility.'
+          : 'Could not update your visibility.',
       );
     } finally {
       setSaving(false);
@@ -128,6 +131,7 @@ export default function ProfileScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* HEADER */}
       <View style={styles.topBar}>
         <Text style={styles.pageTitle}>Profile</Text>
 
@@ -153,6 +157,7 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <>
+          {/* PROFILE INFORMATION */}
           <View style={styles.profileHeader}>
             <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
@@ -160,6 +165,14 @@ export default function ProfileScreen() {
                   name="person"
                   size={38}
                   color={theme.cyan}
+                />
+              </View>
+
+              <View style={styles.avatarBadge}>
+                <Ionicons
+                  name="add"
+                  size={18}
+                  color="#FFFFFF"
                 />
               </View>
             </View>
@@ -180,6 +193,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
+          {/* PROFILE TABS */}
           <View style={styles.tabs}>
             {profileTabs.map((tab) => {
               const selected = activeTab === tab;
@@ -209,6 +223,7 @@ export default function ProfileScreen() {
             })}
           </View>
 
+          {/* PERSONAL DETAILS */}
           <View style={styles.card}>
             <View style={styles.cardHeading}>
               <Text style={styles.cardTitle}>
@@ -255,6 +270,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* PUBLIC PROFILE */}
           <Pressable
             style={styles.card}
             onPress={() => {
@@ -295,12 +311,13 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
 
+          {/* SUBSCRIBERS */}
           <Pressable
             style={styles.card}
             onPress={() =>
               Alert.alert(
                 'Subscribers',
-                'Your subscriber list will appear here when profile data is connected.'
+                'Your subscriber list will appear here when subscriber data is connected.',
               )
             }
           >
@@ -327,12 +344,13 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
 
+          {/* FRIENDS */}
           <Pressable
             style={styles.card}
             onPress={() =>
               Alert.alert(
                 'Friends',
-                'Your friends list will appear here when friend data is connected.'
+                'Your friends list will appear here when friend data is connected.',
               )
             }
           >
@@ -363,11 +381,13 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
 
+          {/* MY LIBRARY */}
           <Text style={styles.libraryTitle}>
             My library
           </Text>
 
           <View style={styles.libraryRow}>
+            {/* PHOTOS */}
             <Pressable
               style={styles.libraryCard}
               onPress={() => {
@@ -375,7 +395,7 @@ export default function ProfileScreen() {
 
                 Alert.alert(
                   'Photos',
-                  'Your photo library will appear here when media storage is connected.'
+                  'Your photo library will appear here when media storage is connected.',
                 );
               }}
             >
@@ -411,6 +431,7 @@ export default function ProfileScreen() {
               </Text>
             </Pressable>
 
+            {/* DASHBOARD */}
             <Pressable
               style={styles.libraryCard}
               onPress={() => router.push('/dashboard')}
@@ -440,6 +461,7 @@ export default function ProfileScreen() {
               </Text>
             </Pressable>
 
+            {/* VIDEOS */}
             <Pressable
               style={styles.libraryCard}
               onPress={() => {
@@ -447,7 +469,7 @@ export default function ProfileScreen() {
 
                 Alert.alert(
                   'Videos',
-                  'Your video library will appear here when media storage is connected.'
+                  'Your video library will appear here when media storage is connected.',
                 );
               }}
             >
@@ -486,6 +508,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
 
+          {/* SELECTED TAB */}
           <View style={styles.tabContent}>
             <Text style={styles.tabContentTitle}>
               {activeTab}
@@ -505,288 +528,359 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  content: {
-    paddingHorizontal: 15,
-    paddingTop: 12,
-    paddingBottom: 30,
-  },
-  topBar: {
-    minHeight: 43,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  pageTitle: {
-    color: theme.text,
-    fontSize: 23,
-    fontWeight: '800',
-  },
-  topButton: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 19,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    paddingTop: 7,
-    paddingBottom: 17,
-  },
-  avatarWrap: {
-    width: 100,
-    height: 100,
-    marginBottom: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileName: {
-    color: theme.text,
-    fontSize: 21,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  bioLine: {
-    color: theme.cyan,
-    fontSize: 13,
-    marginTop: 6,
-    fontWeight: '700',
-  },
-  bioText: {
-    color: theme.muted,
-    fontSize: 14,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    marginBottom: 15,
-  },
-  tab: {
-    flex: 1,
-    minHeight: 43,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  tabText: {
-    color: theme.muted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: theme.cyan,
-    fontWeight: '800',
-  },
-  tabUnderline: {
-    position: 'absolute',
-    bottom: -1,
-    height: 3,
-    width: '58%',
-    backgroundColor: theme.cyan,
-    borderRadius: 3,
-  },
-  card: {
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 17,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    marginBottom: 11,
-  },
-  cardHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    color: theme.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  publicRow: {
-    minHeight: 35,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  publicInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  rowLabel: {
-    color: theme.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  singleCardRow: {
-    minHeight: 33,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: theme.panel2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flexSpace: {
-    flex: 1,
-  },
-  seeAll: {
-    color: theme.cyan,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  libraryTitle: {
-    color: theme.text,
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 9,
-    marginBottom: 11,
-  },
-  libraryRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
-  },
-  libraryCard: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 15,
-    padding: 8,
-    minHeight: 145,
-  },
-  libraryCardHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 2,
-    marginBottom: 11,
-  },
-  libraryCardTitle: {
-    flexShrink: 1,
-    color: theme.text,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  photoBox: {
-    width: '47%',
-    aspectRatio: 1,
-    backgroundColor: theme.panel2,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dashboardGraphic: {
-    height: 69,
-    backgroundColor: theme.panel2,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoStack: {
-    gap: 6,
-    paddingTop: 2,
-  },
-  videoItem: {
-    height: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 4,
-    backgroundColor: theme.panel2,
-    borderRadius: 5,
-  },
-  videoLine: {
-    flex: 1,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: theme.border,
-  },
-  enterText: {
-    color: theme.cyan,
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  tabContent: {
-    marginTop: 17,
-    padding: 14,
-    borderRadius: 15,
-    backgroundColor: theme.panel,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  tabContentTitle: {
-    color: theme.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  tabContentDescription: {
-    color: theme.muted,
-    fontSize: 13,
-    marginTop: 5,
-  },
-  loadingBox: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: theme.bg,
-  },
-  emptyTitle: {
-    color: theme.text,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  primaryAction: {
-    backgroundColor: theme.cyan,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  primaryActionText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+
+    content: {
+      paddingHorizontal: 15,
+      paddingTop: 12,
+      paddingBottom: 30,
+    },
+
+    topBar: {
+      minHeight: 43,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+
+    pageTitle: {
+      color: theme.text,
+      fontSize: 23,
+      fontWeight: '800',
+    },
+
+    topButton: {
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 19,
+    },
+
+    profileHeader: {
+      alignItems: 'center',
+      paddingTop: 7,
+      paddingBottom: 17,
+    },
+
+    avatarWrap: {
+      width: 100,
+      height: 100,
+      marginBottom: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    avatar: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      backgroundColor: theme.panel2,
+      borderWidth: 2,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    avatarBadge: {
+      position: 'absolute',
+      right: 3,
+      bottom: 5,
+      width: 29,
+      height: 29,
+      borderRadius: 15,
+      backgroundColor: theme.cyan,
+      borderWidth: 2,
+      borderColor: theme.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    profileName: {
+      color: theme.text,
+      fontSize: 21,
+      fontWeight: '800',
+      marginTop: 1,
+    },
+
+    bioLine: {
+      color: theme.cyan,
+      fontSize: 13,
+      marginTop: 6,
+      fontWeight: '700',
+    },
+
+    bioText: {
+      color: theme.muted,
+      fontSize: 14,
+      marginTop: 6,
+      textAlign: 'center',
+    },
+
+    tabs: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      marginBottom: 15,
+    },
+
+    tab: {
+      flex: 1,
+      minHeight: 43,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+
+    tabText: {
+      color: theme.muted,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    activeTabText: {
+      color: theme.cyan,
+      fontWeight: '800',
+    },
+
+    tabUnderline: {
+      position: 'absolute',
+      bottom: -1,
+      height: 3,
+      width: '58%',
+      backgroundColor: theme.cyan,
+      borderRadius: 3,
+    },
+
+    card: {
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 17,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      marginBottom: 11,
+      elevation: 3,
+      shadowColor: theme.shadow,
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+    },
+
+    cardHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+
+    cardTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+
+    publicRow: {
+      minHeight: 35,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+
+    publicInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    rowLabel: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    singleCardRow: {
+      minHeight: 33,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    iconBubble: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      backgroundColor: theme.panel2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    flexSpace: {
+      flex: 1,
+    },
+
+    seeAll: {
+      color: theme.cyan,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+
+    libraryTitle: {
+      color: theme.text,
+      fontSize: 19,
+      fontWeight: '800',
+      marginTop: 9,
+      marginBottom: 11,
+    },
+
+    libraryRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 8,
+    },
+
+    libraryCard: {
+      flex: 1,
+      minWidth: 0,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 15,
+      padding: 8,
+      minHeight: 145,
+      elevation: 2,
+      shadowColor: theme.shadow,
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+    },
+
+    libraryCardHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 2,
+      marginBottom: 11,
+    },
+
+    libraryCardTitle: {
+      flexShrink: 1,
+      color: theme.text,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+
+    photoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 4,
+    },
+
+    photoBox: {
+      width: '47%',
+      aspectRatio: 1,
+      backgroundColor: theme.panel2,
+      borderRadius: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    dashboardGraphic: {
+      height: 69,
+      backgroundColor: theme.panel2,
+      borderRadius: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    videoStack: {
+      gap: 6,
+      paddingTop: 2,
+    },
+
+    videoItem: {
+      height: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 4,
+      backgroundColor: theme.panel2,
+      borderRadius: 5,
+    },
+
+    videoLine: {
+      flex: 1,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+    },
+
+    enterText: {
+      color: theme.cyan,
+      fontSize: 11,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginTop: 8,
+    },
+
+    tabContent: {
+      marginTop: 17,
+      padding: 14,
+      borderRadius: 15,
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    tabContentTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+
+    tabContentDescription: {
+      color: theme.muted,
+      fontSize: 13,
+      marginTop: 5,
+    },
+
+    loadingBox: {
+      paddingVertical: 30,
+      alignItems: 'center',
+    },
+
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      backgroundColor: theme.bg,
+    },
+
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: '800',
+      marginTop: 12,
+      marginBottom: 16,
+    },
+
+    primaryAction: {
+      backgroundColor: theme.cyan,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 999,
+    },
+
+    primaryActionText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+  });
+            }
