@@ -70,10 +70,7 @@ function ActionButton({
   active?: boolean;
 }) {
   return (
-    <Pressable
-      style={styles.actionButton}
-      onPress={onPress}
-    >
+    <Pressable style={styles.actionButton} onPress={onPress}>
       <View
         style={[
           styles.actionIcon,
@@ -125,7 +122,6 @@ function EmptyState({ text }: { text: string }) {
         size={35}
         color={theme.cyan}
       />
-
       <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
@@ -657,7 +653,7 @@ export default function VideosScreen() {
 
   return (
     <View style={styles.screen}>
-      <FlatList
+      <FlatList<FeedPost>
         data={[]}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.content}
@@ -672,8 +668,6 @@ export default function VideosScreen() {
         renderItem={() => null}
         ListHeaderComponent={
           <View>
-            {/* HEADER */}
-
             <View style={styles.header}>
               <View style={styles.logo}>
                 <Text style={styles.logoText}>B</Text>
@@ -703,8 +697,6 @@ export default function VideosScreen() {
               </Pressable>
             </View>
 
-            {/* ONE LARGE CLAY TOOLBAR */}
-
             <View style={styles.toolbar}>
               <View style={styles.searchBox}>
                 <Ionicons
@@ -733,9 +725,7 @@ export default function VideosScreen() {
                   size={21}
                   color={theme.cyan}
                 />
-                <Text style={styles.toolLabel}>
-                  Upload
-                </Text>
+                <Text style={styles.toolLabel}>Upload</Text>
               </Pressable>
 
               <Pressable
@@ -748,22 +738,12 @@ export default function VideosScreen() {
                 }
               >
                 <Ionicons
-                  name={
-                    likedOnly
-                      ? 'heart'
-                      : 'heart-outline'
-                  }
+                  name={likedOnly ? 'heart' : 'heart-outline'}
                   size={21}
-                  color={
-                    likedOnly
-                      ? '#E84D78'
-                      : theme.cyan
-                  }
+                  color={likedOnly ? '#E84D78' : theme.cyan}
                 />
 
-                <Text style={styles.toolLabel}>
-                  Liked
-                </Text>
+                <Text style={styles.toolLabel}>Liked</Text>
               </Pressable>
             </View>
 
@@ -847,8 +827,6 @@ export default function VideosScreen() {
         }
       />
 
-      {/* COMMENTS MODAL */}
-
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -865,9 +843,7 @@ export default function VideosScreen() {
         >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Comments
-              </Text>
+              <Text style={styles.modalTitle}>Comments</Text>
 
               <Pressable
                 onPress={() => setActivePostId(null)}
