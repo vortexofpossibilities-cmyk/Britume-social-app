@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -35,20 +34,7 @@ import {
 
 import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
-
-const BLUE = '#168BFF';
-const DARK_BLUE = '#0756B5';
-const GOLD = '#FFD447';
-const PURPLE = '#8C83FF';
-const WHITE = '#FFFFFF';
-
-const C = {
-  bg: '#F2F8FF',
-  panel: '#E4F1FF',
-  text: '#19334D',
-  muted: '#66829B',
-  border: '#D3E6F8',
-};
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 type Interaction = {
   liked: boolean;
@@ -78,7 +64,13 @@ function withTimeout<T>(
   });
 }
 
-function MediaVideo({ uri }: { uri: string }) {
+function MediaVideo({
+  uri,
+  videoStyle,
+}: {
+  uri: string;
+  videoStyle: any;
+}) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
   });
@@ -86,7 +78,7 @@ function MediaVideo({ uri }: { uri: string }) {
   return (
     <VideoView
       player={player}
-      style={styles.videoPlayer}
+      style={videoStyle}
       nativeControls
       contentFit="contain"
       allowsFullscreen
@@ -96,6 +88,13 @@ function MediaVideo({ uri }: { uri: string }) {
 }
 
 function VideoPost({ post }: { post: FeedPost }) {
+  const { theme, isDark } = useAppTheme();
+
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [theme, isDark],
+  );
+
   const video = post.media?.find(
     item => item.media_type === 'video',
   );
@@ -111,22 +110,26 @@ function VideoPost({ post }: { post: FeedPost }) {
     <View style={styles.videoPostCard}>
       <View style={styles.videoPostHeader}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={18} color={BLUE} />
+          <Ionicons name="person" size={18} color={theme.cyan} />
         </View>
 
         <View style={styles.videoAuthor}>
           <Text style={styles.authorName} numberOfLines={1}>
             {author}
           </Text>
+
           <Text style={styles.postDate}>
             {new Date(post.created_at).toLocaleDateString()}
           </Text>
         </View>
 
-        <Ionicons name="videocam" size={20} color={PURPLE} />
+        <Ionicons name="videocam" size={20} color={theme.purple} />
       </View>
 
-      <MediaVideo uri={video.url} />
+      <MediaVideo
+        uri={video.url}
+        videoStyle={styles.videoPlayer}
+      />
 
       {post.content ? (
         <Text style={styles.videoCaption} numberOfLines={3}>
@@ -138,6 +141,13 @@ function VideoPost({ post }: { post: FeedPost }) {
 }
 
 export default function HomeScreen() {
+  const { theme, isDark } = useAppTheme();
+
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [theme, isDark],
+  );
+
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
 
@@ -158,8 +168,6 @@ export default function HomeScreen() {
   const [commentText, setCommentText] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
-
-  // LOAD POSTS
 
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -189,6 +197,7 @@ export default function HomeScreen() {
       setUserId(currentUserId);
 
       const freshPosts = await withTimeout(fetchPublicPosts());
+
       setPosts(freshPosts);
       setLoading(false);
 
@@ -225,8 +234,6 @@ export default function HomeScreen() {
     }, [loadPosts]),
   );
 
-  // SEARCH
-
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -244,8 +251,6 @@ export default function HomeScreen() {
       );
     });
   }, [posts, search]);
-
-  // SEPARATE POST TYPES
 
   const photoPosts = useMemo(
     () =>
@@ -267,8 +272,6 @@ export default function HomeScreen() {
     [filteredPosts],
   );
 
-  // REFRESH INTERACTIONS
-
   const refreshInteractions = async () => {
     if (!posts.length) return;
 
@@ -281,8 +284,6 @@ export default function HomeScreen() {
 
     setInteractions(result);
   };
-
-  // LIKE
 
   const handleLike = async (postId: string) => {
     if (!userId) {
@@ -315,8 +316,6 @@ export default function HomeScreen() {
     }
   };
 
-  // SAVE
-
   const handleSave = async (postId: string) => {
     if (!userId) {
       Alert.alert(
@@ -348,8 +347,6 @@ export default function HomeScreen() {
     }
   };
 
-  // SHARE
-
   const sharePost = async (post: FeedPost) => {
     const mediaLinks = (post.media ?? [])
       .map(item => item.url)
@@ -365,8 +362,6 @@ export default function HomeScreen() {
       Alert.alert('Sharing unavailable', 'Please try again.');
     }
   };
-
-  // COMMENTS
 
   const openComments = async (postId: string) => {
     setActivePostId(postId);
@@ -454,7 +449,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/discover')}
           accessibilityLabel="Discover people"
         >
-          <Ionicons name="search" size={22} color={BLUE} />
+          <Ionicons name="search" size={22} color={theme.cyan} />
         </Pressable>
 
         <Pressable
@@ -465,7 +460,7 @@ export default function HomeScreen() {
           <Ionicons
             name="notifications-outline"
             size={22}
-            color={BLUE}
+            color={theme.cyan}
           />
         </Pressable>
 
@@ -474,20 +469,22 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/more')}
           accessibilityLabel="More menu"
         >
-          <Ionicons name="menu" size={25} color={BLUE} />
+          <Ionicons name="menu" size={25} color={theme.cyan} />
         </Pressable>
       </View>
 
-      {/* SEARCH */}
-
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={21} color={BLUE} />
+        <Ionicons
+          name="search-outline"
+          size={21}
+          color={theme.cyan}
+        />
 
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Search people, posts and communities..."
-          placeholderTextColor={C.muted}
+          placeholderTextColor={theme.muted}
           style={styles.searchInput}
           returnKeyType="search"
         />
@@ -496,15 +493,21 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/discover')}
           accessibilityLabel="Search filters"
         >
-          <Ionicons name="options-outline" size={22} color={PURPLE} />
+          <Ionicons
+            name="options-outline"
+            size={22}
+            color={theme.purple}
+          />
         </Pressable>
       </View>
 
-      {/* STORIES */}
-
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
-          <Ionicons name="aperture-outline" size={23} color={BLUE} />
+          <Ionicons
+            name="aperture-outline"
+            size={23}
+            color={theme.cyan}
+          />
           <Text style={styles.sectionTitle}>Stories</Text>
         </View>
 
@@ -513,7 +516,11 @@ export default function HomeScreen() {
           onPress={() => router.push('/stories')}
         >
           <Text style={styles.seeAllText}>See all</Text>
-          <Ionicons name="chevron-forward" size={16} color={BLUE} />
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={theme.cyan}
+          />
         </Pressable>
       </View>
 
@@ -529,11 +536,15 @@ export default function HomeScreen() {
         >
           <View style={styles.storyCardTop}>
             <View style={styles.storyAvatar}>
-              <Ionicons name="person" size={25} color={BLUE} />
+              <Ionicons
+                name="person"
+                size={25}
+                color={theme.cyan}
+              />
             </View>
 
             <View style={styles.storyStatus}>
-              <Ionicons name="add" size={17} color={WHITE} />
+              <Ionicons name="add" size={17} color="#FFFFFF" />
             </View>
           </View>
 
@@ -544,16 +555,15 @@ export default function HomeScreen() {
             </Text>
           </View>
         </Pressable>
-
-        {/* Real friends' stories can be connected here when the
-            stories data source is available. */}
       </ScrollView>
-
-      {/* POSTS HEADING */}
 
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
-          <Ionicons name="grid-outline" size={22} color={BLUE} />
+          <Ionicons
+            name="grid-outline"
+            size={22}
+            color={theme.cyan}
+          />
           <Text style={styles.sectionTitle}>Posts</Text>
         </View>
       </View>
@@ -590,13 +600,18 @@ export default function HomeScreen() {
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={19} color={BLUE} />
+            <Ionicons
+              name="person"
+              size={19}
+              color={theme.cyan}
+            />
           </View>
 
           <View style={styles.postAuthor}>
             <Text style={styles.authorName} numberOfLines={1}>
               {author}
             </Text>
+
             <Text style={styles.postDate}>
               {new Date(item.created_at).toLocaleDateString()}
             </Text>
@@ -619,7 +634,7 @@ export default function HomeScreen() {
             <Ionicons
               name="ellipsis-vertical"
               size={20}
-              color={C.muted}
+              color={theme.muted}
             />
           </Pressable>
         </View>
@@ -655,8 +670,9 @@ export default function HomeScreen() {
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
               size={20}
-              color={liked ? '#FF5478' : BLUE}
+              color={liked ? '#FF5478' : theme.cyan}
             />
+
             <Text style={styles.actionCount}>
               {interaction?.likesCount ?? 0}
             </Text>
@@ -669,8 +685,9 @@ export default function HomeScreen() {
             <Ionicons
               name="chatbubble-outline"
               size={19}
-              color={BLUE}
+              color={theme.cyan}
             />
+
             <Text style={styles.actionCount}>
               {interaction?.commentsCount ?? 0}
             </Text>
@@ -683,7 +700,7 @@ export default function HomeScreen() {
             <Ionicons
               name="share-social-outline"
               size={19}
-              color={BLUE}
+              color={theme.cyan}
             />
           </Pressable>
 
@@ -695,7 +712,7 @@ export default function HomeScreen() {
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
               size={19}
-              color={saved ? GOLD : BLUE}
+              color={saved ? theme.gold : theme.cyan}
             />
           </Pressable>
         </View>
@@ -703,7 +720,7 @@ export default function HomeScreen() {
     );
   };
 
-  // VIDEO AND REELS: HIDE EMPTY SECTIONS, SHOW REAL VIDEOS IN TWO COLUMNS
+  // VIDEO AND REELS
 
   const renderVideoSection = (
     title: string,
@@ -719,7 +736,7 @@ export default function HomeScreen() {
             <Ionicons
               name={kind === 'reel' ? 'play-circle' : 'videocam'}
               size={23}
-              color={kind === 'reel' ? PURPLE : BLUE}
+              color={kind === 'reel' ? theme.purple : theme.cyan}
             />
             <Text style={styles.sectionTitle}>{title}</Text>
           </View>
@@ -740,7 +757,7 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={BLUE} />
+          <ActivityIndicator size="large" color={theme.cyan} />
           <Text style={styles.loadingText}>Loading BRITUME...</Text>
         </View>
       ) : (
@@ -763,8 +780,8 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void loadPosts(true)}
-              tintColor={BLUE}
-              colors={[BLUE]}
+              tintColor={theme.cyan}
+              colors={[theme.cyan]}
             />
           }
           ListEmptyComponent={
@@ -772,7 +789,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="images-outline"
                 size={43}
-                color={BLUE}
+                color={theme.cyan}
               />
 
               <Text style={styles.emptyTitle}>
@@ -810,7 +827,7 @@ export default function HomeScreen() {
                 <Ionicons
                   name="chatbubbles"
                   size={23}
-                  color={BLUE}
+                  color={theme.cyan}
                 />
                 <Text style={styles.modalTitle}>Comments</Text>
               </View>
@@ -819,13 +836,13 @@ export default function HomeScreen() {
                 <Ionicons
                   name="close-circle"
                   size={29}
-                  color={C.muted}
+                  color={theme.muted}
                 />
               </Pressable>
             </View>
 
             {commentsLoading ? (
-              <ActivityIndicator color={BLUE} />
+              <ActivityIndicator color={theme.cyan} />
             ) : (
               <ScrollView
                 style={styles.commentsList}
@@ -845,7 +862,7 @@ export default function HomeScreen() {
                         <Ionicons
                           name="person"
                           size={17}
-                          color={BLUE}
+                          color={theme.cyan}
                         />
                       </View>
 
@@ -871,7 +888,7 @@ export default function HomeScreen() {
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="Write a comment..."
-                placeholderTextColor={C.muted}
+                placeholderTextColor={theme.muted}
                 style={styles.commentInput}
                 multiline
                 maxLength={2000}
@@ -883,9 +900,9 @@ export default function HomeScreen() {
                 disabled={sendingComment || !commentText.trim()}
               >
                 {sendingComment ? (
-                  <ActivityIndicator color={WHITE} />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Ionicons name="send" size={19} color={WHITE} />
+                  <Ionicons name="send" size={19} color="#FFFFFF" />
                 )}
               </Pressable>
             </View>
@@ -896,557 +913,567 @@ export default function HomeScreen() {
   );
 }
 
-// STYLES
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-
-  content: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 35,
-  },
-
-  loading: {
-    flex: 1,
-    backgroundColor: C.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  loadingText: {
-    color: C.text,
-    marginTop: 12,
-    fontWeight: '800',
-  },
-
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 19,
-  },
-
-  logoHolder: {
-    marginRight: 8,
-  },
-
-  brandText: {
-    flex: 1,
-  },
-
-  brandName: {
-    color: DARK_BLUE,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  tagline: {
-    color: BLUE,
-    fontSize: 10,
-    fontWeight: '900',
-  },
-
-  byline: {
-    color: C.muted,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-
-  topButtonLight: {
-    width: 38,
-    height: 38,
-    borderRadius: 15,
-    backgroundColor: C.panel,
-    borderWidth: 2,
-    borderColor: WHITE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 5,
-    elevation: 7,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.27,
-    shadowRadius: 8,
-    shadowOffset: { width: 4, height: 5 },
-  },
-
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.panel,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: WHITE,
-    paddingHorizontal: 15,
-    marginBottom: 25,
-    elevation: 9,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 6, height: 8 },
-  },
-
-  searchInput: {
-    flex: 1,
-    color: C.text,
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-    marginTop: 5,
-  },
-
-  headingWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  sectionTitle: {
-    color: C.text,
-    fontSize: 19,
-    fontWeight: '900',
-  },
-
-  seeAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.panel,
-    borderRadius: 16,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    borderWidth: 1.5,
-    borderColor: WHITE,
-    elevation: 5,
-  },
-
-  seeAllText: {
-    color: BLUE,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-
-  storiesScroll: {
-    marginBottom: 24,
-  },
-
-  storiesContent: {
-    paddingHorizontal: 3,
-    paddingBottom: 9,
-  },
-
-  storyCard: {
-    width: 116,
-    height: 174,
-    borderRadius: 21,
-    borderWidth: 3,
-    borderColor: WHITE,
-    padding: 9,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    elevation: 9,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.28,
-    shadowRadius: 9,
-    shadowOffset: { width: 4, height: 6 },
-  },
-
-  yourStoryCard: {
-    backgroundColor: '#CDE7FF',
-  },
-
-  storyCardTop: {
-    alignItems: 'flex-start',
-  },
-
-  storyAvatar: {
-    width: 49,
-    height: 49,
-    borderRadius: 18,
-    backgroundColor: WHITE,
-    borderWidth: 2,
-    borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  storyStatus: {
-    position: 'absolute',
-    left: 35,
-    top: 34,
-    width: 25,
-    height: 25,
-    borderRadius: 13,
-    backgroundColor: BLUE,
-    borderWidth: 2,
-    borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  storyCardBottom: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    paddingVertical: 8,
-  },
-
-  storyCardTitle: {
-    color: C.text,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
-  storyCardSubtitle: {
-    color: C.muted,
-    fontSize: 9,
-    fontWeight: '700',
-    marginTop: 3,
-  },
-
-  postRow: {
-    justifyContent: 'space-between',
-    gap: 11,
-  },
-
-  postCard: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: C.panel,
-    borderWidth: 2,
-    borderTopColor: WHITE,
-    borderLeftColor: WHITE,
-    borderRightColor: '#C7E0FA',
-    borderBottomColor: '#BDD9F5',
-    borderRadius: 24,
-    padding: 11,
-    marginBottom: 16,
-    elevation: 12,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.32,
-    shadowRadius: 13,
-    shadowOffset: { width: 7, height: 9 },
-  },
-
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 11,
-  },
-
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 15,
-    backgroundColor: '#D6EAFF',
-    borderWidth: 2,
-    borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5,
-  },
-
-  postAuthor: {
-    flex: 1,
-    marginLeft: 8,
-  },
-
-  authorName: {
-    color: C.text,
-    fontWeight: '900',
-    fontSize: 11,
-  },
-
-  postDate: {
-    color: C.muted,
-    fontSize: 9,
-    marginTop: 3,
-    fontWeight: '600',
-  },
-
-  postContent: {
-    color: C.text,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 18,
-    marginBottom: 9,
-  },
-
-  imageScroller: {
-    marginHorizontal: -4,
-    marginBottom: 8,
-  },
-
-  postImage: {
-    width: 155,
-    height: 170,
-    borderRadius: 17,
-    marginHorizontal: 3,
-    backgroundColor: '#D6EAFF',
-    borderWidth: 2,
-    borderColor: WHITE,
-  },
-
-  postActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#C7DFF5',
-    paddingTop: 11,
-    marginTop: 7,
-  },
-
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    minWidth: 27,
-    minHeight: 29,
-    borderRadius: 12,
-    backgroundColor: '#EFF7FF',
-    paddingHorizontal: 5,
-    elevation: 3,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    shadowOffset: { width: 2, height: 3 },
-  },
-
-  actionCount: {
-    fontSize: 9,
-    color: C.text,
-    fontWeight: '900',
-  },
-
-  mediaSection: {
-    marginTop: 23,
-  },
-
-  videoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-
-  videoPostCard: {
-    width: '48%',
-    backgroundColor: C.panel,
-    borderRadius: 21,
-    borderWidth: 2,
-    borderTopColor: WHITE,
-    borderLeftColor: WHITE,
-    borderRightColor: '#C7E0FA',
-    borderBottomColor: '#BDD9F5',
-    padding: 8,
-    marginBottom: 12,
-    elevation: 9,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.25,
-    shadowRadius: 9,
-    shadowOffset: { width: 4, height: 6 },
-  },
-
-  videoPostHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 9,
-    gap: 7,
-  },
-
-  videoAuthor: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  videoPlayer: {
-    width: '100%',
-    height: 125,
-    backgroundColor: C.text,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-
-  videoCaption: {
-    color: C.text,
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 16,
-    marginTop: 9,
-  },
-
-  emptyBox: {
-    backgroundColor: C.panel,
-    borderWidth: 2,
-    borderColor: WHITE,
-    borderRadius: 26,
-    padding: 25,
-    alignItems: 'center',
-    marginBottom: 15,
-    elevation: 10,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 6, height: 8 },
-  },
-
-  emptyTitle: {
-    color: C.text,
-    fontSize: 17,
-    fontWeight: '900',
-    marginTop: 12,
-  },
-
-  emptyText: {
-    color: C.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 7,
-  },
-
-  errorBox: {
-    backgroundColor: '#FFF0F0',
-    borderWidth: 1.5,
-    borderColor: '#FFD0D0',
-    padding: 14,
-    borderRadius: 18,
-    marginBottom: 13,
-    elevation: 3,
-  },
-
-  errorText: {
-    color: '#C52E45',
-    marginBottom: 6,
-    fontWeight: '700',
-  },
-
-  retryText: {
-    color: BLUE,
-    fontWeight: '900',
-  },
-
-  modalBackground: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(25, 51, 77, 0.48)',
-  },
-
-  commentsPanel: {
-    height: '70%',
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    borderTopWidth: 3,
-    borderColor: WHITE,
-    padding: 17,
-    elevation: 18,
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-
-  modalTitle: {
-    color: C.text,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-
-  commentsList: {
-    flex: 1,
-    paddingVertical: 13,
-  },
-
-  noComments: {
-    color: C.muted,
-    textAlign: 'center',
-    marginTop: 30,
-    fontWeight: '700',
-  },
-
-  commentCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: C.panel,
-    borderWidth: 1.5,
-    borderColor: WHITE,
-    padding: 12,
-    borderRadius: 18,
-    marginBottom: 11,
-    elevation: 5,
-    shadowColor: '#548BCB',
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 3, height: 4 },
-  },
-
-  commentAuthor: {
-    color: C.text,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
-  commentContent: {
-    color: '#45647F',
-    fontSize: 13,
-    marginTop: 5,
-    lineHeight: 19,
-  },
-
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 13,
-  },
-
-  commentInput: {
-    flex: 1,
-    minHeight: 45,
-    maxHeight: 90,
-    backgroundColor: C.panel,
-    borderWidth: 2,
-    borderColor: WHITE,
-    borderRadius: 21,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: C.text,
-    fontWeight: '600',
-    elevation: 4,
-  },
-
-  sendButton: {
-    width: 47,
-    height: 47,
-    borderRadius: 18,
-    backgroundColor: BLUE,
-    borderWidth: 2,
-    borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 9,
-    shadowColor: DARK_BLUE,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 4, height: 5 },
-  },
-});
+// DYNAMIC GLOBAL THEME STYLES
+
+function createStyles(theme: any, isDark: boolean) {
+  const surface = theme.panel ?? (isDark ? '#1B2B40' : '#FFFFFF');
+  const raised = theme.panel2 ?? (isDark ? '#243A52' : '#E4F1FF');
+  const border = theme.border ?? (isDark ? '#304A65' : '#D3E6F8');
+  const borderStrong =
+    theme.borderStrong ?? (isDark ? '#456482' : '#B9D8F5');
+
+  const shadow = isDark ? '#080F19' : '#548BCB';
+  const softText = theme.muted ?? (isDark ? '#A9BED3' : '#66829B');
+
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+
+    content: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 35,
+    },
+
+    loading: {
+      flex: 1,
+      backgroundColor: theme.bg,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    loadingText: {
+      color: theme.text,
+      marginTop: 12,
+      fontWeight: '800',
+    },
+
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 19,
+    },
+
+    logoHolder: {
+      marginRight: 8,
+    },
+
+    brandText: {
+      flex: 1,
+    },
+
+    brandName: {
+      color: theme.blueDark ?? '#0756B5',
+      fontSize: 18,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    tagline: {
+      color: theme.cyan,
+      fontSize: 10,
+      fontWeight: '900',
+    },
+
+    byline: {
+      color: softText,
+      fontSize: 9,
+      fontWeight: '700',
+    },
+
+    topButtonLight: {
+      width: 38,
+      height: 38,
+      borderRadius: 15,
+      backgroundColor: surface,
+      borderWidth: 2,
+      borderColor: border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: 5,
+      elevation: isDark ? 2 : 7,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.15 : 0.27,
+      shadowRadius: 8,
+      shadowOffset: { width: 4, height: 5 },
+    },
+
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: surface,
+      borderRadius: 24,
+      borderWidth: 2,
+      borderColor: border,
+      paddingHorizontal: 15,
+      marginBottom: 25,
+      elevation: isDark ? 2 : 9,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.15 : 0.28,
+      shadowRadius: 12,
+      shadowOffset: { width: 6, height: 8 },
+    },
+
+    searchInput: {
+      flex: 1,
+      color: theme.text,
+      paddingHorizontal: 10,
+      paddingVertical: 15,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+
+    sectionHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+      marginTop: 5,
+    },
+
+    headingWithIcon: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+
+    sectionTitle: {
+      color: theme.text,
+      fontSize: 19,
+      fontWeight: '900',
+    },
+
+    seeAll: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: surface,
+      borderRadius: 16,
+      paddingHorizontal: 11,
+      paddingVertical: 8,
+      borderWidth: 1.5,
+      borderColor: border,
+      elevation: isDark ? 1 : 5,
+    },
+
+    seeAllText: {
+      color: theme.cyan,
+      fontSize: 11,
+      fontWeight: '900',
+    },
+
+    storiesScroll: {
+      marginBottom: 24,
+    },
+
+    storiesContent: {
+      paddingHorizontal: 3,
+      paddingBottom: 9,
+    },
+
+    storyCard: {
+      width: 116,
+      height: 174,
+      borderRadius: 21,
+      borderWidth: 3,
+      borderColor: border,
+      padding: 9,
+      justifyContent: 'space-between',
+      overflow: 'hidden',
+      elevation: isDark ? 2 : 9,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.18 : 0.28,
+      shadowRadius: 9,
+      shadowOffset: { width: 4, height: 6 },
+    },
+
+    yourStoryCard: {
+      backgroundColor: isDark ? '#243A52' : '#CDE7FF',
+    },
+
+    storyCardTop: {
+      alignItems: 'flex-start',
+    },
+
+    storyAvatar: {
+      width: 49,
+      height: 49,
+      borderRadius: 18,
+      backgroundColor: surface,
+      borderWidth: 2,
+      borderColor: border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    storyStatus: {
+      position: 'absolute',
+      left: 35,
+      top: 34,
+      width: 25,
+      height: 25,
+      borderRadius: 13,
+      backgroundColor: theme.cyan,
+      borderWidth: 2,
+      borderColor: surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    storyCardBottom: {
+      backgroundColor: isDark
+        ? 'rgba(16,27,42,0.88)'
+        : 'rgba(255,255,255,0.72)',
+      borderRadius: 12,
+      paddingHorizontal: 7,
+      paddingVertical: 8,
+    },
+
+    storyCardTitle: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '900',
+    },
+
+    storyCardSubtitle: {
+      color: softText,
+      fontSize: 9,
+      fontWeight: '700',
+      marginTop: 3,
+    },
+
+    postRow: {
+      justifyContent: 'space-between',
+      gap: 11,
+    },
+
+    postCard: {
+      flex: 1,
+      minWidth: 0,
+      backgroundColor: surface,
+      borderWidth: 2,
+      borderTopColor: border,
+      borderLeftColor: border,
+      borderRightColor: borderStrong,
+      borderBottomColor: borderStrong,
+      borderRadius: 24,
+      padding: 11,
+      marginBottom: 16,
+      elevation: isDark ? 2 : 12,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.2 : 0.32,
+      shadowRadius: 13,
+      shadowOffset: { width: 7, height: 9 },
+    },
+
+    postHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 11,
+    },
+
+    avatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 15,
+      backgroundColor: raised,
+      borderWidth: 2,
+      borderColor: border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 3,
+    },
+
+    postAuthor: {
+      flex: 1,
+      marginLeft: 8,
+    },
+
+    authorName: {
+      color: theme.text,
+      fontWeight: '900',
+      fontSize: 11,
+    },
+
+    postDate: {
+      color: softText,
+      fontSize: 9,
+      marginTop: 3,
+      fontWeight: '600',
+    },
+
+    postContent: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 18,
+      marginBottom: 9,
+    },
+
+    imageScroller: {
+      marginHorizontal: -4,
+      marginBottom: 8,
+    },
+
+    postImage: {
+      width: 155,
+      height: 170,
+      borderRadius: 17,
+      marginHorizontal: 3,
+      backgroundColor: raised,
+      borderWidth: 2,
+      borderColor: border,
+    },
+
+    postActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderTopWidth: 1,
+      borderTopColor: borderStrong,
+      paddingTop: 11,
+      marginTop: 7,
+    },
+
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      minWidth: 27,
+      minHeight: 29,
+      borderRadius: 12,
+      backgroundColor: raised,
+      paddingHorizontal: 5,
+      elevation: isDark ? 1 : 3,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.12 : 0.18,
+      shadowRadius: 4,
+      shadowOffset: { width: 2, height: 3 },
+    },
+
+    actionCount: {
+      fontSize: 9,
+      color: theme.text,
+      fontWeight: '900',
+    },
+
+    mediaSection: {
+      marginTop: 23,
+    },
+
+    videoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+
+    videoPostCard: {
+      width: '48%',
+      backgroundColor: surface,
+      borderRadius: 21,
+      borderWidth: 2,
+      borderColor: border,
+      padding: 8,
+      marginBottom: 12,
+      elevation: isDark ? 2 : 9,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.18 : 0.25,
+      shadowRadius: 9,
+      shadowOffset: { width: 4, height: 6 },
+    },
+
+    videoPostHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 9,
+      gap: 7,
+    },
+
+    videoAuthor: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    videoPlayer: {
+      width: '100%',
+      height: 125,
+      backgroundColor: theme.text,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+
+    videoCaption: {
+      color: theme.text,
+      fontSize: 11,
+      fontWeight: '700',
+      lineHeight: 16,
+      marginTop: 9,
+    },
+
+    emptyBox: {
+      backgroundColor: surface,
+      borderWidth: 2,
+      borderColor: border,
+      borderRadius: 26,
+      padding: 25,
+      alignItems: 'center',
+      marginBottom: 15,
+      elevation: isDark ? 2 : 10,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.18 : 0.3,
+      shadowRadius: 12,
+      shadowOffset: { width: 6, height: 8 },
+    },
+
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 17,
+      fontWeight: '900',
+      marginTop: 12,
+    },
+
+    emptyText: {
+      color: softText,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginTop: 7,
+    },
+
+    errorBox: {
+      backgroundColor: isDark ? '#402633' : '#FFF0F0',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#744050' : '#FFD0D0',
+      padding: 14,
+      borderRadius: 18,
+      marginBottom: 13,
+      elevation: 3,
+    },
+
+    errorText: {
+      color: isDark ? '#FFB9C5' : '#C52E45',
+      marginBottom: 6,
+      fontWeight: '700',
+    },
+
+    retryText: {
+      color: theme.cyan,
+      fontWeight: '900',
+    },
+
+    modalBackground: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+
+    commentsPanel: {
+      height: '70%',
+      backgroundColor: theme.bg,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      borderTopWidth: 3,
+      borderColor: border,
+      padding: 17,
+      elevation: 18,
+    },
+
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: border,
+    },
+
+    modalTitle: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: '900',
+    },
+
+    commentsList: {
+      flex: 1,
+      paddingVertical: 13,
+    },
+
+    noComments: {
+      color: softText,
+      textAlign: 'center',
+      marginTop: 30,
+      fontWeight: '700',
+    },
+
+    commentCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      backgroundColor: surface,
+      borderWidth: 1.5,
+      borderColor: border,
+      padding: 12,
+      borderRadius: 18,
+      marginBottom: 11,
+      elevation: isDark ? 1 : 5,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.12 : 0.18,
+      shadowRadius: 6,
+      shadowOffset: { width: 3, height: 4 },
+    },
+
+    commentAuthor: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '900',
+    },
+
+    commentContent: {
+      color: softText,
+      fontSize: 13,
+      marginTop: 5,
+      lineHeight: 19,
+    },
+
+    commentInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+      borderTopWidth: 1,
+      borderTopColor: border,
+      paddingTop: 13,
+    },
+
+    commentInput: {
+      flex: 1,
+      minHeight: 45,
+      maxHeight: 90,
+      backgroundColor: surface,
+      borderWidth: 2,
+      borderColor: border,
+      borderRadius: 21,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      color: theme.text,
+      fontWeight: '600',
+      elevation: 3,
+    },
+
+    sendButton: {
+      width: 47,
+      height: 47,
+      borderRadius: 18,
+      backgroundColor: theme.cyan,
+      borderWidth: 2,
+      borderColor: border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 5,
+      shadowColor: theme.blueDark ?? '#0756B5',
+      shadowOpacity: isDark ? 0.2 : 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 4, height: 5 },
+    },
+  });
+                                }
