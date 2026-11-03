@@ -1,9 +1,8 @@
-
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +34,7 @@ type MediaItem = {
 
 type PostKind = 'text' | 'photo' | 'video' | 'reel';
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown): string {
   if (
     error &&
     typeof error === 'object' &&
@@ -45,10 +44,10 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return String(error || 'Unknown error');
+  return String(error || 'An unknown error occurred.');
 }
 
-function getSafeExtension(item: MediaItem) {
+function getSafeExtension(item: MediaItem): string {
   const fromName = item.name.split('.').pop()?.toLowerCase();
 
   if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) {
@@ -63,6 +62,27 @@ function getSafeExtension(item: MediaItem) {
   return item.mediaType === 'image' ? 'jpg' : 'mp4';
 }
 
+async function readSelectedFile(uri: string): Promise<ArrayBuffer> {
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+
+    if (!response.ok) {
+      throw new Error('The browser could not read the selected file.');
+    }
+
+    const blob = await response.blob();
+    return await blob.arrayBuffer();
+  }
+
+  const file = new File(uri);
+
+  if (!file.exists) {
+    throw new Error('The selected file could not be found.');
+  }
+
+  return await file.arrayBuffer();
+}
+
 export default function Create() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
@@ -72,16 +92,28 @@ export default function Create() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [postKind, setPostKind] = useState<PostKind>('text');
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
+
+  const showStatus = (
+    message: string,
+    type: 'success' | 'error' | 'info',
+  ) => {
+    setStatus(message);
+    setStatusType(type);
+  };
 
   const pickPhotos = async () => {
     try {
+      setStatus('');
+
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Allow BRITUME to access your photos so you can select images.'
+      if (!permission.granted && Platform.OS !== 'web') {
+        showStatus(
+          'Please allow BRITUME to access your photos.',
+          'error',
         );
         return;
       }
@@ -104,36 +136,36 @@ export default function Create() {
       }));
 
       if (selected.length > MAX_FILES) {
-        Alert.alert('Too many photos', `Choose up to ${MAX_FILES} photos.`);
+        showStatus(`Choose no more than ${MAX_FILES} photos.`, 'error');
         return;
       }
 
       const oversized = selected.find(
-        item => item.size && item.size > MAX_IMAGE_SIZE
+        item => item.size && item.size > MAX_IMAGE_SIZE,
       );
 
       if (oversized) {
-        Alert.alert('Photo too large', 'Each photo must be 15 MB or smaller.');
+        showStatus('Each photo must be 15 MB or smaller.', 'error');
         return;
       }
 
       setMedia(selected);
       setPostKind('photo');
+      showStatus(`${selected.length} photo(s) selected.`, 'success');
     } catch (error) {
-      Alert.alert('Photo selection failed', getErrorMessage(error));
+      showStatus(`Photo selection failed: ${getErrorMessage(error)}`, 'error');
     }
   };
 
   const pickVideo = async (kind: 'video' | 'reel') => {
     try {
+      setStatus('');
+
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Allow BRITUME to access your videos.'
-        );
+      if (!permission.granted && Platform.OS !== 'web') {
+        showStatus('Please allow BRITUME to access your videos.', 'error');
         return;
       }
 
@@ -148,7 +180,7 @@ export default function Create() {
       const asset = result.assets[0];
 
       if (asset.fileSize && asset.fileSize > MAX_VIDEO_SIZE) {
-        Alert.alert('Video too large', 'Your video must be 100 MB or smaller.');
+        showStatus('Your video must be 100 MB or smaller.', 'error');
         return;
       }
 
@@ -163,8 +195,9 @@ export default function Create() {
       ]);
 
       setPostKind(kind);
+      showStatus('Video selected.', 'success');
     } catch (error) {
-      Alert.alert('Video selection failed', getErrorMessage(error));
+      showStatus(`Video selection failed: ${getErrorMessage(error)}`, 'error');
     }
   };
 
@@ -178,44 +211,54 @@ export default function Create() {
 
       return updated;
     });
+
+    showStatus('Media removed.', 'info');
   };
 
   const publish = async () => {
     if (busy) return;
 
-    if (!supabase || !session) {
-      Alert.alert('Sign in required', 'Please sign in before publishing.');
+    if (!supabase) {
+      showStatus(
+        'BRITUME is not connected to Supabase. Check the website configuration.',
+        'error',
+      );
+      return;
+    }
+
+    if (!session?.user?.id) {
+      showStatus('Your session has expired. Please sign in again.', 'error');
       return;
     }
 
     const text = content.trim();
 
     if (!text && media.length === 0) {
-      Alert.alert('Nothing to publish', 'Write something or select media.');
+      showStatus('Write something or select a photo or video first.', 'error');
       return;
     }
 
     if (text.length > 2000) {
-      Alert.alert('Post too long', 'Your post must be 2,000 characters or less.');
+      showStatus('Your post must be 2,000 characters or less.', 'error');
       return;
     }
 
     if (media.length > MAX_FILES) {
-      Alert.alert('Too many files', `Choose up to ${MAX_FILES} photos.`);
+      showStatus(`Choose no more than ${MAX_FILES} photos.`, 'error');
       return;
     }
 
     setBusy(true);
-
+    setStatus('');
+    
     const uploadedPaths: string[] = [];
     let createdPostId: string | null = null;
     let stage = 'Preparing your post';
 
     try {
-      const finalType: PostKind =
-        media.length === 0 ? 'text' : postKind;
+      const finalType: PostKind = media.length === 0 ? 'text' : postKind;
 
-      stage = 'Creating post record';
+      stage = 'Saving your post';
 
       const { data: post, error: postError } = await supabase
         .from('posts')
@@ -229,11 +272,11 @@ export default function Create() {
         .single();
 
       if (postError) {
-        throw new Error(postError.message);
+        throw new Error(`Could not save post: ${postError.message}`);
       }
 
       if (!post?.id) {
-        throw new Error('Supabase did not return the new post ID.');
+        throw new Error('The database did not return a post ID.');
       }
 
       createdPostId = post.id;
@@ -250,18 +293,23 @@ export default function Create() {
       for (let index = 0; index < media.length; index++) {
         const item = media[index];
 
-        stage = `Reading file ${index + 1} of ${media.length}`;
+        stage = `Reading ${item.name}`;
 
-        const file = new File(item.uri);
-
-        if (!file.exists) {
-          throw new Error(`The selected file could not be found: ${item.name}`);
-        }
-
-        const bytes = await file.arrayBuffer();
+        const bytes = await readSelectedFile(item.uri);
 
         if (!bytes || bytes.byteLength === 0) {
           throw new Error(`The selected file is empty: ${item.name}`);
+        }
+
+        const sizeLimit =
+          item.mediaType === 'image' ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+
+        if (bytes.byteLength > sizeLimit) {
+          throw new Error(
+            item.mediaType === 'image'
+              ? `${item.name} is larger than 15 MB.`
+              : `${item.name} is larger than 100 MB.`,
+          );
         }
 
         stage = `Uploading file ${index + 1} of ${media.length}`;
@@ -278,7 +326,7 @@ export default function Create() {
           });
 
         if (uploadError) {
-          throw new Error(uploadError.message);
+          throw new Error(`Media upload failed: ${uploadError.message}`);
         }
 
         uploadedPaths.push(path);
@@ -294,14 +342,14 @@ export default function Create() {
       }
 
       if (mediaRows.length > 0) {
-        stage = 'Saving media details';
+        stage = 'Saving media information';
 
         const { error: mediaError } = await supabase
           .from('post_media')
           .insert(mediaRows);
 
         if (mediaError) {
-          throw new Error(mediaError.message);
+          throw new Error(`Could not save media information: ${mediaError.message}`);
         }
       }
 
@@ -309,20 +357,12 @@ export default function Create() {
       setMedia([]);
       setPostKind('text');
 
-      Alert.alert(
-        'Published!',
-        'Your post is now on BRITUME.',
-        [
-          {
-            text: 'View post',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ],
-        { cancelable: false }
+      showStatus(
+        'Success! Your post has been published. Open Home to see it.',
+        'success',
       );
     } catch (error) {
       const originalMessage = getErrorMessage(error);
-
       let cleanupMessage = '';
 
       if (uploadedPaths.length > 0) {
@@ -331,7 +371,7 @@ export default function Create() {
           .remove(uploadedPaths);
 
         if (removeError) {
-          cleanupMessage += `\nFile cleanup: ${removeError.message}`;
+          cleanupMessage += ` File cleanup also failed: ${removeError.message}`;
         }
       }
 
@@ -343,13 +383,13 @@ export default function Create() {
           .eq('user_id', session.user.id);
 
         if (deleteError) {
-          cleanupMessage += `\nPost cleanup: ${deleteError.message}`;
+          cleanupMessage += ` Post cleanup also failed: ${deleteError.message}`;
         }
       }
 
-      Alert.alert(
-        'Publishing failed',
-        `Stage: ${stage}\n\n${originalMessage}${cleanupMessage}`
+      showStatus(
+        `Publishing failed at: ${stage}. ${originalMessage}${cleanupMessage}`,
+        'error',
       );
     } finally {
       setBusy(false);
@@ -385,6 +425,7 @@ export default function Create() {
           maxLength={2000}
           style={styles.input}
           textAlignVertical="top"
+          editable={!busy}
         />
 
         <Text style={styles.counter}>{content.length}/2000</Text>
@@ -464,6 +505,36 @@ export default function Create() {
           Photos: up to 10 files, 15 MB each. Videos and Reels: up to 100 MB.
         </Text>
 
+        {status !== '' && (
+          <View
+            style={[
+              styles.statusBox,
+              statusType === 'success' && styles.successBox,
+              statusType === 'error' && styles.errorBox,
+              statusType === 'info' && styles.infoBox,
+            ]}
+          >
+            <Ionicons
+              name={
+                statusType === 'success'
+                  ? 'checkmark-circle'
+                  : statusType === 'error'
+                    ? 'alert-circle'
+                    : 'information-circle'
+              }
+              size={22}
+              color={
+                statusType === 'success'
+                  ? '#16834A'
+                  : statusType === 'error'
+                    ? '#C73535'
+                    : theme.cyan
+              }
+            />
+            <Text style={styles.statusText}>{status}</Text>
+          </View>
+        )}
+
         <Pressable
           style={[styles.publishButton, busy && styles.disabled]}
           onPress={publish}
@@ -481,6 +552,16 @@ export default function Create() {
             </>
           )}
         </Pressable>
+
+        {statusType === 'success' && (
+          <Pressable
+            style={styles.homeButton}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <Ionicons name="home-outline" size={19} color={theme.cyan} />
+            <Text style={styles.homeButtonText}>Go to Home</Text>
+          </Pressable>
+        )}
       </View>
     </ScrollView>
   );
@@ -627,6 +708,33 @@ function createStyles(theme: any) {
       marginTop: 5,
       marginBottom: 18,
     },
+    statusBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 9,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      marginBottom: 14,
+    },
+    successBox: {
+      backgroundColor: '#E8F8EF',
+      borderColor: '#A8DFC0',
+    },
+    errorBox: {
+      backgroundColor: '#FFF0F0',
+      borderColor: '#F0B8B8',
+    },
+    infoBox: {
+      backgroundColor: theme.panel2,
+      borderColor: theme.border,
+    },
+    statusText: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 13,
+      lineHeight: 19,
+    },
     publishButton: {
       minHeight: 54,
       borderRadius: 15,
@@ -642,8 +750,24 @@ function createStyles(theme: any) {
       fontSize: 16,
       fontWeight: '800',
     },
+    homeButton: {
+      minHeight: 48,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.panel2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 12,
+    },
+    homeButtonText: {
+      color: theme.cyan,
+      fontWeight: '800',
+    },
     disabled: {
       opacity: 0.6,
     },
   });
-}
+        }
