@@ -35,6 +35,7 @@ import {
 import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 type Interaction = {
   liked: boolean;
@@ -89,6 +90,7 @@ function MediaVideo({
 
 function VideoPost({ post }: { post: FeedPost }) {
   const { theme, isDark } = useAppTheme();
+  const { t } = useLanguage();
 
   const styles = useMemo(
     () => createStyles(theme, isDark),
@@ -104,7 +106,7 @@ function VideoPost({ post }: { post: FeedPost }) {
   const author =
     post.author?.display_name ||
     post.author?.username ||
-    'BRITUME member';
+    t('britumeMember');
 
   return (
     <View style={styles.videoPostCard}>
@@ -142,6 +144,7 @@ function VideoPost({ post }: { post: FeedPost }) {
 
 export default function HomeScreen() {
   const { theme, isDark } = useAppTheme();
+  const { t } = useLanguage();
 
   const styles = useMemo(
     () => createStyles(theme, isDark),
@@ -288,8 +291,8 @@ export default function HomeScreen() {
   const handleLike = async (postId: string) => {
     if (!userId) {
       Alert.alert(
-        'Sign in required',
-        'Please sign in to like posts.',
+        t('signInRequired'),
+        t('signInToLike'),
       );
       return;
     }
@@ -308,8 +311,8 @@ export default function HomeScreen() {
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
-        'Like failed',
-        e instanceof Error ? e.message : 'Please try again.',
+        t('likeFailed'),
+        e instanceof Error ? e.message : t('pleaseTryAgain'),
       );
     } finally {
       setBusyPosts(items => items.filter(id => id !== postId));
@@ -319,8 +322,8 @@ export default function HomeScreen() {
   const handleSave = async (postId: string) => {
     if (!userId) {
       Alert.alert(
-        'Sign in required',
-        'Please sign in to save posts.',
+        t('signInRequired'),
+        t('signInToSave'),
       );
       return;
     }
@@ -339,8 +342,8 @@ export default function HomeScreen() {
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
-        'Save failed',
-        e instanceof Error ? e.message : 'Please try again.',
+        t('saveFailed'),
+        e instanceof Error ? e.message : t('pleaseTryAgain'),
       );
     } finally {
       setBusyPosts(items => items.filter(id => id !== postId));
@@ -359,7 +362,10 @@ export default function HomeScreen() {
           `${post.content ?? ''}\n${mediaLinks}`,
       });
     } catch {
-      Alert.alert('Sharing unavailable', 'Please try again.');
+      Alert.alert(
+        t('sharingUnavailable'),
+        t('pleaseTryAgain'),
+      );
     }
   };
 
@@ -377,8 +383,8 @@ export default function HomeScreen() {
       setComments(result);
     } catch (e) {
       Alert.alert(
-        'Comments',
-        e instanceof Error ? e.message : 'Could not load comments.',
+        t('comments'),
+        e instanceof Error ? e.message : t('couldNotLoadComments'),
       );
     } finally {
       setCommentsLoading(false);
@@ -388,8 +394,8 @@ export default function HomeScreen() {
   const submitComment = async () => {
     if (!activePostId || !userId) {
       Alert.alert(
-        'Sign in required',
-        'Please sign in to comment.',
+        t('signInRequired'),
+        t('signInToComment'),
       );
       return;
     }
@@ -415,8 +421,8 @@ export default function HomeScreen() {
       await refreshInteractions();
     } catch (e) {
       Alert.alert(
-        'Comment failed',
-        e instanceof Error ? e.message : 'Please try again.',
+        t('commentFailed'),
+        e instanceof Error ? e.message : t('pleaseTryAgain'),
       );
     } finally {
       setSendingComment(false);
@@ -440,14 +446,14 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/profile')}
         >
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>Vortex of Possibilities</Text>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
           <Text style={styles.byline}>by brilliant mere</Text>
         </Pressable>
 
         <Pressable
           style={styles.topButtonLight}
           onPress={() => router.push('/(tabs)/discover')}
-          accessibilityLabel="Discover people"
+          accessibilityLabel={t('discoverPeople')}
         >
           <Ionicons name="search" size={22} color={theme.cyan} />
         </Pressable>
@@ -455,7 +461,7 @@ export default function HomeScreen() {
         <Pressable
           style={styles.topButtonLight}
           onPress={() => router.push('/notifications')}
-          accessibilityLabel="Notifications"
+          accessibilityLabel={t('notifications')}
         >
           <Ionicons
             name="notifications-outline"
@@ -467,7 +473,7 @@ export default function HomeScreen() {
         <Pressable
           style={styles.topButtonLight}
           onPress={() => router.push('/(tabs)/more')}
-          accessibilityLabel="More menu"
+          accessibilityLabel={t('moreMenu')}
         >
           <Ionicons name="menu" size={25} color={theme.cyan} />
         </Pressable>
@@ -483,7 +489,7 @@ export default function HomeScreen() {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search people, posts and communities..."
+          placeholder={t('searchPlaceholder')}
           placeholderTextColor={theme.muted}
           style={styles.searchInput}
           returnKeyType="search"
@@ -491,7 +497,7 @@ export default function HomeScreen() {
 
         <Pressable
           onPress={() => router.push('/(tabs)/discover')}
-          accessibilityLabel="Search filters"
+          accessibilityLabel={t('searchFilters')}
         >
           <Ionicons
             name="options-outline"
@@ -508,14 +514,14 @@ export default function HomeScreen() {
             size={23}
             color={theme.cyan}
           />
-          <Text style={styles.sectionTitle}>Stories</Text>
+          <Text style={styles.sectionTitle}>{t('stories')}</Text>
         </View>
 
         <Pressable
           style={styles.seeAll}
           onPress={() => router.push('/stories')}
         >
-          <Text style={styles.seeAllText}>See all</Text>
+          <Text style={styles.seeAllText}>{t('seeAll')}</Text>
           <Ionicons
             name="chevron-forward"
             size={16}
@@ -549,9 +555,11 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.storyCardBottom}>
-            <Text style={styles.storyCardTitle}>Your Story</Text>
+            <Text style={styles.storyCardTitle}>
+              {t('yourStory')}
+            </Text>
             <Text style={styles.storyCardSubtitle}>
-              Share a moment
+              {t('shareMoment')}
             </Text>
           </View>
         </Pressable>
@@ -564,7 +572,7 @@ export default function HomeScreen() {
             size={22}
             color={theme.cyan}
           />
-          <Text style={styles.sectionTitle}>Posts</Text>
+          <Text style={styles.sectionTitle}>{t('posts')}</Text>
         </View>
       </View>
 
@@ -572,7 +580,7 @@ export default function HomeScreen() {
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={() => void loadPosts()}>
-            <Text style={styles.retryText}>Try again</Text>
+            <Text style={styles.retryText}>{t('tryAgain')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -590,7 +598,7 @@ export default function HomeScreen() {
     const author =
       item.author?.display_name ||
       item.author?.username ||
-      'BRITUME member';
+      t('britumeMember');
 
     const images = (item.media ?? []).filter(
       media => media.media_type === 'image',
@@ -619,17 +627,18 @@ export default function HomeScreen() {
 
           <Pressable
             onPress={() =>
-              Alert.alert('Post options', 'Choose an action.', [
+              Alert.alert(t('postOptions'), t('chooseAction'), [
                 {
-                  text: 'Share',
+                  text: t('share'),
                   onPress: () => void sharePost(item),
                 },
                 {
-                  text: 'Cancel',
+                  text: t('cancel'),
                   style: 'cancel',
                 },
               ])
             }
+            accessibilityLabel={t('postOptions')}
           >
             <Ionicons
               name="ellipsis-vertical"
@@ -681,6 +690,7 @@ export default function HomeScreen() {
           <Pressable
             style={styles.actionButton}
             onPress={() => void openComments(item.id)}
+            accessibilityLabel={t('comments')}
           >
             <Ionicons
               name="chatbubble-outline"
@@ -696,6 +706,7 @@ export default function HomeScreen() {
           <Pressable
             style={styles.actionButton}
             onPress={() => void sharePost(item)}
+            accessibilityLabel={t('share')}
           >
             <Ionicons
               name="share-social-outline"
@@ -708,6 +719,7 @@ export default function HomeScreen() {
             style={styles.actionButton}
             onPress={() => void handleSave(item.id)}
             disabled={busyPosts.includes(item.id)}
+            accessibilityLabel={t('saveFailed')}
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
@@ -758,7 +770,9 @@ export default function HomeScreen() {
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={theme.cyan} />
-          <Text style={styles.loadingText}>Loading BRITUME...</Text>
+          <Text style={styles.loadingText}>
+            {t('homeLoading')}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -771,8 +785,8 @@ export default function HomeScreen() {
           ListHeaderComponent={Header}
           ListFooterComponent={
             <View>
-              {renderVideoSection('Videos', videoPosts, 'video')}
-              {renderVideoSection('Reels', reelPosts, 'reel')}
+              {renderVideoSection(t('videos'), videoPosts, 'video')}
+              {renderVideoSection(t('reels'), reelPosts, 'reel')}
             </View>
           }
           keyboardShouldPersistTaps="handled"
@@ -794,14 +808,14 @@ export default function HomeScreen() {
 
               <Text style={styles.emptyTitle}>
                 {search.trim()
-                  ? 'No matching posts'
-                  : 'Welcome to BRITUME'}
+                  ? t('noMatchingPosts')
+                  : t('welcomeToBritume')}
               </Text>
 
               <Text style={styles.emptyText}>
                 {search.trim()
-                  ? 'Try searching for something else.'
-                  : 'Your community starts here. Use the Create button to share your first post!'}
+                  ? t('trySearchingElse')
+                  : t('communityStarts')}
               </Text>
             </View>
           }
@@ -829,10 +843,15 @@ export default function HomeScreen() {
                   size={23}
                   color={theme.cyan}
                 />
-                <Text style={styles.modalTitle}>Comments</Text>
+                <Text style={styles.modalTitle}>
+                  {t('comments')}
+                </Text>
               </View>
 
-              <Pressable onPress={() => setActivePostId(null)}>
+              <Pressable
+                onPress={() => setActivePostId(null)}
+                accessibilityLabel={t('cancel')}
+              >
                 <Ionicons
                   name="close-circle"
                   size={29}
@@ -870,7 +889,7 @@ export default function HomeScreen() {
                         <Text style={styles.commentAuthor}>
                           {comment.author?.display_name ||
                             comment.author?.username ||
-                            'BRITUME member'}
+                            t('britumeMember')}
                         </Text>
 
                         <Text style={styles.commentContent}>
@@ -898,6 +917,7 @@ export default function HomeScreen() {
                 style={styles.sendButton}
                 onPress={() => void submitComment()}
                 disabled={sendingComment || !commentText.trim()}
+                accessibilityLabel={t('comments')}
               >
                 {sendingComment ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -1476,4 +1496,4 @@ function createStyles(theme: any, isDark: boolean) {
       shadowOffset: { width: 4, height: 5 },
     },
   });
-                                }
+        }
