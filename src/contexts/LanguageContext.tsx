@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useCallback,
@@ -8,6 +9,13 @@ import React, {
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import {
+  english,
+  translationPacks,
+  type TranslationKey,
+  type TranslationPack,
+} from '../i18n/translations';
 
 const LANGUAGE_STORAGE_KEY = '@britume_app_language';
 
@@ -125,147 +133,6 @@ export const supportedLanguages = [
 ] as const;
 
 export type Language = (typeof supportedLanguages)[number];
-
-const english = {
-  // Settings
-  settings: 'Settings',
-  themeSaveError: 'Could not save your theme. Please try again.',
-  languageSaveError: 'Could not save your language. Please try again.',
-  about: 'About BRITUME',
-  aboutMessage: 'BRITUME — Vortex of Possibilities.',
-  tagline: 'Vortex of Possibilities',
-  settingsSubtitle: 'Manage your BRITUME experience.',
-  account: 'Account',
-  editProfile: 'Edit profile',
-  editProfileSubtitle: 'Update your personal information.',
-  privacy: 'Privacy',
-  privacySubtitle: 'Manage your profile privacy.',
-  appearance: 'Appearance',
-  darkMode: 'Dark mode',
-  darkSelected: 'Dark appearance selected',
-  lightSelected: 'Light appearance selected',
-  language: 'Language',
-  appLanguage: 'App language',
-  information: 'Information',
-  aboutSubtitle: 'Learn more about BRITUME.',
-  signOut: 'Sign out',
-  signOutSubtitle: 'Sign out of your account.',
-  footerNote: 'Made with possibilities.',
-  signOutQuestion: 'Sign out?',
-  signOutConfirmation: 'Are you sure you want to sign out?',
-  yesSignOut: 'Yes, sign out',
-  cancel: 'Cancel',
-  chooseLanguage: 'Choose language',
-  chooseLanguageSubtitle: 'Select your preferred app language.',
-  languageSaved: 'Your language preference is saved on this device.',
-  languageFallback:
-    'This language is available to select. Some app translations are still being prepared.',
-
-  // Home screen
-  homeLoading: 'Loading BRITUME...',
-  searchPlaceholder: 'Search people, posts and communities...',
-  stories: 'Stories',
-  seeAll: 'See all',
-  yourStory: 'Your Story',
-  shareMoment: 'Share a moment',
-  posts: 'Posts',
-  tryAgain: 'Try again',
-  signInRequired: 'Sign in required',
-  signInToLike: 'Please sign in to like posts.',
-  likeFailed: 'Like failed',
-  signInToSave: 'Please sign in to save posts.',
-  saveFailed: 'Save failed',
-  sharingUnavailable: 'Sharing unavailable',
-  postOptions: 'Post options',
-  chooseAction: 'Choose an action.',
-  share: 'Share',
-  comments: 'Comments',
-  couldNotLoadComments: 'Could not load comments.',
-  signInToComment: 'Please sign in to comment.',
-  commentFailed: 'Comment failed',
-  pleaseTryAgain: 'Please try again.',
-  noMatchingPosts: 'No matching posts',
-  welcomeToBritume: 'Welcome to BRITUME',
-  trySearchingElse: 'Try searching for something else.',
-  communityStarts:
-    'Your community starts here. Use the Create button to share your first post.',
-  videos: 'Videos',
-  reels: 'Reels',
-  discoverPeople: 'Discover people',
-  notifications: 'Notifications',
-  moreMenu: 'More menu',
-  searchFilters: 'Search filters',
-  britumeMember: 'BRITUME member',
-};
-
-const setswana: Partial<typeof english> = {
-  // Settings
-  settings: 'Dipeakanyo',
-  about: 'Ka ga BRITUME',
-  aboutMessage: 'BRITUME — Vortex of Possibilities.',
-  tagline: 'Vortex of Possibilities',
-  settingsSubtitle: 'Laola tiriso ya gago ya BRITUME.',
-  account: 'Akhaonto',
-  editProfile: 'Baakanya profaele',
-  editProfileSubtitle: 'Baakanya tshedimosetso ya gago.',
-  privacy: 'Sephiri',
-  appearance: 'Ponalo',
-  darkMode: 'Mokgwa wa bosigo',
-  language: 'Puo',
-  appLanguage: 'Puo ya app',
-  information: 'Tshedimosetso',
-  signOut: 'Tswa',
-  signOutQuestion: 'A o batla go tswa?',
-  signOutConfirmation: 'A o tlhomamisa gore o batla go tswa?',
-  yesSignOut: 'Ee, tswa',
-  cancel: 'Tlogela',
-  chooseLanguage: 'Tlhopha puo',
-  chooseLanguageSubtitle: 'Tlhopha puo e o e ratang ya app.',
-  languageSaved: 'Puo ya gago e bolokilwe mo sesebedisweng seno.',
-
-  // Home screen
-  homeLoading: 'BRITUME e a laisa...',
-  searchPlaceholder: 'Batla batho, diposo le ditšhaba...',
-  stories: 'Dikanegelo',
-  seeAll: 'Bona tsotlhe',
-  yourStory: 'Kanelo ya gago',
-  shareMoment: 'Abelana ka motsotso',
-  posts: 'Diposo',
-  tryAgain: 'Leka gape',
-  signInRequired: 'Tsena mo akhaontong',
-  signInToLike: 'Tsena mo akhaontong go rata diposo.',
-  likeFailed: 'Go rata ga go a atlega',
-  signInToSave: 'Tsena mo akhaontong go boloka diposo.',
-  saveFailed: 'Go boloka ga go a atlega',
-  sharingUnavailable: 'Go abelana ga go teng',
-  postOptions: 'Dikgetho tsa poso',
-  chooseAction: 'Tlhopha se o batlang go se dira.',
-  share: 'Abelana',
-  comments: 'Ditshwaelo',
-  couldNotLoadComments: 'Ga go a kgonega go laisa ditshwaelo.',
-  signInToComment: 'Tsena mo akhaontong go kwala tshwaelo.',
-  commentFailed: 'Tshwaelo ga e a atlega',
-  pleaseTryAgain: 'Tsweetswee leka gape.',
-  noMatchingPosts: 'Ga go na diposo tse di tshwanang',
-  welcomeToBritume: 'O amogetswe mo BRITUME',
-  trySearchingElse: 'Leka go batla sengwe se sele.',
-  communityStarts:
-    'Setšhaba sa gago se simolola fano. Dirisa konopo ya Create go abelana ka poso ya gago ya ntlha.',
-  videos: 'Dibidio',
-  reels: 'Dikgatiso tse dikhutshwane',
-  discoverPeople: 'Batla batho',
-  notifications: 'Dikitsiso',
-  moreMenu: 'Menu e nngwe',
-  searchFilters: 'Dikgetho tsa patlo',
-  britumeMember: 'Leloko la BRITUME',
-};
-
-const translations: Partial<Record<Language, Partial<typeof english>>> = {
-  English: english,
-  Setswana: setswana,
-};
-
-type TranslationKey = keyof typeof english;
 
 type LanguageContextType = {
   language: Language;
@@ -409,7 +276,9 @@ export function LanguageProvider({
 
     async function loadLanguage() {
       try {
-        const saved = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        const saved = await AsyncStorage.getItem(
+          LANGUAGE_STORAGE_KEY,
+        );
 
         const initialLanguage =
           saved && supportedLanguages.includes(saved as Language)
@@ -427,7 +296,10 @@ export function LanguageProvider({
           );
         }
       } catch (error) {
-        console.warn('Could not load BRITUME language:', error);
+        console.warn(
+          'Could not load BRITUME language:',
+          error,
+        );
 
         if (active) {
           setLanguageState(detectDeviceLanguage());
@@ -464,7 +336,8 @@ export function LanguageProvider({
 
   const t = useCallback(
     (key: TranslationKey | string): string => {
-      const selectedPack = translations[language] || english;
+      const selectedPack: TranslationPack =
+        translationPacks[language] || {};
 
       return (
         selectedPack[key as TranslationKey] ||
@@ -475,8 +348,11 @@ export function LanguageProvider({
     [language],
   );
 
-  // Setswana is still being translated screen by screen.
-  const hasFullTranslation = language === 'English';
+  const selectedPack = translationPacks[language] || {};
+
+  const hasFullTranslation =
+    Object.keys(selectedPack).length ===
+    Object.keys(english).length;
 
   const value = useMemo(
     () => ({
@@ -512,4 +388,4 @@ export function useLanguage() {
   }
 
   return context;
-        }
+}
