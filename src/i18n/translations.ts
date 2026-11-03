@@ -10,6 +10,8 @@ export const english = {
   settings: 'Settings',
   settingsSubtitle: 'Manage your BRITUME experience.',
   account: 'Account',
+  yourAccount: 'Your account',
+  helpSupport: 'Help & Support',
   editProfile: 'Edit profile',
   editProfileSubtitle: 'Update your personal information.',
   privacy: 'Privacy',
