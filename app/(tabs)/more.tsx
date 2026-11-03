@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import {
   Alert,
@@ -9,15 +10,32 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+
 import { useAppTheme } from '../../src/contexts/ThemeContext';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 export default function MoreScreen() {
   const { theme } = useAppTheme();
+  const { language, t } = useLanguage();
+
+  const isSetswana = language === 'Setswana';
+
+  const labels = {
+    more: isSetswana ? 'Tse dingwe' : 'More',
+    account: t('account'),
+    personalDetails: isSetswana ? 'Tshedimosetso ya gago' : 'Personal details',
+    help: isSetswana ? 'THUSO LE TSHEGETSO' : 'HELP & SUPPORT',
+    openSettings: isSetswana ? 'Bula Dipeakanyo' : 'Open Settings',
+    helpMessage: isSetswana
+      ? 'Re tla go thusa ka BRITUME.'
+      : 'How can we help you with BRITUME?',
+    helpTitle: isSetswana ? 'Thuso le Tshegetso' : 'Help & Support',
+  };
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const openRow = (label: string) => {
-    Alert.alert(label, `${label} is coming soon in BRITUME.`);
+  const openHelp = () => {
+    Alert.alert(labels.helpTitle, labels.helpMessage);
   };
 
   return (
@@ -33,16 +51,16 @@ export default function MoreScreen() {
 
         <View style={styles.brandText}>
           <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>Vortex of Possibilities</Text>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
           <Text style={styles.byline}>by brilliant mere</Text>
         </View>
 
         <View style={styles.pageBadge}>
-          <Text style={styles.pageTitle}>More</Text>
+          <Text style={styles.pageTitle}>{labels.more}</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Your account</Text>
+      <Text style={styles.sectionTitle}>{labels.account}</Text>
 
       <View style={styles.card}>
         <Pressable
@@ -61,7 +79,9 @@ export default function MoreScreen() {
             />
           </View>
 
-          <Text style={styles.rowText}>Personal details</Text>
+          <Text style={styles.rowText}>
+            {labels.personalDetails}
+          </Text>
 
           <Ionicons
             name="chevron-forward"
@@ -76,7 +96,7 @@ export default function MoreScreen() {
           styles.helpBar,
           pressed && styles.rowPressed,
         ]}
-        onPress={() => openRow('Help & Support')}
+        onPress={openHelp}
       >
         <View style={styles.helpIcon}>
           <Ionicons
@@ -86,7 +106,7 @@ export default function MoreScreen() {
           />
         </View>
 
-        <Text style={styles.helpText}>HELP & SUPPORT</Text>
+        <Text style={styles.helpText}>{labels.help}</Text>
 
         <Ionicons
           name="chevron-forward"
@@ -108,7 +128,9 @@ export default function MoreScreen() {
           color={theme.cyan}
         />
 
-        <Text style={styles.settingsLinkText}>Open Settings</Text>
+        <Text style={styles.settingsLinkText}>
+          {labels.openSettings}
+        </Text>
 
         <Ionicons
           name="arrow-forward"
@@ -328,4 +350,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       fontWeight: '800',
     },
   });
-            }
+}
