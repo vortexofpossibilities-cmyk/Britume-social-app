@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,36 +11,19 @@ import {
   Text,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { useAuth } from '../src/auth/AuthProvider';
 import { useAppTheme } from '../src/contexts/ThemeContext';
+import { useLanguage, supportedLanguages, type Language } from '../src/contexts/LanguageContext';
 import { theme as lightTheme } from '../src/lib/theme';
-
-const LANGUAGE_KEY = '@britume_language';
-
-const languages = [
-  'English',
-  'Setswana',
-  'French',
-  'Spanish',
-  'Portuguese',
-  'Arabic',
-  'Chinese',
-  'Hindi',
-  'German',
-  'Swahili',
-  'Zulu',
-  'Afrikaans',
-];
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
   const { theme: colors, isDark, setMode } = useAppTheme();
+  const { language, setLanguage, t } = useLanguage();
 
-  const [language, setLanguage] = useState('English');
   const [languageModal, setLanguageModal] = useState(false);
   const [signOutModal, setSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -48,47 +31,20 @@ export default function SettingsScreen() {
 
   const styles = createStyles(colors);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadLanguage() {
-      try {
-        const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
-
-        if (active && savedLanguage) {
-          setLanguage(savedLanguage);
-        }
-      } catch (error) {
-        console.warn('Could not load language setting:', error);
-      }
-    }
-
-    void loadLanguage();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const changeTheme = async (value: boolean) => {
     try {
       await setMode(value ? 'dark' : 'light');
     } catch {
-      Alert.alert(
-        'Settings',
-        'Could not save your theme preference. Please try again.',
-      );
+      Alert.alert(t('settings'), t('themeSaveError'));
     }
   };
 
-  const changeLanguage = async (value: string) => {
-    setLanguage(value);
-    setLanguageModal(false);
-
+  const changeLanguage = async (value: Language) => {
     try {
-      await AsyncStorage.setItem(LANGUAGE_KEY, value);
+      await setLanguage(value);
+      setLanguageModal(false);
     } catch {
-      Alert.alert('Settings', 'Could not save your language preference.');
+      Alert.alert(t('settings'), t('languageSaveError'));
     }
   };
 
@@ -115,10 +71,7 @@ export default function SettingsScreen() {
   };
 
   const showAbout = () => {
-    Alert.alert(
-      'About BRITUME',
-      'BRITUME\nVortex of Possibilities\n\nCreated by Brilliant Tumelo Mere.',
-    );
+    Alert.alert(t('about'), t('aboutMessage'));
   };
 
   const SettingRow = ({
@@ -180,7 +133,6 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.brandIcon}>
             <Text style={styles.brandLetter}>B</Text>
@@ -188,24 +140,23 @@ export default function SettingsScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.brandName}>BRITUME</Text>
-            <Text style={styles.tagline}>Vortex of Possibilities</Text>
+            <Text style={styles.tagline}>{t('tagline')}</Text>
           </View>
         </View>
 
-        <Text style={styles.pageTitle}>Settings</Text>
+        <Text style={styles.pageTitle}>{t('settings')}</Text>
         <Text style={styles.pageSubtitle}>
-          Make BRITUME feel like yours.
+          {t('settingsSubtitle')}
         </Text>
 
-        {/* ACCOUNT */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACCOUNT</Text>
+          <Text style={styles.sectionTitle}>{t('account')}</Text>
 
           <View style={styles.card}>
             <SettingRow
               icon="person-circle-outline"
-              title="Edit profile"
-              subtitle="Change your name, username and bio"
+              title={t('editProfile')}
+              subtitle={t('editProfileSubtitle')}
               onPress={() => router.push('/profile-edit')}
             />
 
@@ -213,26 +164,25 @@ export default function SettingsScreen() {
 
             <SettingRow
               icon="lock-closed-outline"
-              title="Privacy"
-              subtitle="Manage your public or private profile"
+              title={t('privacy')}
+              subtitle={t('privacySubtitle')}
               color={colors.purple}
               onPress={() => router.push('/profile-edit')}
             />
           </View>
         </View>
 
-        {/* APPEARANCE */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>APPEARANCE</Text>
+          <Text style={styles.sectionTitle}>{t('appearance')}</Text>
 
           <View style={styles.card}>
             <SettingRow
               icon={isDark ? 'moon' : 'sunny-outline'}
-              title="Dark mode"
+              title={t('darkMode')}
               subtitle={
                 isDark
-                  ? 'Dark appearance selected'
-                  : 'Light appearance selected'
+                  ? t('darkSelected')
+                  : t('lightSelected')
               }
               color={colors.purple}
               trailing={
@@ -250,14 +200,13 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* LANGUAGE */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>LANGUAGE</Text>
+          <Text style={styles.sectionTitle}>{t('language')}</Text>
 
           <View style={styles.card}>
             <SettingRow
               icon="globe-outline"
-              title="App language"
+              title={t('appLanguage')}
               subtitle={language}
               color="#20A878"
               onPress={() => setLanguageModal(true)}
@@ -265,28 +214,26 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* INFORMATION */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>INFORMATION</Text>
+          <Text style={styles.sectionTitle}>{t('information')}</Text>
 
           <View style={styles.card}>
             <SettingRow
               icon="information-circle-outline"
-              title="About BRITUME"
-              subtitle="Vortex of Possibilities"
+              title={t('about')}
+              subtitle={t('aboutSubtitle')}
               color={colors.gold}
               onPress={showAbout}
             />
           </View>
         </View>
 
-        {/* SIGN OUT */}
         <View style={styles.section}>
           <View style={styles.card}>
             <SettingRow
               icon="log-out-outline"
-              title="Sign out"
-              subtitle="Sign out of your account"
+              title={t('signOut')}
+              subtitle={t('signOutSubtitle')}
               color={colors.danger}
               onPress={() => {
                 setSignOutError('');
@@ -307,21 +254,17 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* FOOTER */}
         <View style={styles.footer}>
           <View style={styles.footerLogo}>
             <Text style={styles.footerLetter}>B</Text>
           </View>
 
           <Text style={styles.footerName}>BRITUME</Text>
-          <Text style={styles.footerTagline}>Vortex of Possibilities</Text>
-          <Text style={styles.footerNote}>
-            Built with possibilities in mind.
-          </Text>
+          <Text style={styles.footerTagline}>{t('tagline')}</Text>
+          <Text style={styles.footerNote}>{t('footerNote')}</Text>
         </View>
       </ScrollView>
 
-      {/* SIGN OUT CONFIRMATION */}
       <Modal
         visible={signOutModal}
         transparent
@@ -340,10 +283,12 @@ export default function SettingsScreen() {
               />
             </View>
 
-            <Text style={styles.modalTitle}>Sign out of BRITUME?</Text>
+            <Text style={styles.modalTitle}>
+              {t('signOutQuestion')}
+            </Text>
 
             <Text style={styles.modalSubtitle}>
-              Are you sure you want to sign out of your account?
+              {t('signOutConfirmation')}
             </Text>
 
             {signOutError ? (
@@ -362,7 +307,7 @@ export default function SettingsScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.signOutButtonText}>
-                  Yes, sign out
+                  {t('yesSignOut')}
                 </Text>
               )}
             </Pressable>
@@ -372,13 +317,14 @@ export default function SettingsScreen() {
               onPress={() => setSignOutModal(false)}
               style={styles.cancelButton}
             >
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>
+                {t('cancel')}
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
-      {/* LANGUAGE PICKER */}
       <Modal
         visible={languageModal}
         transparent
@@ -389,9 +335,11 @@ export default function SettingsScreen() {
           <View style={styles.languageCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Choose language</Text>
+                <Text style={styles.modalTitle}>
+                  {t('chooseLanguage')}
+                </Text>
                 <Text style={styles.modalSubtitle}>
-                  Select your preferred language.
+                  {t('chooseLanguageSubtitle')}
                 </Text>
               </View>
 
@@ -405,7 +353,7 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView style={styles.languageList}>
-              {languages.map((item) => (
+              {supportedLanguages.map((item) => (
                 <Pressable
                   key={item}
                   onPress={() => changeLanguage(item)}
@@ -425,8 +373,7 @@ export default function SettingsScreen() {
             </ScrollView>
 
             <Text style={styles.languageNote}>
-              Your preference is saved. Automatic app translation will be
-              connected when the translation service is integrated.
+              {t('languageSaved')}
             </Text>
           </View>
         </View>
@@ -441,19 +388,16 @@ function createStyles(colors: typeof lightTheme) {
       flex: 1,
       backgroundColor: colors.bg,
     },
-
     content: {
       paddingHorizontal: 18,
       paddingTop: 20,
       paddingBottom: 45,
     },
-
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 28,
     },
-
     brandIcon: {
       width: 49,
       height: 49,
@@ -467,48 +411,40 @@ function createStyles(colors: typeof lightTheme) {
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
     },
-
     brandLetter: {
       color: '#FFFFFF',
       fontSize: 29,
       fontWeight: '900',
     },
-
     headerText: {
       flex: 1,
       marginLeft: 12,
     },
-
     brandName: {
       color: colors.text,
       fontSize: 18,
       fontWeight: '900',
       letterSpacing: 1.5,
     },
-
     tagline: {
       color: colors.muted,
       fontSize: 11,
       marginTop: 2,
     },
-
     pageTitle: {
       color: colors.text,
       fontSize: 29,
       fontWeight: '900',
     },
-
     pageSubtitle: {
       color: colors.muted,
       fontSize: 13,
       marginTop: 5,
       marginBottom: 24,
     },
-
     section: {
       marginBottom: 22,
     },
-
     sectionTitle: {
       color: colors.muted,
       fontSize: 11,
@@ -517,7 +453,6 @@ function createStyles(colors: typeof lightTheme) {
       marginBottom: 10,
       marginLeft: 5,
     },
-
     card: {
       backgroundColor: colors.panel,
       borderWidth: 1,
@@ -531,19 +466,16 @@ function createStyles(colors: typeof lightTheme) {
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 5 },
     },
-
     row: {
       minHeight: 76,
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 10,
     },
-
     rowPressed: {
       backgroundColor: colors.panel2,
       borderRadius: 16,
     },
-
     iconBox: {
       width: 45,
       height: 45,
@@ -551,37 +483,31 @@ function createStyles(colors: typeof lightTheme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-
     rowText: {
       flex: 1,
       marginLeft: 13,
       marginRight: 8,
     },
-
     rowTitle: {
       color: colors.text,
       fontSize: 15,
       fontWeight: '800',
     },
-
     rowSubtitle: {
       color: colors.muted,
       fontSize: 11,
       marginTop: 4,
     },
-
     separator: {
       height: 1,
       backgroundColor: colors.border,
       marginLeft: 57,
     },
-
     footer: {
       alignItems: 'center',
       paddingTop: 15,
       paddingBottom: 20,
     },
-
     footerLogo: {
       width: 48,
       height: 48,
@@ -593,13 +519,11 @@ function createStyles(colors: typeof lightTheme) {
       justifyContent: 'center',
       elevation: 4,
     },
-
     footerLetter: {
       color: colors.cyan,
       fontSize: 27,
       fontWeight: '900',
     },
-
     footerName: {
       color: colors.text,
       fontSize: 15,
@@ -607,26 +531,22 @@ function createStyles(colors: typeof lightTheme) {
       letterSpacing: 2,
       marginTop: 10,
     },
-
     footerTagline: {
       color: colors.muted,
       fontSize: 11,
       marginTop: 3,
     },
-
     footerNote: {
       color: colors.muted,
       fontSize: 10,
       marginTop: 13,
     },
-
     modalBackdrop: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.55)',
       justifyContent: 'center',
       padding: 22,
     },
-
     languageCard: {
       maxHeight: '80%',
       backgroundColor: colors.panel,
@@ -636,27 +556,23 @@ function createStyles(colors: typeof lightTheme) {
       borderColor: colors.border,
       elevation: 12,
     },
-
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 15,
     },
-
     modalTitle: {
       color: colors.text,
       fontSize: 20,
       fontWeight: '900',
       marginTop: 10,
     },
-
     modalSubtitle: {
       color: colors.muted,
       fontSize: 12,
       marginTop: 4,
     },
-
     signOutIcon: {
       width: 60,
       height: 60,
@@ -665,7 +581,6 @@ function createStyles(colors: typeof lightTheme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-
     signOutButton: {
       backgroundColor: colors.danger,
       padding: 15,
@@ -675,34 +590,28 @@ function createStyles(colors: typeof lightTheme) {
       marginTop: 22,
       minHeight: 50,
     },
-
     signOutButtonText: {
       color: '#FFFFFF',
       fontWeight: '900',
       fontSize: 15,
     },
-
     cancelButton: {
       padding: 14,
       alignItems: 'center',
       marginTop: 5,
     },
-
     cancelText: {
       color: colors.text,
       fontWeight: '800',
     },
-
     errorText: {
       color: colors.danger,
       fontSize: 12,
       marginTop: 12,
     },
-
     languageList: {
       maxHeight: 360,
     },
-
     languageOption: {
       minHeight: 52,
       flexDirection: 'row',
@@ -712,13 +621,11 @@ function createStyles(colors: typeof lightTheme) {
       borderBottomColor: colors.border,
       paddingVertical: 12,
     },
-
     languageText: {
       color: colors.text,
       fontSize: 15,
       fontWeight: '700',
     },
-
     languageNote: {
       color: colors.muted,
       fontSize: 11,
