@@ -16,26 +16,15 @@ import { useLanguage } from '../../src/contexts/LanguageContext';
 
 export default function MoreScreen() {
   const { theme } = useAppTheme();
-  const { language, t } = useLanguage();
-
-  const isSetswana = language === 'Setswana';
-
-  const labels = {
-    more: isSetswana ? 'Tse dingwe' : 'More',
-    account: t('account'),
-    personalDetails: isSetswana ? 'Tshedimosetso ya gago' : 'Personal details',
-    help: isSetswana ? 'THUSO LE TSHEGETSO' : 'HELP & SUPPORT',
-    openSettings: isSetswana ? 'Bula Dipeakanyo' : 'Open Settings',
-    helpMessage: isSetswana
-      ? 'Re tla go thusa ka BRITUME.'
-      : 'How can we help you with BRITUME?',
-    helpTitle: isSetswana ? 'Thuso le Tshegetso' : 'Help & Support',
-  };
+  const { t } = useLanguage();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const openHelp = () => {
-    Alert.alert(labels.helpTitle, labels.helpMessage);
+  const openInformation = () => {
+    Alert.alert(
+      t('information'),
+      t('aboutMessage'),
+    );
   };
 
   return (
@@ -50,17 +39,17 @@ export default function MoreScreen() {
         </View>
 
         <View style={styles.brandText}>
-          <Text style={styles.brandName}>BRITUME</Text>
+          <Text style={styles.brandName}>{t('appName')}</Text>
           <Text style={styles.tagline}>{t('tagline')}</Text>
-          <Text style={styles.byline}>by brilliant mere</Text>
+          <Text style={styles.byline}>{t('byline')}</Text>
         </View>
 
         <View style={styles.pageBadge}>
-          <Text style={styles.pageTitle}>{labels.more}</Text>
+          <Text style={styles.pageTitle}>{t('more')}</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>{labels.account}</Text>
+      <Text style={styles.sectionTitle}>{t('account')}</Text>
 
       <View style={styles.card}>
         <Pressable
@@ -80,7 +69,7 @@ export default function MoreScreen() {
           </View>
 
           <Text style={styles.rowText}>
-            {labels.personalDetails}
+            {t('personalDetails')}
           </Text>
 
           <Ionicons
@@ -96,7 +85,7 @@ export default function MoreScreen() {
           styles.helpBar,
           pressed && styles.rowPressed,
         ]}
-        onPress={openHelp}
+        onPress={openInformation}
       >
         <View style={styles.helpIcon}>
           <Ionicons
@@ -106,7 +95,9 @@ export default function MoreScreen() {
           />
         </View>
 
-        <Text style={styles.helpText}>{labels.help}</Text>
+        <Text style={styles.helpText}>
+          {t('information')}
+        </Text>
 
         <Ionicons
           name="chevron-forward"
@@ -129,7 +120,7 @@ export default function MoreScreen() {
         />
 
         <Text style={styles.settingsLinkText}>
-          {labels.openSettings}
+          {t('openSettings')}
         </Text>
 
         <Ionicons
