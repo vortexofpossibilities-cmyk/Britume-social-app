@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
+
 import { useAuth } from '../../src/auth/AuthProvider';
 import { supabase } from '../../src/lib/supabase';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
@@ -34,6 +35,34 @@ type MediaItem = {
 
 type PostKind = 'text' | 'photo' | 'video' | 'reel';
 
+function getErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+
+  return String(error || 'Unknown error');
+}
+
+function getSafeExtension(item: MediaItem) {
+  const fromName = item.name.split('.').pop()?.toLowerCase();
+
+  if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) {
+    return fromName;
+  }
+
+  if (item.mimeType === 'image/png') return 'png';
+  if (item.mimeType === 'image/webp') return 'webp';
+  if (item.mimeType === 'image/heic') return 'heic';
+  if (item.mimeType === 'video/quicktime') return 'mov';
+
+  return item.mediaType === 'image' ? 'jpg' : 'mp4';
+}
+
 export default function Create() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
@@ -46,6 +75,17 @@ export default function Create() {
 
   const pickPhotos = async () => {
     try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission needed',
+          'Allow BRITUME to access your photos so you can select images.'
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
@@ -53,7 +93,7 @@ export default function Create() {
         quality: 0.85,
       });
 
-      if (result.canceled || !result.assets) return;
+      if (result.canceled || !result.assets?.length) return;
 
       const selected: MediaItem[] = result.assets.map((asset, index) => ({
         uri: asset.uri,
@@ -80,12 +120,23 @@ export default function Create() {
       setMedia(selected);
       setPostKind('photo');
     } catch (error) {
-      Alert.alert('Photo selection failed', String(error));
+      Alert.alert('Photo selection failed', getErrorMessage(error));
     }
   };
 
   const pickVideo = async (kind: 'video' | 'reel') => {
     try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission needed',
+          'Allow BRITUME to access your videos.'
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['videos'],
         allowsMultipleSelection: false,
@@ -113,19 +164,25 @@ export default function Create() {
 
       setPostKind(kind);
     } catch (error) {
-      Alert.alert('Video selection failed', String(error));
+      Alert.alert('Video selection failed', getErrorMessage(error));
     }
   };
 
   const removeMedia = (index: number) => {
-    setMedia(current => current.filter((_, i) => i !== index));
+    setMedia(current => {
+      const updated = current.filter((_, i) => i !== index);
 
-    if (media.length <= 1) {
-      setPostKind('text');
-    }
+      if (updated.length === 0) {
+        setPostKind('text');
+      }
+
+      return updated;
+    });
   };
 
   const publish = async () => {
+    if (busy) return;
+
     if (!supabase || !session) {
       Alert.alert('Sign in required', 'Please sign in before publishing.');
       return;
@@ -143,13 +200,22 @@ export default function Create() {
       return;
     }
 
+    if (media.length > MAX_FILES) {
+      Alert.alert('Too many files', `Choose up to ${MAX_FILES} photos.`);
+      return;
+    }
+
     setBusy(true);
 
     const uploadedPaths: string[] = [];
     let createdPostId: string | null = null;
+    let stage = 'Preparing your post';
 
     try {
-      const finalType: PostKind = media.length === 0 ? 'text' : postKind;
+      const finalType: PostKind =
+        media.length === 0 ? 'text' : postKind;
+
+      stage = 'Creating post record';
 
       const { data: post, error: postError } = await supabase
         .from('posts')
@@ -162,30 +228,47 @@ export default function Create() {
         .select('id')
         .single();
 
-      if (postError) throw postError;
+      if (postError) {
+        throw new Error(postError.message);
+      }
+
+      if (!post?.id) {
+        throw new Error('Supabase did not return the new post ID.');
+      }
 
       createdPostId = post.id;
 
-      const mediaRows = [];
+      const mediaRows: {
+        post_id: string;
+        user_id: string;
+        storage_path: string;
+        media_type: 'image' | 'video';
+        mime_type: string;
+        position: number;
+      }[] = [];
 
       for (let index = 0; index < media.length; index++) {
         const item = media[index];
 
-        const extension =
-          item.name.split('.').pop()?.toLowerCase() ||
-          (item.mediaType === 'image' ? 'jpg' : 'mp4');
-
-        const safeExtension = /^[a-z0-9]{1,8}$/.test(extension)
-          ? extension
-          : item.mediaType === 'image'
-            ? 'jpg'
-            : 'mp4';
-
-        const path =
-          `${session.user.id}/${post.id}/${Date.now()}-${index}.${safeExtension}`;
+        stage = `Reading file ${index + 1} of ${media.length}`;
 
         const file = new File(item.uri);
+
+        if (!file.exists) {
+          throw new Error(`The selected file could not be found: ${item.name}`);
+        }
+
         const bytes = await file.arrayBuffer();
+
+        if (!bytes || bytes.byteLength === 0) {
+          throw new Error(`The selected file is empty: ${item.name}`);
+        }
+
+        stage = `Uploading file ${index + 1} of ${media.length}`;
+
+        const extension = getSafeExtension(item);
+        const path =
+          `${session.user.id}/${post.id}/${Date.now()}-${index}.${extension}`;
 
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
@@ -194,7 +277,9 @@ export default function Create() {
             upsert: false,
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
 
         uploadedPaths.push(path);
 
@@ -209,32 +294,62 @@ export default function Create() {
       }
 
       if (mediaRows.length > 0) {
+        stage = 'Saving media details';
+
         const { error: mediaError } = await supabase
           .from('post_media')
           .insert(mediaRows);
 
-        if (mediaError) throw mediaError;
+        if (mediaError) {
+          throw new Error(mediaError.message);
+        }
       }
 
       setContent('');
       setMedia([]);
       setPostKind('text');
 
-      Alert.alert('Published!', 'Your post is now on BRITUME.');
+      Alert.alert(
+        'Published!',
+        'Your post is now on BRITUME.',
+        [
+          {
+            text: 'View post',
+            onPress: () => router.replace('/(tabs)'),
+          },
+        ],
+        { cancelable: false }
+      );
+    } catch (error) {
+      const originalMessage = getErrorMessage(error);
 
-      router.replace('/(tabs)');
-    } catch (error: any) {
+      let cleanupMessage = '';
+
       if (uploadedPaths.length > 0) {
-        await supabase.storage.from(BUCKET).remove(uploadedPaths);
+        const { error: removeError } = await supabase.storage
+          .from(BUCKET)
+          .remove(uploadedPaths);
+
+        if (removeError) {
+          cleanupMessage += `\nFile cleanup: ${removeError.message}`;
+        }
       }
 
       if (createdPostId) {
-        await supabase.from('posts').delete().eq('id', createdPostId);
+        const { error: deleteError } = await supabase
+          .from('posts')
+          .delete()
+          .eq('id', createdPostId)
+          .eq('user_id', session.user.id);
+
+        if (deleteError) {
+          cleanupMessage += `\nPost cleanup: ${deleteError.message}`;
+        }
       }
 
       Alert.alert(
         'Publishing failed',
-        error?.message || 'Something went wrong while uploading your post.'
+        `Stage: ${stage}\n\n${originalMessage}${cleanupMessage}`
       );
     } finally {
       setBusy(false);
@@ -277,7 +392,11 @@ export default function Create() {
         <Text style={styles.label}>Add media</Text>
 
         <View style={styles.actions}>
-          <Pressable style={styles.mediaButton} onPress={pickPhotos}>
+          <Pressable
+            style={styles.mediaButton}
+            onPress={pickPhotos}
+            disabled={busy}
+          >
             <Ionicons name="images-outline" size={23} color={theme.cyan} />
             <Text style={styles.mediaText}>Photos</Text>
           </Pressable>
@@ -285,6 +404,7 @@ export default function Create() {
           <Pressable
             style={styles.mediaButton}
             onPress={() => pickVideo('video')}
+            disabled={busy}
           >
             <Ionicons name="videocam-outline" size={23} color={theme.purple} />
             <Text style={styles.mediaText}>Video</Text>
@@ -293,6 +413,7 @@ export default function Create() {
           <Pressable
             style={styles.mediaButton}
             onPress={() => pickVideo('reel')}
+            disabled={busy}
           >
             <Ionicons name="play-circle-outline" size={23} color={theme.cyan} />
             <Text style={styles.mediaText}>Reel</Text>
@@ -329,6 +450,7 @@ export default function Create() {
                   <Pressable
                     style={styles.removeButton}
                     onPress={() => removeMedia(index)}
+                    disabled={busy}
                   >
                     <Ionicons name="close" size={18} color="#FFFFFF" />
                   </Pressable>
@@ -348,7 +470,10 @@ export default function Create() {
           disabled={busy}
         >
           {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <>
+              <ActivityIndicator color="#FFFFFF" />
+              <Text style={styles.publishText}>Publishing...</Text>
+            </>
           ) : (
             <>
               <Ionicons name="cloud-upload-outline" size={21} color="#FFFFFF" />
