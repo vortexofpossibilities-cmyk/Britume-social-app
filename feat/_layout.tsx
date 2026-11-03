@@ -1,182 +1,207 @@
-
-import React, { useMemo, useRef } from 'react';
+import React from 'react';
+import { Tabs, router, usePathname } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  Animated,
-  PanResponder,
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
+View,
+Pressable,
+StyleSheet,
+useWindowDimensions,
+Platform,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
-import { AuthProvider } from '../src/auth/AuthProvider';
-import { ThemeProvider } from '../src/contexts/ThemeContext';
-import { LanguageProvider } from '../src/contexts/LanguageContext';
+const items = [
+{
+icon: 'people-outline' as const,
+route: '/(tabs)/discover',
+name: 'Friends', key: 'friends',
+},
+{
+icon: 'people-circle-outline' as const,
+route: '/communities',
+name: 'Communities', key: 'communities',
+},
+{
+icon: 'add' as const,
+route: '/(tabs)/create',
+name: 'Create', key: 'create',
+},
+{
+icon: 'home-outline' as const,
+route: '/(tabs)',
+name: 'Home', key: 'home',
+},
+{
+icon: 'chatbubble-ellipses-outline' as const,
+route: '/messages',
+name: 'Messages', key: 'messages',
+},
+{
+icon: 'videocam-outline' as const,
+route: '/stories',
+name: 'Videos', key: 'videos',
+},
+];
 
-function FloatingBritumeAI() {
-  const { width, height } = useWindowDimensions();
+function IconBar() {
+const { width } = useWindowDimensions();
+const pathname = usePathname();
+const { theme } = useAppTheme();
+const { t } = useLanguage();
+const styles = createStyles(theme);
 
-  const buttonSize = 58;
-  const edgePadding = 5;
+return (
+<View style={styles.barContainer}>
+<View style={styles.bar}>
+{items.map(item => {
+const active =
+item.name === 'Home'
+? pathname === '/(tabs)' || pathname === '/'
+: pathname === item.route;
 
-  const initialX = Math.max(edgePadding, width - buttonSize - 16);
-  const initialY = Math.max(80, height - 220);
+      if (item.name === 'Create') {
+        return (
+          <Pressable
+            key={item.name}
+            accessibilityRole="button"
+            accessibilityLabel="Create a post, photo, video or Reel"
+            onPress={() => router.push(item.route as never)}
+            style={({ pressed }) => [
+              styles.createButton,
+              pressed && styles.pressedCreate,
+            ]}
+          >
+            <Ionicons name="add" size={34} color="#FFFFFF" />
+          </Pressable>
+        );
+      }
 
-  const position = useRef(
-    new Animated.ValueXY({ x: initialX, y: initialY }),
-  ).current;
+      return (
+        <Pressable
+          key={item.name}
+          accessibilityRole="button"
+          accessibilityLabel={t(item.key)}
+          accessibilityState={{ selected: active }}
+          onPress={() => router.push(item.route as never)}
+          style={({ pressed }) => [
+            styles.iconButton,
+            { width: (width - 24) / items.length },
+            active && styles.activeIconButton,
+            pressed && styles.pressedIcon,
+          ]}
+          hitSlop={5}
+        >
+          <Ionicons
+            name={item.icon}
+            size={25}
+            color={active ? theme.cyan : theme.muted}
+          />
+        </Pressable>
+      );
+    })}
+  </View>
+</View>
 
-  const currentX = useRef(initialX);
-  const currentY = useRef(initialY);
-  const startX = useRef(initialX);
-  const startY = useRef(initialY);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
-        onPanResponderGrant: () => {
-          startX.current = currentX.current;
-          startY.current = currentY.current;
-        },
-        onPanResponderMove: (_, gesture) => {
-          const x = Math.max(
-            edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
-          );
-          const y = Math.max(
-            65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
-          );
-          position.setValue({ x, y });
-        },
-        onPanResponderRelease: (_, gesture) => {
-          const proposedX = Math.max(
-            edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
-          );
-
-          const finalX =
-            proposedX + buttonSize / 2 < width / 2
-              ? edgePadding
-              : width - buttonSize - edgePadding;
-
-          const finalY = Math.max(
-            65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
-          );
-
-          currentX.current = finalX;
-          currentY.current = finalY;
-
-          Animated.spring(position, {
-            toValue: { x: finalX, y: finalY },
-            useNativeDriver: false,
-            speed: 18,
-            bounciness: 5,
-          }).start();
-        },
-      }),
-    [width, height, position],
-  );
-
-  return (
-    <Animated.View
-      {...panResponder.panHandlers}
-      style={[
-        styles.aiPosition,
-        { transform: position.getTranslateTransform() },
-      ]}
-    >
-      <Pressable
-        style={styles.aiButton}
-        onPress={() => router.push('/ai')}
-        accessibilityRole="button"
-        accessibilityLabel="Open BRITUME AI assistant"
-        hitSlop={8}
-      >
-        <View style={styles.eye}>
-          <View style={styles.pupil} />
-        </View>
-        <View style={styles.eye}>
-          <View style={styles.pupil} />
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
+);
 }
 
-export default function RootLayout() {
-  return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <View style={styles.root}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
-            <View pointerEvents="box-none" style={styles.aiOverlay}>
-              <FloatingBritumeAI />
-            </View>
-          </View>
-        </AuthProvider>
-      </LanguageProvider>
-    </ThemeProvider>
-  );
+export default function TabLayout() {
+const { theme } = useAppTheme();
+
+return (
+<Tabs
+tabBar={() => <IconBar />}
+screenOptions={{
+headerShown: false,
+sceneStyle: {
+backgroundColor: theme.bg,
+},
+}}
+>
+<Tabs.Screen name="index" />
+<Tabs.Screen name="create" />
+
+  <Tabs.Screen name="discover" options={{ href: null }} />
+  <Tabs.Screen name="offline" options={{ href: null }} />
+  <Tabs.Screen name="profile" options={{ href: null }} />
+  <Tabs.Screen name="settings" options={{ href: null }} />
+  <Tabs.Screen name="more" options={{ href: null }} />
+</Tabs>
+
+);
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#EAF4FF',
-  },
-  aiOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-    elevation: 20,
-  },
-  aiPosition: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 58,
-    height: 58,
-  },
-  aiButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#168BFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    elevation: 12,
-    shadowColor: '#168BFF',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.32,
-    shadowRadius: 9,
-  },
-  eye: {
-    width: 15,
-    height: 21,
-    borderRadius: 12,
-    backgroundColor: '#168BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pupil: {
-    width: 5,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-  },
+function createStyles(theme: any) {
+return StyleSheet.create({
+barContainer: {
+backgroundColor: theme.bg,
+paddingHorizontal: 9,
+paddingTop: 7,
+paddingBottom: Platform.OS === 'ios' ? 18 : 9,
+},
+
+bar: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  backgroundColor: theme.panel,
+  borderWidth: 1,
+  borderColor: theme.border,
+  borderRadius: 25,
+  paddingHorizontal: 2,
+  paddingTop: 7,
+  paddingBottom: 7,
+  shadowColor: theme.shadow,
+  shadowOffset: { width: 0, height: 7 },
+  shadowOpacity: 0.22,
+  shadowRadius: 12,
+  elevation: 9,
+},
+
+iconButton: {
+  height: 46,
+  borderRadius: 16,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+activeIconButton: {
+  backgroundColor: theme.panel2,
+  borderWidth: 1,
+  borderColor: theme.borderStrong,
+  shadowColor: theme.shadow,
+  shadowOffset: { width: 2, height: 3 },
+  shadowOpacity: 0.16,
+  shadowRadius: 5,
+  elevation: 3,
+},
+
+pressedIcon: {
+  transform: [{ scale: 0.91 }],
+},
+
+createButton: {
+  width: 53,
+  height: 53,
+  borderRadius: 19,
+  backgroundColor: theme.cyan,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: -23,
+  borderWidth: 4,
+  borderColor: theme.panel,
+  shadowColor: theme.blueDark,
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.35,
+  shadowRadius: 8,
+  elevation: 10,
+},
+
+pressedCreate: {
+  transform: [{ scale: 0.92 }],
+  elevation: 3,
+},
+
 });
+}
