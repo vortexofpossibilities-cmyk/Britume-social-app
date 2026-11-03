@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -41,11 +42,13 @@ export default function SettingsScreen() {
 
   const [language, setLanguage] = useState('English');
   const [languageModal, setLanguageModal] = useState(false);
+  const [signOutModal, setSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
 
   const styles = createStyles(colors);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let active = true;
 
     async function loadLanguage() {
@@ -60,7 +63,7 @@ export default function SettingsScreen() {
       }
     }
 
-    loadLanguage();
+    void loadLanguage();
 
     return () => {
       active = false;
@@ -94,31 +97,21 @@ export default function SettingsScreen() {
 
     try {
       setSigningOut(true);
+      setSignOutError('');
+
       await signOut();
+
+      setSignOutModal(false);
       router.replace('/(auth)/sign-in');
     } catch (error) {
-      Alert.alert(
-        'Sign out failed',
-        error instanceof Error ? error.message : 'Please try again.',
+      setSignOutError(
+        error instanceof Error
+          ? error.message
+          : 'Could not sign out. Please try again.',
       );
     } finally {
       setSigningOut(false);
     }
-  };
-
-  const confirmSignOut = () => {
-    Alert.alert(
-      'Sign out',
-      'Are you sure you want to sign out of BRITUME?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: handleSignOut,
-        },
-      ],
-    );
   };
 
   const showAbout = () => {
@@ -295,7 +288,10 @@ export default function SettingsScreen() {
               title="Sign out"
               subtitle="Sign out of your account"
               color={colors.danger}
-              onPress={confirmSignOut}
+              onPress={() => {
+                setSignOutError('');
+                setSignOutModal(true);
+              }}
               trailing={
                 signingOut ? (
                   <ActivityIndicator color={colors.danger} />
@@ -324,6 +320,63 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* SIGN OUT CONFIRMATION */}
+      <Modal
+        visible={signOutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!signingOut) setSignOutModal(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.languageCard}>
+            <View style={styles.signOutIcon}>
+              <Ionicons
+                name="log-out-outline"
+                size={34}
+                color={colors.danger}
+              />
+            </View>
+
+            <Text style={styles.modalTitle}>Sign out of BRITUME?</Text>
+
+            <Text style={styles.modalSubtitle}>
+              Are you sure you want to sign out of your account?
+            </Text>
+
+            {signOutError ? (
+              <Text style={styles.errorText}>{signOutError}</Text>
+            ) : null}
+
+            <Pressable
+              disabled={signingOut}
+              onPress={handleSignOut}
+              style={[
+                styles.signOutButton,
+                signingOut && { opacity: 0.6 },
+              ]}
+            >
+              {signingOut ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.signOutButtonText}>
+                  Yes, sign out
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              disabled={signingOut}
+              onPress={() => setSignOutModal(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* LANGUAGE PICKER */}
       <Modal
@@ -595,12 +648,55 @@ function createStyles(colors: typeof lightTheme) {
       color: colors.text,
       fontSize: 20,
       fontWeight: '900',
+      marginTop: 10,
     },
 
     modalSubtitle: {
       color: colors.muted,
       fontSize: 12,
       marginTop: 4,
+    },
+
+    signOutIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 20,
+      backgroundColor: `${colors.danger}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    signOutButton: {
+      backgroundColor: colors.danger,
+      padding: 15,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 22,
+      minHeight: 50,
+    },
+
+    signOutButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '900',
+      fontSize: 15,
+    },
+
+    cancelButton: {
+      padding: 14,
+      alignItems: 'center',
+      marginTop: 5,
+    },
+
+    cancelText: {
+      color: colors.text,
+      fontWeight: '800',
+    },
+
+    errorText: {
+      color: colors.danger,
+      fontSize: 12,
+      marginTop: 12,
     },
 
     languageList: {
@@ -630,4 +726,4 @@ function createStyles(colors: typeof lightTheme) {
       marginTop: 15,
     },
   });
-        }
+}
