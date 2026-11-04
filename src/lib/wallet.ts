@@ -72,7 +72,7 @@ export async function fetchWalletData(
     throw transactionsResult.error;
   }
 
-  const balances = { ...EMPTY_BALANCES };
+  const balances: WalletBalances = { ...EMPTY_BALANCES };
 
   for (const row of balancesResult.data ?? []) {
     if (
@@ -80,7 +80,8 @@ export async function fetchWalletData(
       row.category === "earned" ||
       row.category === "promotional"
     ) {
-      balances[row.category] = Number(row.balance ?? 0);
+      const category = row.category as WalletCategory;
+      balances[category] = Number(row.balance ?? 0);
     }
   }
 
