@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tabs, router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +34,11 @@ const items = [
     key: 'home',
   },
   {
+    icon: 'wallet-outline' as const,
+    route: '/(tabs)/wallet',
+    key: 'wallet',
+  },
+  {
     icon: 'chatbubble-ellipses-outline' as const,
     route: '/messages',
     key: 'messages',
@@ -58,12 +62,14 @@ function IconBar() {
     <View style={styles.barContainer}>
       <View style={styles.bar}>
         {items.map(item => {
-          const label = t(item.key);
+          const label =
+            item.key === 'wallet' ? 'Wallet' : t(item.key);
 
           const active =
             item.key === 'home'
               ? pathname === '/(tabs)' || pathname === '/'
-              : pathname === item.route;
+              : pathname === item.route ||
+                pathname.startsWith(item.route + '/');
 
           if (item.key === 'create') {
             return (
@@ -126,6 +132,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="create" />
 
+      <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="discover" options={{ href: null }} />
       <Tabs.Screen name="offline" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
@@ -155,11 +162,6 @@ function createStyles(theme: any) {
       paddingHorizontal: 2,
       paddingTop: 7,
       paddingBottom: 7,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 7 },
-      shadowOpacity: 0.22,
-      shadowRadius: 12,
-      elevation: 9,
     },
 
     iconButton: {
