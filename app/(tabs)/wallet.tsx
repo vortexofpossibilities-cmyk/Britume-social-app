@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
 import {
   ActivityIndicator,
   FlatList,
@@ -8,9 +14,13 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/auth/AuthProvider";
-import { fetchWalletData, WalletData } from "../../src/lib/wallet";
+import {
+  fetchWalletData,
+  WalletData,
+} from "../../src/lib/wallet";
 import { useAppTheme } from "../../src/contexts/ThemeContext";
 
 const EMPTY_WALLET: WalletData = {
@@ -39,22 +49,29 @@ function transactionTitle(type: string) {
     cashback: "Cashback",
   };
 
-  return titles[type] ??
-    type.replace(/_/g, " ").replace(/\b\w/g, (letter) =>
+  return (
+    titles[type] ??
+    type.replace(/_/g, " ").replace(/\b\w/g, letter =>
       letter.toUpperCase()
-    );
+    )
+  );
 }
 
-function transactionIcon(type: string) {
+function transactionIcon(
+  type: string
+): React.ComponentProps<typeof Ionicons>["name"] {
   if (type.includes("received") || type.includes("reward")) {
     return "arrow-down-circle-outline";
   }
+
   if (type.includes("fee") || type.includes("sent")) {
     return "arrow-up-circle-outline";
   }
+
   if (type.includes("spin")) {
     return "gift-outline";
   }
+
   return "swap-horizontal-outline";
 }
 
@@ -62,10 +79,14 @@ export default function WalletScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
-  const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
+  const [wallet, setWallet] =
+    useState<WalletData>(EMPTY_WALLET);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  const styles = createStyles(theme);
 
   const loadWallet = useCallback(async () => {
     const userId = session?.user?.id;
@@ -74,15 +95,18 @@ export default function WalletScreen() {
       setWallet(EMPTY_WALLET);
       setError("Please sign in to view your wallet.");
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
     try {
       setError("");
+
       const data = await fetchWalletData(userId);
       setWallet(data);
     } catch (err) {
       console.error("Wallet loading error:", err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -95,12 +119,12 @@ export default function WalletScreen() {
   }, [session?.user?.id]);
 
   useEffect(() => {
-    loadWallet();
+    void loadWallet();
   }, [loadWallet]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadWallet();
+    void loadWallet();
   }, [loadWallet]);
 
   const total =
@@ -108,13 +132,11 @@ export default function WalletScreen() {
     wallet.balances.earned +
     wallet.balances.promotional;
 
-  const styles = createStyles(theme);
-
   return (
     <View style={styles.screen}>
       <FlatList
         data={wallet.transactions}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={item => String(item.id)}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -130,6 +152,7 @@ export default function WalletScreen() {
                 <Text style={styles.brand}>BRITUME</Text>
                 <Text style={styles.heading}>My Wallet</Text>
               </View>
+
               <View style={styles.walletIcon}>
                 <Ionicons
                   name="wallet-outline"
@@ -140,12 +163,19 @@ export default function WalletScreen() {
             </View>
 
             <View style={styles.balanceCard}>
-              <Text style={styles.balanceLabel}>TOTAL POINTS</Text>
+              <Text style={styles.balanceLabel}>
+                TOTAL POINTS
+              </Text>
 
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="large" />
+                <ActivityIndicator
+                  color="#FFFFFF"
+                  size="large"
+                />
               ) : (
-                <Text style={styles.total}>{formatPoints(total)}</Text>
+                <Text style={styles.total}>
+                  {formatPoints(total)}
+                </Text>
               )}
 
               <Text style={styles.balanceNote}>
@@ -153,34 +183,46 @@ export default function WalletScreen() {
               </Text>
             </View>
 
-            <Text style={styles.sectionTitle}>Your point categories</Text>
+            <Text style={styles.sectionTitle}>
+              Your point categories
+            </Text>
 
             <View style={styles.categoryCard}>
               <BalanceRow
                 title="Purchased points"
                 amount={wallet.balances.purchased}
                 icon="cart-outline"
+                iconColor={theme.cyan}
                 styles={styles}
               />
+
               <View style={styles.separator} />
+
               <BalanceRow
                 title="Earned points"
                 amount={wallet.balances.earned}
                 icon="trophy-outline"
+                iconColor={theme.cyan}
                 styles={styles}
               />
+
               <View style={styles.separator} />
+
               <BalanceRow
                 title="Promotional points"
                 amount={wallet.balances.promotional}
                 icon="gift-outline"
+                iconColor={theme.cyan}
                 styles={styles}
               />
             </View>
 
             <View style={styles.actions}>
               <Pressable
-                style={[styles.actionButton, styles.disabledButton]}
+                style={[
+                  styles.actionButton,
+                  styles.disabledButton,
+                ]}
                 disabled
               >
                 <Ionicons
@@ -188,39 +230,54 @@ export default function WalletScreen() {
                   size={19}
                   color={theme.muted}
                 />
-                <Text style={styles.disabledText}>Send points</Text>
+
+                <Text style={styles.disabledText}>
+                  Send points
+                </Text>
               </Pressable>
             </View>
 
-            <Text style={styles.sectionTitle}>Recent transactions</Text>
+            <Text style={styles.sectionTitle}>
+              Recent transactions
+            </Text>
 
-            {error ? (
+            {!!error && (
               <View style={styles.messageCard}>
                 <Ionicons
                   name="alert-circle-outline"
                   size={22}
                   color={theme.danger}
                 />
-                <Text style={styles.errorText}>{error}</Text>
-                <Pressable onPress={loadWallet}>
+
+                <Text style={styles.errorText}>
+                  {error}
+                </Text>
+
+                <Pressable onPress={() => void loadWallet()}>
                   <Text style={styles.retry}>Retry</Text>
                 </Pressable>
               </View>
-            ) : null}
+            )}
 
-            {!loading && !error && wallet.transactions.length === 0 ? (
-              <View style={styles.messageCard}>
-                <Ionicons
-                  name="receipt-outline"
-                  size={28}
-                  color={theme.muted}
-                />
-                <Text style={styles.emptyTitle}>No transactions yet</Text>
-                <Text style={styles.emptyText}>
-                  Your wallet activity will appear here.
-                </Text>
-              </View>
-            ) : null}
+            {!loading &&
+              !error &&
+              wallet.transactions.length === 0 && (
+                <View style={styles.messageCard}>
+                  <Ionicons
+                    name="receipt-outline"
+                    size={28}
+                    color={theme.muted}
+                  />
+
+                  <Text style={styles.emptyTitle}>
+                    No transactions yet
+                  </Text>
+
+                  <Text style={styles.emptyText}>
+                    Your wallet activity will appear here.
+                  </Text>
+                </View>
+              )}
           </View>
         }
         renderItem={({ item }) => {
@@ -234,7 +291,7 @@ export default function WalletScreen() {
             <View style={styles.transaction}>
               <View style={styles.transactionIcon}>
                 <Ionicons
-                  name={transactionIcon(item.entry_type) as any}
+                  name={transactionIcon(item.entry_type)}
                   size={21}
                   color={theme.cyan}
                 />
@@ -244,6 +301,7 @@ export default function WalletScreen() {
                 <Text style={styles.transactionTitle}>
                   {transactionTitle(item.entry_type)}
                 </Text>
+
                 <Text style={styles.transactionDate}>
                   {new Date(item.created_at).toLocaleString()}
                 </Text>
@@ -261,7 +319,9 @@ export default function WalletScreen() {
             </View>
           );
         }}
-        ListFooterComponent={<View style={{ height: 30 }} />}
+        ListFooterComponent={
+          <View style={{ height: 30 }} />
+        }
       />
     </View>
   );
@@ -271,20 +331,32 @@ function BalanceRow({
   title,
   amount,
   icon,
+  iconColor,
   styles,
 }: {
   title: string;
   amount: number;
   icon: React.ComponentProps<typeof Ionicons>["name"];
+  iconColor: string;
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
     <View style={styles.balanceRow}>
       <View style={styles.categoryLeft}>
-        <Ionicons name={icon} size={21} color={styles.iconColor} />
-        <Text style={styles.categoryTitle}>{title}</Text>
+        <Ionicons
+          name={icon}
+          size={21}
+          color={iconColor}
+        />
+
+        <Text style={styles.categoryTitle}>
+          {title}
+        </Text>
       </View>
-      <Text style={styles.categoryAmount}>{formatPoints(amount)}</Text>
+
+      <Text style={styles.categoryAmount}>
+        {formatPoints(amount)}
+      </Text>
     </View>
   );
 }
@@ -484,8 +556,5 @@ function createStyles(theme: any) {
     debit: {
       color: theme.danger,
     },
-    iconColor: {
-      color: theme.cyan,
-    },
   });
-          }
+}
