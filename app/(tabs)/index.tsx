@@ -153,6 +153,7 @@ export default function HomeScreen() {
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
+  const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -594,6 +595,7 @@ export default function HomeScreen() {
 
     const liked = interaction?.liked ?? false;
     const saved = interaction?.saved ?? false;
+    const expanded = expandedPostIds.includes(item.id);
 
     const author =
       item.author?.display_name ||
@@ -649,7 +651,34 @@ export default function HomeScreen() {
         </View>
 
         {item.content ? (
-          <Text style={styles.postContent}>{item.content}</Text>
+          <View style={styles.postCaptionWrap}>
+            <Text
+              style={styles.postContent}
+              numberOfLines={expanded ? undefined : 4}
+              ellipsizeMode="tail"
+            >
+              {item.content}
+            </Text>
+
+            {item.content.length > 180 ? (
+              <Pressable
+                onPress={() =>
+                  setExpandedPostIds(current =>
+                    current.includes(item.id)
+                      ? current.filter(id => id !== item.id)
+                      : [...current, item.id],
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityLabel={expanded ? 'See less' : 'See more'}
+                hitSlop={8}
+              >
+                <Text style={styles.seeMoreText}>
+                  {expanded ? 'See less' : 'See more'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
         {images.length > 0 ? (
@@ -780,8 +809,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.content}
           data={photoPosts}
           keyExtractor={item => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.postRow}
+          numColumns={1}
           ListHeaderComponent={Header}
           ListFooterComponent={
             <View>
@@ -1163,13 +1191,8 @@ function createStyles(theme: any, isDark: boolean) {
       marginTop: 3,
     },
 
-    postRow: {
-      justifyContent: 'space-between',
-      gap: 11,
-    },
-
     postCard: {
-      flex: 1,
+      width: '100%',
       minWidth: 0,
       backgroundColor: surface,
       borderWidth: 2,
@@ -1223,12 +1246,22 @@ function createStyles(theme: any, isDark: boolean) {
       fontWeight: '600',
     },
 
+    postCaptionWrap: {
+      marginBottom: 9,
+    },
+
     postContent: {
       color: theme.text,
-      fontSize: 12,
-      fontWeight: '600',
-      lineHeight: 18,
-      marginBottom: 9,
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 21,
+    },
+
+    seeMoreText: {
+      color: theme.cyan,
+      fontSize: 13,
+      fontWeight: '800',
+      marginTop: 4,
     },
 
     imageScroller: {
@@ -1284,13 +1317,11 @@ function createStyles(theme: any, isDark: boolean) {
     },
 
     videoGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
+      flexDirection: 'column',
     },
 
     videoPostCard: {
-      width: '48%',
+      width: '100%',
       backgroundColor: surface,
       borderRadius: 21,
       borderWidth: 2,
@@ -1318,7 +1349,7 @@ function createStyles(theme: any, isDark: boolean) {
 
     videoPlayer: {
       width: '100%',
-      height: 125,
+      height: 230,
       backgroundColor: theme.text,
       borderRadius: 14,
       overflow: 'hidden',
@@ -1496,4 +1527,4 @@ function createStyles(theme: any, isDark: boolean) {
       shadowOffset: { width: 4, height: 5 },
     },
   });
-        }
+            }
