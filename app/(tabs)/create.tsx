@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -31,11 +32,9 @@ type MediaItem = {
   mediaType: 'image' | 'video';
   size?: number;
 
-  // Expo ImagePicker supplies the original browser File on web.
-  // Keeping it avoids trying to fetch a temporary photo URI.
-  webFile?: {
-    arrayBuffer: () => Promise<ArrayBuffer>;
-  };
+  // Keep a copy of the selected browser file's bytes.
+  // This prevents temporary browser file URLs from expiring.
+  webBytes?: ArrayBuffer;
 };
 
 type PostKind = 'text' | 'photo' | 'video' | 'reel';
@@ -54,60 +53,148 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getSafeExtension(item: MediaItem): string {
+  const mimeExtensions: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+    'image/heif': 'heif',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/quicktime': 'mov',
+  };
+
+  if (mimeExtensions[item.mimeType]) {
+    return mimeExtensions[item.mimeType];
+  }
+
   const fromName = item.name.split('.').pop()?.toLowerCase();
 
   if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) {
     return fromName;
   }
 
-  if (item.mimeType === 'image/png') return 'png';
-  if (item.mimeType === 'image/webp') return 'webp';
-  if (item.mimeType === 'image/heic') return 'heic';
-  if (item.mimeType === 'video/quicktime') return 'mov';
-
   return item.mediaType === 'image' ? 'jpg' : 'mp4';
 }
 
-async function readSelectedFile(item: MediaItem): Promise<ArrayBuffer> {
-  // On the website, read the original browser File directly.
-  if (Platform.OS === 'web' && item.webFile) {
-    return await item.webFile.arrayBuffer();
+// IMPORTANT:
+// Read browser files immediately after selection.
+// Do not wait until the Publish button is pressed.
+async function prepareMediaItem(
+  asset: ImagePicker.ImagePickerAsset,
+  mediaType: 'image' | 'video',
+  index: number,
+): Promise<MediaItem> {
+  const mimeType =
+    asset.mimeType ||
+    (mediaType === 'image' ? 'image/jpeg' : 'video/mp4');
+
+  const extension =
+    mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : mimeType === 'video/quicktime'
+          ? 'mov'
+          : mediaType === 'image'
+            ? 'jpg'
+            : 'mp4';
+
+  const item: MediaItem = {
+    uri: asset.uri,
+    name:
+      asset.fileName ||
+      `${mediaType}-${Date.now()}-${index}.${extension}`,
+    mimeType,
+    mediaType,
+    size: asset.fileSize,
+  };
+
+  if (Platform.OS === 'web') {
+    try {
+      let bytes: ArrayBuffer;
+
+      // Preferred method: read the original browser File.
+      if (asset.file) {
+        bytes = await asset.file.arrayBuffer();
+      } else {
+        // Fallback: read the temporary URI immediately.
+        const response = await fetch(asset.uri);
+
+        if (!response.ok) {
+          throw new Error('The browser could not access this selected file.');
+        }
+
+        const blob = await response.blob();
+        bytes = await blob.arrayBuffer();
+      }
+
+      if (!bytes || bytes.byteLength === 0) {
+        throw new Error('The selected file is empty.');
+      }
+
+      return {
+        ...item,
+        webBytes: bytes,
+      };
+    } catch (error) {
+      throw new Error(
+        `Could not read ${item.name}: ${getErrorMessage(error)}. Please select it again.`,
+      );
+    }
   }
 
-  // Keep the existing URI-reading path as a fallback for web assets
-  // that do not provide a browser File object.
-  if (Platform.OS === 'web') {
-    const response = await fetch(item.uri);
+  return item;
+}
 
-    if (!response.ok) {
-      throw new Error('The browser could not read the selected file.');
+async function readSelectedFile(item: MediaItem): Promise<ArrayBuffer> {
+  // Web: use the bytes captured during selection.
+  if (Platform.OS === 'web') {
+    if (item.webBytes && item.webBytes.byteLength > 0) {
+      return item.webBytes;
     }
 
-    const blob = await response.blob();
-    return await blob.arrayBuffer();
+    throw new Error(
+      `The saved browser file data is unavailable for ${item.name}. Please select the file again.`,
+    );
   }
 
-  // Native Android/iOS file handling.
+  // Android and iOS: read the local Expo file.
   const file = new ExpoFile(item.uri);
 
   if (!file.exists) {
-    throw new Error('The selected file could not be found.');
+    throw new Error(
+      `The selected file could not be found: ${item.name}`,
+    );
   }
 
-  return await file.arrayBuffer();
+  const bytes = await file.arrayBuffer();
+
+  if (!bytes || bytes.byteLength === 0) {
+    throw new Error(`The selected file is empty: ${item.name}`);
+  }
+
+  return bytes;
 }
 
 export default function Create() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const styles = useMemo(
+    () => createStyles(theme),
+    [theme],
+  );
 
   const [content, setContent] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [postKind, setPostKind] = useState<PostKind>('text');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
-  const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
+  const [statusType, setStatusType] = useState<
+    'success' | 'error' | 'info'
+  >('info');
 
   const showStatus = (
     message: string,
@@ -116,6 +203,10 @@ export default function Create() {
     setStatus(message);
     setStatusType(type);
   };
+
+  // ==========================================
+  // SELECT PHOTOS
+  // ==========================================
 
   const pickPhotos = async () => {
     try {
@@ -139,38 +230,60 @@ export default function Create() {
         quality: 0.85,
       });
 
-      if (result.canceled || !result.assets?.length) return;
-
-      const selected: MediaItem[] = result.assets.map((asset, index) => ({
-        uri: asset.uri,
-        name: asset.fileName || `photo-${Date.now()}-${index}.jpg`,
-        mimeType: asset.mimeType || 'image/jpeg',
-        mediaType: 'image',
-        size: asset.fileSize,
-        webFile: asset.file ?? undefined,
-      }));
-
-      if (selected.length > MAX_FILES) {
-        showStatus(`Choose no more than ${MAX_FILES} photos.`, 'error');
+      if (result.canceled || !result.assets?.length) {
         return;
       }
 
+      if (result.assets.length > MAX_FILES) {
+        showStatus(
+          `Choose no more than ${MAX_FILES} photos.`,
+          'error',
+        );
+        return;
+      }
+
+      showStatus('Preparing your photos...', 'info');
+
+      // Read every selected photo immediately.
+      const selected = await Promise.all(
+        result.assets.map((asset, index) =>
+          prepareMediaItem(asset, 'image', index),
+        ),
+      );
+
       const oversized = selected.find(
-        item => item.size && item.size > MAX_IMAGE_SIZE,
+        item =>
+          (item.size !== undefined && item.size > MAX_IMAGE_SIZE) ||
+          (item.webBytes !== undefined &&
+            item.webBytes.byteLength > MAX_IMAGE_SIZE),
       );
 
       if (oversized) {
-        showStatus('Each photo must be 15 MB or smaller.', 'error');
+        showStatus(
+          `${oversized.name} is larger than 15 MB.`,
+          'error',
+        );
         return;
       }
 
       setMedia(selected);
       setPostKind('photo');
-      showStatus(`${selected.length} photo(s) selected.`, 'success');
+
+      showStatus(
+        `Success! ${selected.length} photo(s) selected and ready to upload.`,
+        'success',
+      );
     } catch (error) {
-      showStatus(`Photo selection failed: ${getErrorMessage(error)}`, 'error');
+      showStatus(
+        `Photo selection failed: ${getErrorMessage(error)}`,
+        'error',
+      );
     }
   };
+
+  // ==========================================
+  // SELECT VIDEOS AND REELS
+  // ==========================================
 
   const pickVideo = async (kind: 'video' | 'reel') => {
     try {
@@ -180,7 +293,10 @@ export default function Create() {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted && Platform.OS !== 'web') {
-        showStatus('Please allow BRITUME to access your videos.', 'error');
+        showStatus(
+          'Please allow BRITUME to access your videos.',
+          'error',
+        );
         return;
       }
 
@@ -190,36 +306,57 @@ export default function Create() {
         quality: 1,
       });
 
-      if (result.canceled || !result.assets?.length) return;
-
-      const asset = result.assets[0];
-
-      if (asset.fileSize && asset.fileSize > MAX_VIDEO_SIZE) {
-        showStatus('Your video must be 100 MB or smaller.', 'error');
+      if (result.canceled || !result.assets?.length) {
         return;
       }
 
-      setMedia([
-        {
-          uri: asset.uri,
-          name: asset.fileName || `video-${Date.now()}.mp4`,
-          mimeType: asset.mimeType || 'video/mp4',
-          mediaType: 'video',
-          size: asset.fileSize,
-          webFile: asset.file ?? undefined,
-        },
-      ]);
+      showStatus('Preparing your video...', 'info');
 
+      const asset = result.assets[0];
+
+      const selected = await prepareMediaItem(
+        asset,
+        'video',
+        0,
+      );
+
+      if (
+        (selected.size !== undefined &&
+          selected.size > MAX_VIDEO_SIZE) ||
+        (selected.webBytes !== undefined &&
+          selected.webBytes.byteLength > MAX_VIDEO_SIZE)
+      ) {
+        showStatus(
+          'Your video must be 100 MB or smaller.',
+          'error',
+        );
+        return;
+      }
+
+      setMedia([selected]);
       setPostKind(kind);
-      showStatus('Video selected.', 'success');
+
+      showStatus(
+        'Video selected and ready to upload.',
+        'success',
+      );
     } catch (error) {
-      showStatus(`Video selection failed: ${getErrorMessage(error)}`, 'error');
+      showStatus(
+        `Video selection failed: ${getErrorMessage(error)}`,
+        'error',
+      );
     }
   };
 
+  // ==========================================
+  // REMOVE SELECTED MEDIA
+  // ==========================================
+
   const removeMedia = (index: number) => {
     setMedia(current => {
-      const updated = current.filter((_, i) => i !== index);
+      const updated = current.filter(
+        (_, i) => i !== index,
+      );
 
       if (updated.length === 0) {
         setPostKind('text');
@@ -230,6 +367,10 @@ export default function Create() {
 
     showStatus('Media removed.', 'info');
   };
+
+  // ==========================================
+  // PUBLISH POST
+  // ==========================================
 
   const publish = async () => {
     if (busy) return;
@@ -243,24 +384,36 @@ export default function Create() {
     }
 
     if (!session?.user?.id) {
-      showStatus('Your session has expired. Please sign in again.', 'error');
+      showStatus(
+        'Your session has expired. Please sign in again.',
+        'error',
+      );
       return;
     }
 
     const text = content.trim();
 
     if (!text && media.length === 0) {
-      showStatus('Write something or select a photo or video first.', 'error');
+      showStatus(
+        'Write something or select a photo or video first.',
+        'error',
+      );
       return;
     }
 
     if (text.length > 2000) {
-      showStatus('Your post must be 2,000 characters or less.', 'error');
+      showStatus(
+        'Your post must be 2,000 characters or less.',
+        'error',
+      );
       return;
     }
 
     if (media.length > MAX_FILES) {
-      showStatus(`Choose no more than ${MAX_FILES} photos.`, 'error');
+      showStatus(
+        `Choose no more than ${MAX_FILES} photos.`,
+        'error',
+      );
       return;
     }
 
@@ -272,8 +425,10 @@ export default function Create() {
     let stage = 'Preparing your post';
 
     try {
-      const finalType: PostKind = media.length === 0 ? 'text' : postKind;
+      const finalType: PostKind =
+        media.length === 0 ? 'text' : postKind;
 
+      // STEP 1: Save the post.
       stage = 'Saving your post';
 
       const { data: post, error: postError } = await supabase
@@ -288,11 +443,15 @@ export default function Create() {
         .single();
 
       if (postError) {
-        throw new Error(`Could not save post: ${postError.message}`);
+        throw new Error(
+          `Could not save post: ${postError.message}`,
+        );
       }
 
       if (!post?.id) {
-        throw new Error('The database did not return a post ID.');
+        throw new Error(
+          'The database did not return a post ID.',
+        );
       }
 
       createdPostId = post.id;
@@ -306,7 +465,12 @@ export default function Create() {
         position: number;
       }[] = [];
 
-      for (let index = 0; index < media.length; index++) {
+      // STEP 2: Read and upload media.
+      for (
+        let index = 0;
+        index < media.length;
+        index++
+      ) {
         const item = media[index];
 
         stage = `Reading ${item.name}`;
@@ -314,11 +478,15 @@ export default function Create() {
         const bytes = await readSelectedFile(item);
 
         if (!bytes || bytes.byteLength === 0) {
-          throw new Error(`The selected file is empty: ${item.name}`);
+          throw new Error(
+            `The selected file is empty: ${item.name}`,
+          );
         }
 
         const sizeLimit =
-          item.mediaType === 'image' ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+          item.mediaType === 'image'
+            ? MAX_IMAGE_SIZE
+            : MAX_VIDEO_SIZE;
 
         if (bytes.byteLength > sizeLimit) {
           throw new Error(
@@ -331,6 +499,7 @@ export default function Create() {
         stage = `Uploading file ${index + 1} of ${media.length}`;
 
         const extension = getSafeExtension(item);
+
         const path =
           `${session.user.id}/${post.id}/${Date.now()}-${index}.${extension}`;
 
@@ -342,7 +511,9 @@ export default function Create() {
           });
 
         if (uploadError) {
-          throw new Error(`Media upload failed: ${uploadError.message}`);
+          throw new Error(
+            `Media upload failed: ${uploadError.message}`,
+          );
         }
 
         uploadedPaths.push(path);
@@ -357,6 +528,7 @@ export default function Create() {
         });
       }
 
+      // STEP 3: Save media information.
       if (mediaRows.length > 0) {
         stage = 'Saving media information';
 
@@ -365,10 +537,13 @@ export default function Create() {
           .insert(mediaRows);
 
         if (mediaError) {
-          throw new Error(`Could not save media information: ${mediaError.message}`);
+          throw new Error(
+            `Could not save media information: ${mediaError.message}`,
+          );
         }
       }
 
+      // STEP 4: Clear the form after successful publishing.
       setContent('');
       setMedia([]);
       setPostKind('text');
@@ -381,16 +556,19 @@ export default function Create() {
       const originalMessage = getErrorMessage(error);
       let cleanupMessage = '';
 
+      // Remove uploaded files if the post fails.
       if (uploadedPaths.length > 0) {
         const { error: removeError } = await supabase.storage
           .from(BUCKET)
           .remove(uploadedPaths);
 
         if (removeError) {
-          cleanupMessage += ` File cleanup also failed: ${removeError.message}`;
+          cleanupMessage +=
+            ` File cleanup also failed: ${removeError.message}`;
         }
       }
 
+      // Remove the incomplete post.
       if (createdPostId) {
         const { error: deleteError } = await supabase
           .from('posts')
@@ -399,7 +577,8 @@ export default function Create() {
           .eq('user_id', session.user.id);
 
         if (deleteError) {
-          cleanupMessage += ` Post cleanup also failed: ${deleteError.message}`;
+          cleanupMessage +=
+            ` Post cleanup also failed: ${deleteError.message}`;
         }
       }
 
@@ -412,6 +591,10 @@ export default function Create() {
     }
   };
 
+  // ==========================================
+  // SCREEN DESIGN
+  // ==========================================
+
   return (
     <ScrollView
       style={styles.screen}
@@ -421,7 +604,9 @@ export default function Create() {
       <View style={styles.header}>
         <View>
           <Text style={styles.heading}>Create</Text>
-          <Text style={styles.subtitle}>Share your possibilities</Text>
+          <Text style={styles.subtitle}>
+            Share your possibilities
+          </Text>
         </View>
 
         <View style={styles.logo}>
@@ -430,7 +615,9 @@ export default function Create() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Write something</Text>
+        <Text style={styles.label}>
+          Write something
+        </Text>
 
         <TextInput
           value={content}
@@ -444,9 +631,13 @@ export default function Create() {
           editable={!busy}
         />
 
-        <Text style={styles.counter}>{content.length}/2000</Text>
+        <Text style={styles.counter}>
+          {content.length}/2000
+        </Text>
 
-        <Text style={styles.label}>Add media</Text>
+        <Text style={styles.label}>
+          Add media
+        </Text>
 
         <View style={styles.actions}>
           <Pressable
@@ -454,8 +645,14 @@ export default function Create() {
             onPress={pickPhotos}
             disabled={busy}
           >
-            <Ionicons name="images-outline" size={23} color={theme.cyan} />
-            <Text style={styles.mediaText}>Photos</Text>
+            <Ionicons
+              name="images-outline"
+              size={23}
+              color={theme.cyan}
+            />
+            <Text style={styles.mediaText}>
+              Photos
+            </Text>
           </Pressable>
 
           <Pressable
@@ -463,8 +660,14 @@ export default function Create() {
             onPress={() => pickVideo('video')}
             disabled={busy}
           >
-            <Ionicons name="videocam-outline" size={23} color={theme.purple} />
-            <Text style={styles.mediaText}>Video</Text>
+            <Ionicons
+              name="videocam-outline"
+              size={23}
+              color={theme.purple}
+            />
+            <Text style={styles.mediaText}>
+              Video
+            </Text>
           </Pressable>
 
           <Pressable
@@ -472,8 +675,14 @@ export default function Create() {
             onPress={() => pickVideo('reel')}
             disabled={busy}
           >
-            <Ionicons name="play-circle-outline" size={23} color={theme.cyan} />
-            <Text style={styles.mediaText}>Reel</Text>
+            <Ionicons
+              name="play-circle-outline"
+              size={23}
+              color={theme.cyan}
+            />
+            <Text style={styles.mediaText}>
+              Reel
+            </Text>
           </Pressable>
         </View>
 
@@ -485,7 +694,10 @@ export default function Create() {
 
             <View style={styles.previewGrid}>
               {media.map((item, index) => (
-                <View key={`${item.uri}-${index}`} style={styles.preview}>
+                <View
+                  key={`${item.uri}-${index}`}
+                  style={styles.preview}
+                >
                   {item.mediaType === 'image' ? (
                     <Image
                       source={{ uri: item.uri }}
@@ -498,7 +710,11 @@ export default function Create() {
                         size={34}
                         color={theme.cyan}
                       />
-                      <Text style={styles.videoName} numberOfLines={2}>
+
+                      <Text
+                        style={styles.videoName}
+                        numberOfLines={2}
+                      >
                         {item.name}
                       </Text>
                     </View>
@@ -509,7 +725,11 @@ export default function Create() {
                     onPress={() => removeMedia(index)}
                     disabled={busy}
                   >
-                    <Ionicons name="close" size={18} color="#FFFFFF" />
+                    <Ionicons
+                      name="close"
+                      size={18}
+                      color="#FFFFFF"
+                    />
                   </Pressable>
                 </View>
               ))}
@@ -547,24 +767,38 @@ export default function Create() {
                     : theme.cyan
               }
             />
-            <Text style={styles.statusText}>{status}</Text>
+
+            <Text style={styles.statusText}>
+              {status}
+            </Text>
           </View>
         )}
 
         <Pressable
-          style={[styles.publishButton, busy && styles.disabled]}
+          style={[
+            styles.publishButton,
+            busy && styles.disabled,
+          ]}
           onPress={publish}
           disabled={busy}
         >
           {busy ? (
             <>
               <ActivityIndicator color="#FFFFFF" />
-              <Text style={styles.publishText}>Publishing...</Text>
+              <Text style={styles.publishText}>
+                Publishing...
+              </Text>
             </>
           ) : (
             <>
-              <Ionicons name="cloud-upload-outline" size={21} color="#FFFFFF" />
-              <Text style={styles.publishText}>Publish to BRITUME</Text>
+              <Ionicons
+                name="cloud-upload-outline"
+                size={21}
+                color="#FFFFFF"
+              />
+              <Text style={styles.publishText}>
+                Publish to BRITUME
+              </Text>
             </>
           )}
         </Pressable>
@@ -574,8 +808,15 @@ export default function Create() {
             style={styles.homeButton}
             onPress={() => router.replace('/(tabs)')}
           >
-            <Ionicons name="home-outline" size={19} color={theme.cyan} />
-            <Text style={styles.homeButtonText}>Go to Home</Text>
+            <Ionicons
+              name="home-outline"
+              size={19}
+              color={theme.cyan}
+            />
+
+            <Text style={styles.homeButtonText}>
+              Go to Home
+            </Text>
           </Pressable>
         )}
       </View>
@@ -583,31 +824,40 @@ export default function Create() {
   );
 }
 
+// ==========================================
+// BRITUME LIGHT BLUE THEME STYLES
+// ==========================================
+
 function createStyles(theme: any) {
   return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: theme.bg,
     },
+
     container: {
       padding: 18,
       paddingBottom: 40,
     },
+
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 22,
     },
+
     heading: {
       fontSize: 28,
       fontWeight: '800',
       color: theme.text,
     },
+
     subtitle: {
       color: theme.muted,
       marginTop: 4,
     },
+
     logo: {
       width: 48,
       height: 48,
@@ -617,11 +867,13 @@ function createStyles(theme: any) {
       justifyContent: 'center',
       ...theme.clayRaised,
     },
+
     logoText: {
       color: '#FFFFFF',
       fontSize: 29,
       fontWeight: '900',
     },
+
     card: {
       backgroundColor: theme.panel,
       borderWidth: 1,
@@ -630,12 +882,14 @@ function createStyles(theme: any) {
       padding: 17,
       ...theme.clayShadow,
     },
+
     label: {
       color: theme.text,
       fontSize: 16,
       fontWeight: '700',
       marginBottom: 10,
     },
+
     input: {
       minHeight: 125,
       backgroundColor: theme.panel2,
@@ -644,17 +898,20 @@ function createStyles(theme: any) {
       color: theme.text,
       fontSize: 15,
     },
+
     counter: {
       textAlign: 'right',
       color: theme.muted,
       marginTop: 7,
       marginBottom: 22,
     },
+
     actions: {
       flexDirection: 'row',
       gap: 9,
       marginBottom: 18,
     },
+
     mediaButton: {
       flex: 1,
       minHeight: 76,
@@ -666,22 +923,26 @@ function createStyles(theme: any) {
       justifyContent: 'center',
       gap: 5,
     },
+
     mediaText: {
       color: theme.text,
       fontWeight: '700',
       fontSize: 12,
     },
+
     selectedTitle: {
       color: theme.text,
       fontWeight: '700',
       marginBottom: 12,
     },
+
     previewGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 10,
       marginBottom: 14,
     },
+
     preview: {
       width: '47%',
       height: 145,
@@ -690,22 +951,26 @@ function createStyles(theme: any) {
       backgroundColor: theme.panel2,
       position: 'relative',
     },
+
     previewImage: {
       width: '100%',
       height: '100%',
     },
+
     videoPreview: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 8,
     },
+
     videoName: {
       color: theme.text,
       fontSize: 11,
       textAlign: 'center',
       marginTop: 8,
     },
+
     removeButton: {
       position: 'absolute',
       top: 7,
@@ -717,6 +982,7 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+
     info: {
       color: theme.muted,
       fontSize: 12,
@@ -724,6 +990,7 @@ function createStyles(theme: any) {
       marginTop: 5,
       marginBottom: 18,
     },
+
     statusBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -733,24 +1000,29 @@ function createStyles(theme: any) {
       borderWidth: 1,
       marginBottom: 14,
     },
+
     successBox: {
       backgroundColor: '#E8F8EF',
       borderColor: '#A8DFC0',
     },
+
     errorBox: {
       backgroundColor: '#FFF0F0',
       borderColor: '#F0B8B8',
     },
+
     infoBox: {
       backgroundColor: theme.panel2,
       borderColor: theme.border,
     },
+
     statusText: {
       flex: 1,
       color: theme.text,
       fontSize: 13,
       lineHeight: 19,
     },
+
     publishButton: {
       minHeight: 54,
       borderRadius: 15,
@@ -761,11 +1033,13 @@ function createStyles(theme: any) {
       gap: 9,
       ...theme.clayRaised,
     },
+
     publishText: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '800',
     },
+
     homeButton: {
       minHeight: 48,
       borderRadius: 14,
@@ -778,10 +1052,12 @@ function createStyles(theme: any) {
       gap: 8,
       marginTop: 12,
     },
+
     homeButtonText: {
       color: theme.cyan,
       fontWeight: '800',
     },
+
     disabled: {
       opacity: 0.6,
     },
