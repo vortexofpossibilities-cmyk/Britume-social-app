@@ -56,6 +56,7 @@ function Reel({
   interaction,
   following,
   theme,
+  styles,
   onLike,
   onSave,
   onComment,
@@ -70,6 +71,7 @@ function Reel({
   interaction: Interaction;
   following: boolean;
   theme: any;
+  styles: ReturnType<typeof createStyles>;
   onLike: () => void;
   onSave: () => void;
   onComment: () => void;
@@ -163,7 +165,6 @@ function Reel({
         style={styles.bottomShade}
       />
 
-      {/* Top controls */}
       <View style={styles.topBar}>
         <Pressable
           style={styles.glassButton}
@@ -197,7 +198,6 @@ function Reel({
         </Pressable>
       </View>
 
-      {/* Creator and caption */}
       <View style={styles.bottomArea}>
         <View style={styles.details}>
           <View style={styles.creatorRow}>
@@ -240,7 +240,6 @@ function Reel({
           </Text>
         </View>
 
-        {/* Video action buttons */}
         <View style={styles.actions}>
           <Pressable
             style={styles.action}
@@ -449,11 +448,12 @@ export default function VideosScreen() {
     setInteractions(previous => ({
       ...previous,
       [id]: {
-        liked: false,
-        saved: false,
-        likesCount: 0,
-        commentsCount: 0,
-        ...previous[id],
+        ...(previous[id] || {
+          liked: false,
+          saved: false,
+          likesCount: 0,
+          commentsCount: 0,
+        }),
         ...patch,
       },
     }));
@@ -761,6 +761,11 @@ export default function VideosScreen() {
     minimumViewTime: 100,
   }).current;
 
+  const styles = useMemo(
+    () => createStyles(theme),
+    [theme]
+  );
+
   const renderItem = useCallback(
     ({
       item,
@@ -787,6 +792,7 @@ export default function VideosScreen() {
           interaction={state}
           following={following.includes(item.user_id)}
           theme={theme}
+          styles={styles}
           onLike={() => void likeVideo(item)}
           onSave={() => void saveVideo(item)}
           onComment={() => void openComments(item.id)}
@@ -804,12 +810,8 @@ export default function VideosScreen() {
       interactions,
       following,
       theme,
+      styles,
     ]
-  );
-
-  const styles = useMemo(
-    () => createStyles(theme),
-    [theme]
   );
 
   return (
@@ -901,7 +903,6 @@ export default function VideosScreen() {
         </View>
       )}
 
-      {/* Comments */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -1315,4 +1316,4 @@ function createStyles(theme: any) {
       opacity: 0.55,
     },
   });
-    }
+}
