@@ -1,5 +1,10 @@
-
-import React, { useCallback, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,12 +14,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
   Share,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +33,7 @@ import {
   fetchPostInteractions,
   fetchCommentsForPost,
   createComment,
+  toggleLike,
   toggleSave,
   type FeedPost,
   type PostComment,
@@ -42,115 +49,286 @@ type Interaction = {
   commentsCount: number;
 };
 
-type ScreenStyles = ReturnType<typeof createStyles>;
-
-function VideoPlayer({
-  uri,
-  styles,
+function Reel({
+  post,
+  active,
+  height,
+  interaction,
+  following,
+  theme,
+  onLike,
+  onSave,
+  onComment,
+  onShare,
+  onDownload,
+  onFollow,
+  onMore,
 }: {
-  uri: string;
-  styles: ScreenStyles;
+  post: FeedPost;
+  active: boolean;
+  height: number;
+  interaction: Interaction;
+  following: boolean;
+  theme: any;
+  onLike: () => void;
+  onSave: () => void;
+  onComment: () => void;
+  onShare: () => void;
+  onDownload: () => void;
+  onFollow: () => void;
+  onMore: () => void;
 }) {
+  const media = post.media?.find(
+    item => item.media_type === 'video'
+  );
+
+  const uri = media?.url || '';
+
+  const [paused, setPaused] = useState(false);
+
   const player = useVideoPlayer(uri, instance => {
-    instance.loop = false;
+    instance.loop = true;
+    instance.muted = false;
   });
 
-  return (
-    <VideoView
-      player={player}
-      style={styles.player}
-      nativeControls
-      contentFit="contain"
-      allowsFullscreen
-      allowsPictureInPicture
-    />
-  );
-}
+  useEffect(() => {
+    if (!uri) return;
 
-function ActionButton({
-  icon,
-  label,
-  onPress,
-  active = false,
-  theme,
-  styles,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  onPress: () => void;
-  active?: boolean;
-  theme: any;
-  styles: ScreenStyles;
-}) {
+    if (active && !paused) {
+      player.play();
+    } else {
+      player.pause();
+    }
+
+    return () => {
+      player.pause();
+    };
+  }, [active, paused, player, uri]);
+
+  useEffect(() => {
+    if (!active) setPaused(false);
+  }, [active]);
+
+  const author =
+    post.author?.display_name ||
+    post.author?.username ||
+    'BRITUME member';
+
   return (
-    <Pressable
-      style={styles.actionButton}
-      onPress={onPress}
-    >
+    <View style={[styles.reelPage, { height }]}>
+      {uri ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setPaused(value => !value)}
+        >
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
+            allowsFullscreen={false}
+            allowsPictureInPicture={false}
+          />
+
+          {paused && (
+            <View style={styles.playOverlay}>
+              <Ionicons
+                name="play"
+                size={48}
+                color="#FFFFFF"
+              />
+            </View>
+          )}
+        </Pressable>
+      ) : (
+        <View style={styles.noVideo}>
+          <Ionicons
+            name="videocam-off-outline"
+            size={48}
+            color="#FFFFFF"
+          />
+          <Text style={styles.noVideoText}>
+            Video unavailable
+          </Text>
+        </View>
+      )}
+
       <View
-        style={[
-          styles.actionIcon,
-          active && styles.actionIconActive,
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={19}
-          color={active ? theme.purple : theme.cyan}
-        />
-      </View>
-
-      <Text style={styles.actionLabel} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function SectionHeading({
-  title,
-  subtitle,
-  icon,
-  theme,
-  styles,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  theme: any;
-  styles: ScreenStyles;
-}) {
-  return (
-    <View style={styles.sectionHeading}>
-      <View style={styles.sectionIcon}>
-        <Ionicons name={icon} size={23} color={theme.cyan} />
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-      </View>
-    </View>
-  );
-}
-
-function EmptyState({
-  text,
-  theme,
-  styles,
-}: {
-  text: string;
-  theme: any;
-  styles: ScreenStyles;
-}) {
-  return (
-    <View style={styles.emptyCard}>
-      <Ionicons
-        name="videocam-off-outline"
-        size={35}
-        color={theme.cyan}
+        pointerEvents="none"
+        style={styles.topShade}
       />
-      <Text style={styles.emptyText}>{text}</Text>
+
+      <View
+        pointerEvents="none"
+        style={styles.bottomShade}
+      />
+
+      {/* Top controls */}
+      <View style={styles.topBar}>
+        <Pressable
+          style={styles.glassButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color="#FFFFFF"
+          />
+        </Pressable>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.brand}>
+            BRITUME REELS
+          </Text>
+          <Text style={styles.brandSubtitle}>
+            Vortex of Possibilities
+          </Text>
+        </View>
+
+        <Pressable
+          style={styles.glassButton}
+          onPress={onMore}
+        >
+          <Ionicons
+            name="ellipsis-vertical"
+            size={23}
+            color="#FFFFFF"
+          />
+        </Pressable>
+      </View>
+
+      {/* Creator and caption */}
+      <View style={styles.bottomArea}>
+        <View style={styles.details}>
+          <View style={styles.creatorRow}>
+            <View style={styles.avatar}>
+              <Ionicons
+                name="person"
+                size={18}
+                color={theme.cyan}
+              />
+            </View>
+
+            <Text
+              style={styles.creatorName}
+              numberOfLines={1}
+            >
+              {author}
+            </Text>
+
+            <Pressable
+              style={styles.followButton}
+              onPress={onFollow}
+            >
+              <Text style={styles.followText}>
+                {following ? 'Following' : 'Follow'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {!!post.content && (
+            <Text
+              style={styles.caption}
+              numberOfLines={3}
+            >
+              {post.content}
+            </Text>
+          )}
+
+          <Text style={styles.swipeHint}>
+            Swipe up for more videos
+          </Text>
+        </View>
+
+        {/* Video action buttons */}
+        <View style={styles.actions}>
+          <Pressable
+            style={styles.action}
+            onPress={onLike}
+          >
+            <Ionicons
+              name={
+                interaction.liked
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+              size={30}
+              color={
+                interaction.liked
+                  ? '#FF557B'
+                  : '#FFFFFF'
+              }
+            />
+            <Text style={styles.actionText}>
+              {interaction.likesCount}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.action}
+            onPress={onComment}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={28}
+              color="#FFFFFF"
+            />
+            <Text style={styles.actionText}>
+              {interaction.commentsCount}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.action}
+            onPress={onShare}
+          >
+            <Ionicons
+              name="paper-plane-outline"
+              size={28}
+              color="#FFFFFF"
+            />
+            <Text style={styles.actionText}>
+              Share
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.action}
+            onPress={onSave}
+          >
+            <Ionicons
+              name={
+                interaction.saved
+                  ? 'bookmark'
+                  : 'bookmark-outline'
+              }
+              size={28}
+              color={
+                interaction.saved
+                  ? '#A99CFF'
+                  : '#FFFFFF'
+              }
+            />
+            <Text style={styles.actionText}>
+              Save
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.action}
+            onPress={onDownload}
+          >
+            <Ionicons
+              name="download-outline"
+              size={28}
+              color="#FFFFFF"
+            />
+            <Text style={styles.actionText}>
+              Download
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -158,56 +336,51 @@ function EmptyState({
 export default function VideosScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
-
-  const styles = useMemo(
-    () => createStyles(theme),
-    [theme]
-  );
+  const { height } = useWindowDimensions();
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
+
   const [interactions, setInteractions] = useState<
     Record<string, Interaction>
   >({});
 
   const [following, setFollowing] = useState<string[]>([]);
-  const [likedIds, setLikedIds] = useState<string[]>([]);
-
-  const [search, setSearch] = useState('');
-  const [likedOnly, setLikedOnly] = useState(false);
-
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
+  const [activeIndex, setActiveIndex] = useState(0);
   const [activePostId, setActivePostId] = useState<string | null>(null);
+
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState('');
-
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
 
   const [busyIds, setBusyIds] = useState<string[]>([]);
 
-  const loadVideos = useCallback(async (refresh = false) => {
-    if (refresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const listRef = useRef<FlatList<FeedPost>>(null);
+
+  const loadVideos = useCallback(async () => {
+    setLoading(true);
 
     try {
       const allPosts = await fetchPublicPosts();
 
       const videoPosts = allPosts.filter(post =>
-        (post.post_type === 'video' ||
-          post.post_type === 'reel') &&
-        post.media?.some(media => media.media_type === 'video')
+        (
+          post.post_type === 'video' ||
+          post.post_type === 'reel'
+        ) &&
+        post.media?.some(
+          media =>
+            media.media_type === 'video' &&
+            !!media.url
+        )
       );
 
       setPosts(videoPosts);
 
       const userId = session?.user.id;
 
-      const [counts, likesResult, followsResult] = await Promise.all([
+      const [counts, followsResult] = await Promise.all([
         fetchPostInteractions(
           videoPosts.map(post => post.id),
           userId
@@ -215,37 +388,31 @@ export default function VideosScreen() {
 
         userId && supabase
           ? supabase
-              .from('post_likes')
-              .select('post_id')
-              .eq('user_id', userId)
-          : Promise.resolve({ data: [], error: null }),
-
-        userId && supabase
-          ? supabase
               .from('user_follows')
               .select('following_id')
               .eq('follower_id', userId)
-          : Promise.resolve({ data: [], error: null }),
+          : Promise.resolve({
+              data: [],
+              error: null,
+            }),
       ]);
 
-      if (likesResult.error) throw likesResult.error;
-      if (followsResult.error) throw followsResult.error;
+      if (followsResult.error) {
+        throw followsResult.error;
+      }
 
       setInteractions(
         counts as Record<string, Interaction>
       );
 
-      setLikedIds(
-        (likesResult.data || []).map(
-          (item: { post_id: string }) => item.post_id
+      setFollowing(
+        (followsResult.data || []).map(
+          (item: { following_id: string }) =>
+            item.following_id
         )
       );
 
-      setFollowing(
-        (followsResult.data || []).map(
-          (item: { following_id: string }) => item.following_id
-        )
-      );
+      setActiveIndex(0);
     } catch (error: any) {
       Alert.alert(
         'Videos could not load',
@@ -253,7 +420,6 @@ export default function VideosScreen() {
       );
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [session?.user.id]);
 
@@ -263,36 +429,10 @@ export default function VideosScreen() {
     }, [loadVideos])
   );
 
-  const visiblePosts = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return posts.filter(post => {
-      const author =
-        post.author?.display_name ||
-        post.author?.username ||
-        '';
-
-      const matchesSearch =
-        !query ||
-        (post.content || '').toLowerCase().includes(query) ||
-        author.toLowerCase().includes(query);
-
-      const matchesLiked =
-        !likedOnly || likedIds.includes(post.id);
-
-      return matchesSearch && matchesLiked;
-    });
-  }, [posts, search, likedOnly, likedIds]);
-
-  const reels = visiblePosts.filter(
-    post => post.post_type === 'reel'
-  );
-
-  const videos = visiblePosts.filter(
-    post => post.post_type === 'video'
-  );
-
-  const markBusy = (id: string, busy: boolean) => {
+  const markBusy = (
+    id: string,
+    busy: boolean
+  ) => {
     setBusyIds(current =>
       busy
         ? current.includes(id)
@@ -302,66 +442,65 @@ export default function VideosScreen() {
     );
   };
 
-  const openComments = async (postId: string) => {
-    setActivePostId(postId);
-    setComments([]);
-    setCommentsLoading(true);
-
-    try {
-      const result = await fetchCommentsForPost(postId);
-      setComments(result);
-    } catch (error: any) {
-      Alert.alert(
-        'Comments unavailable',
-        error?.message || 'Please try again.'
-      );
-    } finally {
-      setCommentsLoading(false);
-    }
+  const updateInteraction = (
+    id: string,
+    patch: Partial<Interaction>
+  ) => {
+    setInteractions(previous => ({
+      ...previous,
+      [id]: {
+        liked: false,
+        saved: false,
+        likesCount: 0,
+        commentsCount: 0,
+        ...previous[id],
+        ...patch,
+      },
+    }));
   };
 
-  const sendComment = async () => {
+  const likeVideo = async (post: FeedPost) => {
     if (!session) {
       Alert.alert(
         'Sign in required',
-        'Please sign in to comment.'
+        'Sign in to like videos.'
       );
       return;
     }
 
-    if (!activePostId || !commentText.trim()) return;
+    if (busyIds.includes(post.id)) return;
 
-    setSendingComment(true);
+    const current = interactions[post.id] || {
+      liked: false,
+      saved: false,
+      likesCount: 0,
+      commentsCount: 0,
+    };
+
+    markBusy(post.id, true);
 
     try {
-      await createComment(
-        activePostId,
+      await toggleLike(
+        post.id,
         session.user.id,
-        commentText.trim()
+        current.liked
       );
 
-      setCommentText('');
-
-      const updatedComments =
-        await fetchCommentsForPost(activePostId);
-
-      setComments(updatedComments);
-
-      const updatedCounts = await fetchPostInteractions(
-        posts.map(post => post.id),
-        session.user.id
-      );
-
-      setInteractions(
-        updatedCounts as Record<string, Interaction>
-      );
+      updateInteraction(post.id, {
+        liked: !current.liked,
+        likesCount: Math.max(
+          0,
+          current.likesCount +
+            (current.liked ? -1 : 1)
+        ),
+      });
     } catch (error: any) {
       Alert.alert(
-        'Comment failed',
+        'Like failed',
         error?.message || 'Please try again.'
       );
     } finally {
-      setSendingComment(false);
+      markBusy(post.id, false);
     }
   };
 
@@ -374,14 +513,14 @@ export default function VideosScreen() {
       return;
     }
 
+    if (busyIds.includes(post.id)) return;
+
     const current = interactions[post.id] || {
       liked: false,
       saved: false,
       likesCount: 0,
       commentsCount: 0,
     };
-
-    if (busyIds.includes(post.id)) return;
 
     markBusy(post.id, true);
 
@@ -392,13 +531,9 @@ export default function VideosScreen() {
         current.saved
       );
 
-      setInteractions(previous => ({
-        ...previous,
-        [post.id]: {
-          ...current,
-          saved: !current.saved,
-        },
-      }));
+      updateInteraction(post.id, {
+        saved: !current.saved,
+      });
     } catch (error: any) {
       Alert.alert(
         'Save failed',
@@ -409,11 +544,11 @@ export default function VideosScreen() {
     }
   };
 
-  const subscribeToCreator = async (post: FeedPost) => {
+  const followCreator = async (post: FeedPost) => {
     if (!session) {
       Alert.alert(
         'Sign in required',
-        'Sign in to subscribe to creators.'
+        'Sign in to follow creators.'
       );
       return;
     }
@@ -421,13 +556,14 @@ export default function VideosScreen() {
     if (post.user_id === session.user.id) {
       Alert.alert(
         'Your video',
-        'You cannot subscribe to your own account.'
+        'You cannot follow yourself.'
       );
       return;
     }
 
-    if (!supabase) return;
-    if (busyIds.includes(post.id)) return;
+    if (!supabase || busyIds.includes(post.id)) {
+      return;
+    }
 
     const isFollowing = following.includes(post.user_id);
 
@@ -464,7 +600,7 @@ export default function VideosScreen() {
       }
     } catch (error: any) {
       Alert.alert(
-        'Subscription failed',
+        'Follow failed',
         error?.message || 'Please try again.'
       );
     } finally {
@@ -511,393 +647,261 @@ export default function VideosScreen() {
     }
   };
 
-  const renderVideo = (
-    post: FeedPost,
-    isReel: boolean
-  ) => {
-    const media = post.media?.find(
-      item => item.media_type === 'video'
-    );
+  const openComments = async (postId: string) => {
+    setActivePostId(postId);
+    setComments([]);
+    setCommentsLoading(true);
 
-    if (!media?.url) return null;
+    try {
+      const result = await fetchCommentsForPost(postId);
+      setComments(result);
+    } catch (error: any) {
+      Alert.alert(
+        'Comments unavailable',
+        error?.message || 'Please try again.'
+      );
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
 
-    const author =
-      post.author?.display_name ||
-      post.author?.username ||
-      'BRITUME member';
+  const sendComment = async () => {
+    if (!session) {
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to comment.'
+      );
+      return;
+    }
 
-    const state = interactions[post.id];
-    const isFollowing = following.includes(post.user_id);
-    const busy = busyIds.includes(post.id);
+    if (!activePostId || !commentText.trim()) {
+      return;
+    }
 
-    return (
-      <View key={post.id} style={styles.videoCard}>
-        {isReel ? (
-          <View style={styles.reelLayout}>
-            <View style={styles.actionRail}>
-              <ActionButton
-                icon="download-outline"
-                label="Download"
-                theme={theme}
-                styles={styles}
-                onPress={() => void downloadVideo(post)}
-              />
+    setSendingComment(true);
 
-              <ActionButton
-                icon="share-social-outline"
-                label="Share"
-                theme={theme}
-                styles={styles}
-                onPress={() => void shareVideo(post)}
-              />
+    try {
+      await createComment(
+        activePostId,
+        session.user.id,
+        commentText.trim()
+      );
 
-              <ActionButton
-                icon={
-                  state?.saved
-                    ? 'bookmark'
-                    : 'bookmark-outline'
-                }
-                label="Save"
-                active={!!state?.saved}
-                theme={theme}
-                styles={styles}
-                onPress={() => void saveVideo(post)}
-              />
+      setCommentText('');
 
-              <ActionButton
-                icon="chatbubble-ellipses-outline"
-                label="Comment"
-                theme={theme}
-                styles={styles}
-                onPress={() => void openComments(post.id)}
-              />
+      setComments(
+        await fetchCommentsForPost(activePostId)
+      );
 
-              <ActionButton
-                icon={
-                  isFollowing
-                    ? 'checkmark-circle'
-                    : 'person-add-outline'
-                }
-                label={isFollowing ? 'Subscribed' : 'Subscribe'}
-                active={isFollowing}
-                theme={theme}
-                styles={styles}
-                onPress={() => void subscribeToCreator(post)}
-              />
-            </View>
+      const updated = await fetchPostInteractions(
+        posts.map(post => post.id),
+        session.user.id
+      );
 
-            <View style={styles.reelContent}>
-              <VideoPlayer
-                uri={media.url}
-                styles={styles}
-              />
+      setInteractions(
+        updated as Record<string, Interaction>
+      );
+    } catch (error: any) {
+      Alert.alert(
+        'Comment failed',
+        error?.message || 'Please try again.'
+      );
+    } finally {
+      setSendingComment(false);
+    }
+  };
 
-              <Text style={styles.creatorName}>
-                {author}
-              </Text>
-
-              {!!post.content && (
-                <Text style={styles.caption}>
-                  {post.content}
-                </Text>
-              )}
-
-              {busy && (
-                <ActivityIndicator
-                  color={theme.cyan}
-                  style={{ marginTop: 7 }}
-                />
-              )}
-            </View>
-          </View>
-        ) : (
-          <>
-            <View style={styles.videoHeader}>
-              <View style={styles.avatar}>
-                <Ionicons
-                  name="person"
-                  size={18}
-                  color={theme.cyan}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.creatorName}>
-                  {author}
-                </Text>
-
-                <Text style={styles.date}>
-                  {new Date(
-                    post.created_at
-                  ).toLocaleDateString()}
-                </Text>
-              </View>
-
-              <Pressable
-                style={styles.headerIcon}
-                onPress={() => void shareVideo(post)}
-              >
-                <Ionicons
-                  name="share-social-outline"
-                  size={20}
-                  color={theme.cyan}
-                />
-              </Pressable>
-            </View>
-
-            <VideoPlayer
-              uri={media.url}
-              styles={styles}
-            />
-
-            {!!post.content && (
-              <Text style={styles.videoCaption}>
-                {post.content}
-              </Text>
-            )}
-
-            <View style={styles.videoActions}>
-              <ActionButton
-                icon="download-outline"
-                label="Download"
-                theme={theme}
-                styles={styles}
-                onPress={() => void downloadVideo(post)}
-              />
-
-              <ActionButton
-                icon="chatbubble-ellipses-outline"
-                label={String(state?.commentsCount || 0)}
-                theme={theme}
-                styles={styles}
-                onPress={() => void openComments(post.id)}
-              />
-
-              <ActionButton
-                icon={
-                  state?.saved
-                    ? 'bookmark'
-                    : 'bookmark-outline'
-                }
-                label="Save"
-                active={!!state?.saved}
-                theme={theme}
-                styles={styles}
-                onPress={() => void saveVideo(post)}
-              />
-
-              <ActionButton
-                icon={
-                  isFollowing
-                    ? 'checkmark-circle'
-                    : 'person-add-outline'
-                }
-                label={isFollowing ? 'Subscribed' : 'Subscribe'}
-                active={isFollowing}
-                theme={theme}
-                styles={styles}
-                onPress={() => void subscribeToCreator(post)}
-              />
-            </View>
-
-            {busy && (
-              <ActivityIndicator
-                color={theme.cyan}
-                style={{ marginTop: 7 }}
-              />
-            )}
-          </>
-        )}
-      </View>
+  const showMenu = (post: FeedPost) => {
+    Alert.alert(
+      'Reel options',
+      'Choose an action',
+      [
+        {
+          text: 'Share',
+          onPress: () => void shareVideo(post),
+        },
+        {
+          text: 'Download',
+          onPress: () => void downloadVideo(post),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
     );
   };
 
+  const onViewableItemsChanged = useRef(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: Array<{
+        index: number | null;
+        isViewable: boolean;
+      }>;
+    }) => {
+      const current = viewableItems.find(
+        item =>
+          item.isViewable &&
+          item.index !== null
+      );
+
+      if (
+        current?.index !== null &&
+        current?.index !== undefined
+      ) {
+        setActiveIndex(current.index);
+      }
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+    minimumViewTime: 100,
+  }).current;
+
+  const renderItem = useCallback(
+    ({
+      item,
+      index,
+    }: {
+      item: FeedPost;
+      index: number;
+    }) => {
+      const state = interactions[item.id] || {
+        liked: false,
+        saved: false,
+        likesCount: 0,
+        commentsCount: 0,
+      };
+
+      return (
+        <Reel
+          post={item}
+          active={
+            index === activeIndex &&
+            activePostId === null
+          }
+          height={height}
+          interaction={state}
+          following={following.includes(item.user_id)}
+          theme={theme}
+          onLike={() => void likeVideo(item)}
+          onSave={() => void saveVideo(item)}
+          onComment={() => void openComments(item.id)}
+          onShare={() => void shareVideo(item)}
+          onDownload={() => void downloadVideo(item)}
+          onFollow={() => void followCreator(item)}
+          onMore={() => showMenu(item)}
+        />
+      );
+    },
+    [
+      activeIndex,
+      activePostId,
+      height,
+      interactions,
+      following,
+      theme,
+    ]
+  );
+
+  const styles = useMemo(
+    () => createStyles(theme),
+    [theme]
+  );
+
   return (
     <View style={styles.screen}>
-      <FlatList<FeedPost>
-        data={[]}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void loadVideos(true)}
-            tintColor={theme.cyan}
+      <StatusBar hidden />
+
+      {loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator
+            size="large"
+            color="#FFFFFF"
           />
-        }
-        renderItem={() => null}
-        ListHeaderComponent={
-          <View>
-            <View style={styles.header}>
-              <View style={styles.logo}>
-                <Text style={styles.logoText}>B</Text>
-              </View>
+          <Text style={styles.loadingText}>
+            Loading BRITUME Reels...
+          </Text>
+        </View>
+      ) : posts.length > 0 ? (
+        <FlatList
+          ref={listRef}
+          data={posts}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          pagingEnabled
+          snapToInterval={height}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum
+          showsVerticalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          getItemLayout={(_, index) => ({
+            length: height,
+            offset: height * index,
+            index,
+          })}
+          windowSize={3}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          removeClippedSubviews={Platform.OS === 'android'}
+          extraData={{
+            activeIndex,
+            interactions,
+            following,
+            activePostId,
+          }}
+        />
+      ) : (
+        <View style={styles.emptyScreen}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#FFFFFF"
+            />
+          </Pressable>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>
-                  BRITUME Videos
-                </Text>
+          <Ionicons
+            name="videocam-off-outline"
+            size={65}
+            color="#FFFFFF"
+          />
 
-                <Text style={styles.subtitle}>
-                  Vortex of Possibilities
-                </Text>
-              </View>
+          <Text style={styles.emptyTitle}>
+            No Reels yet
+          </Text>
 
-              <Pressable
-                style={styles.headerButton}
-                onPress={() =>
-                  router.push('/(tabs)/create')
-                }
-              >
-                <Ionicons
-                  name="add"
-                  size={26}
-                  color={theme.cyan}
-                />
-              </Pressable>
-            </View>
+          <Text style={styles.emptyText}>
+            Be the first to share a video with the BRITUME community.
+          </Text>
 
-            <View style={styles.toolbar}>
-              <View style={styles.searchBox}>
-                <Ionicons
-                  name="search-outline"
-                  size={19}
-                  color={theme.muted}
-                />
+          <Pressable
+            style={styles.uploadButton}
+            onPress={() =>
+              router.push('/(tabs)/create')
+            }
+          >
+            <Ionicons
+              name="cloud-upload-outline"
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.uploadText}>
+              Upload a video
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
-                <TextInput
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search videos and creators..."
-                  placeholderTextColor={theme.muted}
-                  style={styles.searchInput}
-                />
-              </View>
-
-              <Pressable
-                style={styles.toolButton}
-                onPress={() =>
-                  router.push('/(tabs)/create')
-                }
-              >
-                <Ionicons
-                  name="cloud-upload-outline"
-                  size={21}
-                  color={theme.cyan}
-                />
-                <Text style={styles.toolLabel}>Upload</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.toolButton,
-                  likedOnly && styles.toolActive,
-                ]}
-                onPress={() =>
-                  setLikedOnly(value => !value)
-                }
-              >
-                <Ionicons
-                  name={likedOnly ? 'heart' : 'heart-outline'}
-                  size={21}
-                  color={likedOnly ? '#E84D78' : theme.cyan}
-                />
-
-                <Text style={styles.toolLabel}>Liked</Text>
-              </Pressable>
-            </View>
-
-            {loading ? (
-              <View style={styles.loading}>
-                <ActivityIndicator
-                  size="large"
-                  color={theme.cyan}
-                />
-
-                <Text style={styles.muted}>
-                  Loading BRITUME videos...
-                </Text>
-              </View>
-            ) : (
-              <>
-                <SectionHeading
-                  title="Reels"
-                  subtitle="Short moments from creators"
-                  icon="play-circle"
-                  theme={theme}
-                  styles={styles}
-                />
-
-                {reels.length > 0 ? (
-                  reels.map(post =>
-                    renderVideo(post, true)
-                  )
-                ) : (
-                  <EmptyState
-                    text={
-                      likedOnly
-                        ? 'No liked Reels found.'
-                        : 'No Reels yet. Upload your first Reel!'
-                    }
-                    theme={theme}
-                    styles={styles}
-                  />
-                )}
-
-                <SectionHeading
-                  title="Videos"
-                  subtitle="Videos from the BRITUME community"
-                  icon="videocam"
-                  theme={theme}
-                  styles={styles}
-                />
-
-                {videos.length > 0 ? (
-                  videos.map(post =>
-                    renderVideo(post, false)
-                  )
-                ) : (
-                  <EmptyState
-                    text={
-                      likedOnly
-                        ? 'No liked videos found.'
-                        : 'No videos yet. Share your first video!'
-                    }
-                    theme={theme}
-                    styles={styles}
-                  />
-                )}
-
-                {visiblePosts.length === 0 &&
-                  search.trim().length > 0 && (
-                    <EmptyState
-                      text="No videos match your search. Try another name or keyword."
-                      theme={theme}
-                      styles={styles}
-                    />
-                  )}
-              </>
-            )}
-
-            <Pressable
-              style={styles.refreshButton}
-              onPress={() => void loadVideos(true)}
-            >
-              <Ionicons
-                name="refresh"
-                size={18}
-                color={theme.cyan}
-              />
-
-              <Text style={styles.refreshText}>
-                Refresh videos
-              </Text>
-            </Pressable>
-          </View>
-        }
-      />
-
+      {/* Comments */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -936,7 +940,7 @@ export default function VideosScreen() {
                 data={comments}
                 keyExtractor={item => item.id}
                 ListEmptyComponent={
-                  <Text style={styles.muted}>
+                  <Text style={styles.commentEmpty}>
                     Be the first to comment.
                   </Text>
                 }
@@ -1001,322 +1005,236 @@ function createStyles(theme: any) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.bg,
+      backgroundColor: '#07111F',
     },
 
-    content: {
-      padding: 15,
-      paddingBottom: 45,
+    reelPage: {
+      width: '100%',
+      backgroundColor: '#07111F',
+      overflow: 'hidden',
     },
 
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 11,
-      marginBottom: 20,
-    },
-
-    logo: {
-      width: 49,
-      height: 49,
-      borderRadius: 17,
-      backgroundColor: theme.clayBlue,
-      borderWidth: 1,
-      borderColor: theme.border,
+    playOverlay: {
+      ...StyleSheet.absoluteFillObject,
       alignItems: 'center',
       justifyContent: 'center',
-      ...theme.clayRaised,
+      backgroundColor: 'rgba(0,0,0,0.16)',
     },
 
-    logoText: {
-      color: theme.cyan,
-      fontSize: 30,
-      fontWeight: '900',
+    noVideo: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#17283A',
     },
 
-    title: {
-      color: theme.text,
-      fontSize: 21,
-      fontWeight: '900',
+    noVideoText: {
+      color: '#FFFFFF',
+      marginTop: 12,
     },
 
-    subtitle: {
-      color: theme.muted,
-      fontSize: 11,
-      marginTop: 3,
+    topShade: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 160,
+      backgroundColor: 'rgba(0,0,0,0.24)',
     },
 
-    headerButton: {
+    bottomShade: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 260,
+      backgroundColor: 'rgba(0,0,0,0.52)',
+    },
+
+    topBar: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 48 : 18,
+      left: 15,
+      right: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+
+    glassButton: {
       width: 43,
       height: 43,
-      borderRadius: 15,
-      backgroundColor: theme.panel,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...theme.clayRaised,
-    },
-
-    toolbar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      padding: 10,
       borderRadius: 22,
-      backgroundColor: theme.clayBlue,
-      borderWidth: 1,
-      borderColor: theme.border,
-      marginBottom: 23,
-      ...theme.clayShadow,
-    },
-
-    searchBox: {
-      flex: 1,
-      minWidth: 80,
-      height: 43,
-      borderRadius: 14,
-      backgroundColor: theme.panel,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 9,
-    },
-
-    searchInput: {
-      flex: 1,
-      color: theme.text,
-      fontSize: 11,
-      paddingLeft: 7,
-      paddingVertical: 8,
-    },
-
-    toolButton: {
-      minWidth: 46,
+      backgroundColor: 'rgba(0,0,0,0.4)',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 4,
-      paddingVertical: 5,
-      borderRadius: 13,
     },
 
-    toolActive: {
-      backgroundColor: theme.panel,
-      ...theme.clayPressedStyle,
+    brand: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '900',
+      letterSpacing: 1,
     },
 
-    toolLabel: {
-      color: theme.text,
-      fontSize: 9,
-      fontWeight: '800',
+    brandSubtitle: {
+      color: 'rgba(255,255,255,0.78)',
+      fontSize: 10,
       marginTop: 3,
     },
 
-    sectionHeading: {
+    bottomArea: {
+      position: 'absolute',
+      left: 16,
+      right: 13,
+      bottom: Platform.OS === 'ios' ? 35 : 25,
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginTop: 8,
-      marginBottom: 13,
+      alignItems: 'flex-end',
+      gap: 12,
     },
 
-    sectionIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      backgroundColor: theme.clayBlue,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...theme.clayRaised,
-    },
-
-    sectionTitle: {
-      color: theme.text,
-      fontSize: 20,
-      fontWeight: '900',
-    },
-
-    sectionSubtitle: {
-      color: theme.muted,
-      fontSize: 11,
-      marginTop: 2,
-    },
-
-    videoCard: {
-      padding: 11,
-      borderRadius: 23,
-      backgroundColor: theme.panel,
-      borderWidth: 1,
-      borderColor: theme.border,
-      marginBottom: 19,
-      ...theme.clayShadow,
-    },
-
-    reelLayout: {
-      flexDirection: 'row',
-      gap: 8,
-      minHeight: 260,
-    },
-
-    actionRail: {
-      width: 58,
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      paddingVertical: 4,
-    },
-
-    actionButton: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      minWidth: 49,
-      minHeight: 48,
-    },
-
-    actionIcon: {
-      width: 35,
-      height: 35,
-      borderRadius: 13,
-      backgroundColor: theme.clayBlue,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...theme.clayRaised,
-    },
-
-    actionIconActive: {
-      backgroundColor: theme.clayPurple,
-    },
-
-    actionLabel: {
-      color: theme.muted,
-      fontSize: 8,
-      fontWeight: '800',
-      marginTop: 4,
-      textAlign: 'center',
-    },
-
-    reelContent: {
+    details: {
       flex: 1,
-      minWidth: 0,
+      paddingBottom: 4,
     },
 
-    player: {
-      width: '100%',
-      height: 270,
-      borderRadius: 17,
-      overflow: 'hidden',
-      backgroundColor: theme.panel2,
-    },
-
-    creatorName: {
-      color: theme.text,
-      fontSize: 13,
-      fontWeight: '900',
-      marginTop: 9,
-    },
-
-    caption: {
-      color: theme.muted,
-      fontSize: 11,
-      lineHeight: 16,
-      marginTop: 4,
-    },
-
-    videoHeader: {
+    creatorRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 9,
+      gap: 8,
       marginBottom: 10,
     },
 
     avatar: {
-      width: 37,
-      height: 37,
-      borderRadius: 14,
-      backgroundColor: theme.clayBlue,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    date: {
-      color: theme.muted,
-      fontSize: 10,
-      marginTop: 2,
-    },
-
-    headerIcon: {
       width: 36,
       height: 36,
-      borderRadius: 13,
-      backgroundColor: theme.clayBlue,
+      borderRadius: 18,
+      backgroundColor: '#FFFFFF',
       alignItems: 'center',
       justifyContent: 'center',
     },
 
-    videoCaption: {
-      color: theme.text,
-      fontSize: 13,
-      lineHeight: 19,
-      marginTop: 10,
+    creatorName: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '900',
+      flexShrink: 1,
     },
 
-    videoActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
+    followButton: {
+      borderWidth: 1,
+      borderColor: '#FFFFFF',
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+
+    followText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '800',
+    },
+
+    caption: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      lineHeight: 19,
+      marginBottom: 9,
+    },
+
+    swipeHint: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: 10,
+    },
+
+    actions: {
+      width: 49,
       alignItems: 'center',
-      marginTop: 10,
-      paddingTop: 8,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
+      gap: 18,
+      paddingBottom: 2,
+    },
+
+    action: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 45,
+      gap: 4,
+    },
+
+    actionText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '800',
     },
 
     loading: {
-      alignItems: 'center',
-      padding: 35,
-      gap: 10,
-    },
-
-    muted: {
-      color: theme.muted,
-      fontSize: 12,
-      textAlign: 'center',
-      padding: 12,
-    },
-
-    emptyCard: {
-      minHeight: 105,
-      borderRadius: 19,
-      backgroundColor: theme.panel,
-      borderWidth: 1,
-      borderColor: theme.border,
+      flex: 1,
+      backgroundColor: '#07111F',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 17,
-      marginBottom: 17,
-      gap: 8,
-      ...theme.clayRaised,
+      gap: 12,
+    },
+
+    loadingText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+    },
+
+    emptyScreen: {
+      flex: 1,
+      backgroundColor: '#10243A',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 28,
+    },
+
+    backButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 48 : 18,
+      left: 16,
+      width: 43,
+      height: 43,
+      borderRadius: 22,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    emptyTitle: {
+      color: '#FFFFFF',
+      fontSize: 23,
+      fontWeight: '900',
+      marginTop: 18,
     },
 
     emptyText: {
-      color: theme.muted,
-      fontSize: 12,
+      color: 'rgba(255,255,255,0.78)',
+      fontSize: 13,
       textAlign: 'center',
-      lineHeight: 18,
+      lineHeight: 19,
+      marginTop: 9,
     },
 
-    refreshButton: {
-      alignSelf: 'center',
+    uploadButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 7,
-      padding: 13,
+      gap: 8,
+      marginTop: 22,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 22,
+      backgroundColor: theme.cyan,
     },
 
-    refreshText: {
-      color: theme.cyan,
-      fontWeight: '800',
-      fontSize: 12,
+    uploadText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '900',
     },
 
     modalBackground: {
       flex: 1,
-      backgroundColor: 'rgba(15,35,55,0.55)',
+      backgroundColor: 'rgba(0,0,0,0.58)',
       justifyContent: 'flex-end',
     },
 
@@ -1342,8 +1260,15 @@ function createStyles(theme: any) {
       fontWeight: '900',
     },
 
+    commentEmpty: {
+      color: theme.muted,
+      fontSize: 13,
+      textAlign: 'center',
+      padding: 16,
+    },
+
     commentCard: {
-      backgroundColor: theme.clayBlue,
+      backgroundColor: theme.panel2,
       borderRadius: 14,
       padding: 11,
       marginBottom: 9,
@@ -1371,7 +1296,7 @@ function createStyles(theme: any) {
       flex: 1,
       minHeight: 43,
       maxHeight: 90,
-      backgroundColor: theme.clayBlue,
+      backgroundColor: theme.panel2,
       borderRadius: 14,
       padding: 11,
       color: theme.text,
@@ -1390,4 +1315,4 @@ function createStyles(theme: any) {
       opacity: 0.55,
     },
   });
-}
+    }
