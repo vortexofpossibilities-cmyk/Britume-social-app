@@ -1,3 +1,4 @@
+
 import * as tus from 'tus-js-client';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { File as ExpoFile } from 'expo-file-system';
@@ -46,11 +47,6 @@ function getProjectId(): string {
   return match[1];
 }
 
-/**
- * Compresses an image before upload.
- * Keeps the original aspect ratio.
- * Converts the result to an optimised JPEG.
- */
 export async function compressImage(
   uri: string,
 ): Promise<{
@@ -101,24 +97,22 @@ export async function compressImage(
   };
 }
 
-/**
- * Uploads using Supabase TUS resumable uploads.
- * Does not read a complete native video into an ArrayBuffer.
- */
 export async function uploadMediaResumable(
   source: UploadSource,
   storagePath: string,
   mimeType: string,
   onProgress?: UploadProgress,
 ): Promise<void> {
-  if (!supabase) {
+  const client = supabase;
+
+  if (!client) {
     throw new Error('Supabase is not configured.');
   }
 
   const {
     data: { session },
     error: sessionError,
-  } = await supabase.auth.getSession();
+  } = await client.auth.getSession();
 
   if (sessionError || !session?.access_token) {
     throw new Error('Please sign in again before uploading.');
@@ -161,13 +155,16 @@ export async function uploadMediaResumable(
 
       chunkSize: 6 * 1024 * 1024,
 
-      onError(error) {
+      onError(error: Error) {
         reject(
           new Error(`Upload failed: ${error.message}`),
         );
       },
 
-      onProgress(uploadedBytes, totalBytes) {
+      onProgress(
+        uploadedBytes: number,
+        totalBytes: number,
+      ) {
         const percent =
           totalBytes > 0
             ? Math.round(
