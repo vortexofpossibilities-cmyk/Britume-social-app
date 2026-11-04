@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -30,6 +30,12 @@ type MediaItem = {
   mimeType: string;
   mediaType: 'image' | 'video';
   size?: number;
+
+  // Expo ImagePicker supplies the original browser File on web.
+  // Keeping it avoids trying to fetch a temporary photo URI.
+  webFile?: {
+    arrayBuffer: () => Promise<ArrayBuffer>;
+  };
 };
 
 type PostKind = 'text' | 'photo' | 'video' | 'reel';
@@ -62,9 +68,16 @@ function getSafeExtension(item: MediaItem): string {
   return item.mediaType === 'image' ? 'jpg' : 'mp4';
 }
 
-async function readSelectedFile(uri: string): Promise<ArrayBuffer> {
+async function readSelectedFile(item: MediaItem): Promise<ArrayBuffer> {
+  // On the website, read the original browser File directly.
+  if (Platform.OS === 'web' && item.webFile) {
+    return await item.webFile.arrayBuffer();
+  }
+
+  // Keep the existing URI-reading path as a fallback for web assets
+  // that do not provide a browser File object.
   if (Platform.OS === 'web') {
-    const response = await fetch(uri);
+    const response = await fetch(item.uri);
 
     if (!response.ok) {
       throw new Error('The browser could not read the selected file.');
@@ -74,7 +87,8 @@ async function readSelectedFile(uri: string): Promise<ArrayBuffer> {
     return await blob.arrayBuffer();
   }
 
-  const file = new File(uri);
+  // Native Android/iOS file handling.
+  const file = new ExpoFile(item.uri);
 
   if (!file.exists) {
     throw new Error('The selected file could not be found.');
@@ -133,6 +147,7 @@ export default function Create() {
         mimeType: asset.mimeType || 'image/jpeg',
         mediaType: 'image',
         size: asset.fileSize,
+        webFile: asset.file ?? undefined,
       }));
 
       if (selected.length > MAX_FILES) {
@@ -191,6 +206,7 @@ export default function Create() {
           mimeType: asset.mimeType || 'video/mp4',
           mediaType: 'video',
           size: asset.fileSize,
+          webFile: asset.file ?? undefined,
         },
       ]);
 
@@ -250,7 +266,7 @@ export default function Create() {
 
     setBusy(true);
     setStatus('');
-    
+
     const uploadedPaths: string[] = [];
     let createdPostId: string | null = null;
     let stage = 'Preparing your post';
@@ -295,7 +311,7 @@ export default function Create() {
 
         stage = `Reading ${item.name}`;
 
-        const bytes = await readSelectedFile(item.uri);
+        const bytes = await readSelectedFile(item);
 
         if (!bytes || bytes.byteLength === 0) {
           throw new Error(`The selected file is empty: ${item.name}`);
@@ -770,4 +786,4 @@ function createStyles(theme: any) {
       opacity: 0.6,
     },
   });
-        }
+}
