@@ -93,7 +93,9 @@ export default function StoriesScreen() {
   const userId = session?.user?.id;
 
   const loadStories = useCallback(async () => {
-    if (!supabase || !userId) {
+    const client = supabase;
+
+    if (!client || !userId) {
       setStories([]);
       setLoading(false);
       return;
@@ -102,7 +104,7 @@ export default function StoriesScreen() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('stories')
         .select(
           'id,user_id,caption,storage_path,media_type,created_at,expires_at',
@@ -121,7 +123,7 @@ export default function StoriesScreen() {
 
       const authorIds = [...new Set(rows.map(row => row.user_id))];
 
-      const { data: profiles, error: profileError } = await supabase
+      const { data: profiles, error: profileError } = await client
         .from('profiles')
         .select('user_id,display_name,username')
         .in('user_id', authorIds);
@@ -138,7 +140,7 @@ export default function StoriesScreen() {
       const enriched: Story[] = [];
 
       for (const row of rows) {
-        const { data: signed, error: signedError } = await supabase.storage
+        const { data: signed, error: signedError } = await client.storage
           .from(BUCKET)
           .createSignedUrl(row.storage_path, 60 * 60);
 
@@ -169,7 +171,9 @@ export default function StoriesScreen() {
   );
 
   const pickStory = async (mediaType: 'image' | 'video') => {
-    if (!supabase || !userId) {
+    const client = supabase;
+
+    if (!client || !userId) {
       Alert.alert('Sign in required', 'Please sign in to create a story.');
       return;
     }
@@ -257,7 +261,7 @@ export default function StoriesScreen() {
           .toString(36)
           .slice(2)}.${extension}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await client.storage
         .from(BUCKET)
         .upload(path, bytes, {
           contentType: mimeType,
@@ -270,7 +274,7 @@ export default function StoriesScreen() {
         Date.now() + STORY_DURATION,
       ).toISOString();
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await client
         .from('stories')
         .insert({
           user_id: userId,
@@ -281,7 +285,7 @@ export default function StoriesScreen() {
         });
 
       if (insertError) {
-        await supabase.storage.from(BUCKET).remove([path]);
+        await client.storage.from(BUCKET).remove([path]);
         throw insertError;
       }
 
@@ -298,10 +302,12 @@ export default function StoriesScreen() {
   const openStory = async (story: Story) => {
     setSelectedStory(story);
 
-    if (!supabase || !userId || story.user_id === userId) return;
+    const client = supabase;
+
+    if (!client || !userId || story.user_id === userId) return;
 
     try {
-      const { data: existing, error: checkError } = await supabase
+      const { data: existing, error: checkError } = await client
         .from('story_views')
         .select('story_id')
         .eq('story_id', story.id)
@@ -311,7 +317,7 @@ export default function StoriesScreen() {
       if (checkError) throw checkError;
 
       if (!existing) {
-        const { error } = await supabase.from('story_views').insert({
+        const { error } = await client.from('story_views').insert({
           story_id: story.id,
           viewer_id: userId,
         });
@@ -326,7 +332,9 @@ export default function StoriesScreen() {
   };
 
   const deleteStory = (story: Story) => {
-    if (!supabase || story.user_id !== userId) return;
+    const client = supabase;
+
+    if (!client || story.user_id !== userId) return;
 
     Alert.alert(
       'Delete story?',
@@ -338,7 +346,7 @@ export default function StoriesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
+              const { error } = await client
                 .from('stories')
                 .delete()
                 .eq('id', story.id)
@@ -346,7 +354,7 @@ export default function StoriesScreen() {
 
               if (error) throw error;
 
-              await supabase.storage
+              await client.storage
                 .from(BUCKET)
                 .remove([story.storage_path]);
 
