@@ -1,49 +1,3 @@
-
-export async function fetchPostsForUser(
-  userId: string,
-  options: { includePrivate?: boolean } = {},
-): Promise<FeedPost[]> {
-  const client = ensureSupabase();
-
-  if (!userId) {
-    throw new Error('A user ID is required to load posts.');
-  }
-
-  let data;
-  let error;
-
-  if (options.includePrivate) {
-    const result = await client
-      .from('posts')
-      .select('id, user_id, content, post_type, visibility, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(40);
-
-    data = result.data;
-    error = result.error;
-  } else {
-    const result = await client
-      .from('posts')
-      .select('id, user_id, content, post_type, visibility, created_at')
-      .eq('user_id', userId)
-      .eq('visibility', 'public')
-      .order('created_at', { ascending: false })
-      .limit(40);
-
-    data = result.data;
-    error = result.error;
-  }
-
-  if (error) {
-    throw new Error(`Could not load user posts: ${error.message}`);
-  }
-
-  return enrichPosts(
-    (data ?? []) as Omit<FeedPost, 'author' | 'media'>[],
-  );
-}
-
 import { supabase } from './supabase';
 
 const MEDIA_BUCKET = 'britume-media';
@@ -198,7 +152,9 @@ export async function fetchPublicPosts(): Promise<FeedPost[]> {
     throw new Error(`Could not load posts: ${error.message}`);
   }
 
-  return enrichPosts((data ?? []) as Omit<FeedPost, 'author' | 'media'>[]);
+  return enrichPosts(
+    (data ?? []) as Omit<FeedPost, 'author' | 'media'>[],
+  );
 }
 
 export async function fetchPostInteractions(
@@ -423,4 +379,38 @@ export async function createComment(
   if (error) {
     throw new Error(`Could not publish comment: ${error.message}`);
   }
-            }
+}
+
+export async function fetchPostsForUser(
+  userId: string,
+  options: { includePrivate?: boolean } = {},
+): Promise<FeedPost[]> {
+  const client = ensureSupabase();
+
+  if (!userId) {
+    throw new Error('A user ID is required to load posts.');
+  }
+
+  let query = client
+    .from('posts')
+    .select(
+      'id, user_id, content, post_type, visibility, created_at',
+    )
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(40);
+
+  if (!options.includePrivate) {
+    query = query.eq('visibility', 'public');
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Could not load user posts: ${error.message}`);
+  }
+
+  return enrichPosts(
+    (data ?? []) as Omit<FeedPost, 'author' | 'media'>[],
+  );
+  }
