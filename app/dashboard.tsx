@@ -21,7 +21,8 @@ type DashboardStats = {
 
 export default function UserDashboardScreen() {
   const { theme } = useAppTheme();
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const styles = createStyles(theme);
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -124,7 +125,6 @@ export default function UserDashboardScreen() {
             Your account, rewards and activity in one place.
           </Text>
         </View>
-
         <View style={styles.headerIcon}>
           <Ionicons name="grid-outline" size={25} color={theme.cyan} />
         </View>
@@ -132,7 +132,6 @@ export default function UserDashboardScreen() {
 
       <View style={styles.overviewCard}>
         <Text style={styles.cardLabel}>MY ACCOUNT OVERVIEW</Text>
-
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Ionicons name="wallet-outline" size={21} color={theme.cyan} />
@@ -141,9 +140,7 @@ export default function UserDashboardScreen() {
             </Text>
             <Text style={styles.statLabel}>Wallet points</Text>
           </View>
-
           <View style={styles.statDivider} />
-
           <View style={styles.stat}>
             <Ionicons name="gift-outline" size={21} color="#F59E0B" />
             <Text style={styles.statValue}>
@@ -151,9 +148,7 @@ export default function UserDashboardScreen() {
             </Text>
             <Text style={styles.statLabel}>Rewards earned</Text>
           </View>
-
           <View style={styles.statDivider} />
-
           <View style={styles.stat}>
             <Ionicons name="people-outline" size={21} color="#8B5CF6" />
             <Text style={styles.statValue}>
@@ -162,7 +157,6 @@ export default function UserDashboardScreen() {
             <Text style={styles.statLabel}>Connections</Text>
           </View>
         </View>
-
         <Text style={styles.dataNote}>
           Account figures refresh whenever you open this dashboard.
         </Text>
@@ -170,31 +164,22 @@ export default function UserDashboardScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>My membership</Text>
-
         <View style={styles.membershipCard}>
           <View style={styles.membershipTop}>
             <View style={styles.tierIcon}>
               <Ionicons name="medal-outline" size={25} color="#FBBF24" />
             </View>
-
             <View style={styles.membershipText}>
               <Text style={styles.membershipTitle}>My BRITUME tier</Text>
               <Text style={styles.membershipSubtitle}>
                 Membership progress will appear here.
               </Text>
             </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={theme.muted}
-            />
+            <Ionicons name="chevron-forward" size={20} color={theme.muted} />
           </View>
-
           <View style={styles.progressTrack}>
             <View style={styles.progressFill} />
           </View>
-
           <Text style={styles.progressNote}>
             Tier progress is based on verified qualifying activity.
           </Text>
@@ -203,7 +188,6 @@ export default function UserDashboardScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick access</Text>
-
         {shortcuts.map((item) => (
           <Pressable
             key={item.title}
@@ -213,24 +197,17 @@ export default function UserDashboardScreen() {
             <View style={styles.shortcutIcon}>
               <Ionicons name={item.icon} size={23} color={theme.cyan} />
             </View>
-
             <View style={styles.shortcutText}>
               <Text style={styles.shortcutTitle}>{item.title}</Text>
               <Text style={styles.shortcutSubtitle}>{item.subtitle}</Text>
             </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={19}
-              color={theme.muted}
-            />
+            <Ionicons name="chevron-forward" size={19} color={theme.muted} />
           </Pressable>
         ))}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent activity</Text>
-
         <View style={styles.emptyCard}>
           <Ionicons name="time-outline" size={30} color={theme.muted} />
           <Text style={styles.emptyTitle}>
@@ -248,14 +225,8 @@ export default function UserDashboardScreen() {
 
 function createStyles(theme: any) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
-    content: {
-      padding: 18,
-      paddingBottom: 45,
-    },
+    screen: { flex: 1, backgroundColor: theme.bg },
+    content: { padding: 18, paddingBottom: 45 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -274,11 +245,7 @@ function createStyles(theme: any) {
       fontWeight: '900',
       marginTop: 5,
     },
-    subtitle: {
-      color: theme.muted,
-      fontSize: 12,
-      marginTop: 5,
-    },
+    subtitle: { color: theme.muted, fontSize: 12, marginTop: 5 },
     headerIcon: {
       width: 48,
       height: 48,
@@ -306,35 +273,17 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    stat: {
-      flex: 1,
-      alignItems: 'center',
-      gap: 7,
-    },
-    statValue: {
-      color: theme.text,
-      fontSize: 22,
-      fontWeight: '900',
-    },
-    statLabel: {
-      color: theme.muted,
-      fontSize: 10,
-      textAlign: 'center',
-    },
-    statDivider: {
-      width: 1,
-      height: 55,
-      backgroundColor: theme.border,
-    },
+    stat: { flex: 1, alignItems: 'center', gap: 7 },
+    statValue: { color: theme.text, fontSize: 22, fontWeight: '900' },
+    statLabel: { color: theme.muted, fontSize: 10, textAlign: 'center' },
+    statDivider: { width: 1, height: 55, backgroundColor: theme.border },
     dataNote: {
       color: theme.muted,
       fontSize: 10,
       lineHeight: 16,
       marginTop: 18,
     },
-    section: {
-      marginTop: 25,
-    },
+    section: { marginTop: 25 },
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
@@ -348,10 +297,7 @@ function createStyles(theme: any) {
       borderColor: theme.border,
       padding: 16,
     },
-    membershipTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+    membershipTop: { flexDirection: 'row', alignItems: 'center' },
     tierIcon: {
       width: 45,
       height: 45,
@@ -360,10 +306,7 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    membershipText: {
-      flex: 1,
-      marginLeft: 12,
-    },
+    membershipText: { flex: 1, marginLeft: 12 },
     membershipTitle: {
       color: theme.text,
       fontWeight: '900',
@@ -387,11 +330,7 @@ function createStyles(theme: any) {
       borderRadius: 8,
       backgroundColor: theme.cyan,
     },
-    progressNote: {
-      color: theme.muted,
-      fontSize: 10,
-      marginTop: 9,
-    },
+    progressNote: { color: theme.muted, fontSize: 10, marginTop: 9 },
     shortcut: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -410,20 +349,13 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    shortcutText: {
-      flex: 1,
-      marginLeft: 12,
-    },
+    shortcutText: { flex: 1, marginLeft: 12 },
     shortcutTitle: {
       color: theme.text,
       fontSize: 14,
       fontWeight: '800',
     },
-    shortcutSubtitle: {
-      color: theme.muted,
-      fontSize: 11,
-      marginTop: 4,
-    },
+    shortcutSubtitle: { color: theme.muted, fontSize: 11, marginTop: 4 },
     emptyCard: {
       alignItems: 'center',
       backgroundColor: theme.panel,
@@ -446,4 +378,4 @@ function createStyles(theme: any) {
       marginTop: 7,
     },
   });
-          }
+    }
