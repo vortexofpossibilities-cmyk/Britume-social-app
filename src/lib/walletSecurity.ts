@@ -1,69 +1,162 @@
-File path: "src/lib/walletSecurity.ts"
+import { supabase } from "./supabase";
 
-export const MIN_WALLET_PIN_LENGTH = 4;
-export const MAX_WALLET_PIN_LENGTH = 6;
+import {
+  WalletSecurityProvider,
+  WalletPinStatusResult,
+  WalletPinSetupResult,
+  WalletPinVerificationResult,
+  WalletRecoveryRequest,
+  WalletRecoveryRequestResult,
+} from "./walletSecurity";
 
-export type WalletPinVerificationResult = {
-  success: boolean;
+type RpcResult = {
+  success?: boolean;
+  configured?: boolean;
+  status?: "pending" | "under_review" | "approved" | "rejected";
   message?: string;
 };
 
-export type WalletPinSetupResult = {
-  success: boolean;
-  message?: string;
-};
+function getResult(data: unknown): RpcResult {
+  if (typeof data === "boolean") {
+    return { success: data };
+  }
 
-export type WalletPinStatusResult = {
-  configured: boolean;
-  message?: string;
-};
+  if (Array.isArray(data)) {
+    return getResult(data[0]);
+  }
 
-export type WalletRecoveryRequest = {
-  reason?: string;
-};
+  if (data && typeof data === "object") {
+    return data as RpcResult;
+  }
 
-export type WalletRecoveryStatus =
-  | "pending"
-  | "under_review"
-  | "approved"
-  | "rejected";
-
-export type WalletRecoveryRequestResult = {
-  success: boolean;
-  status?: WalletRecoveryStatus;
-  message?: string;
-};
-
-export function validateWalletPinFormat(pin: string): boolean {
-  return (
-    /^\d+$/.test(pin) &&
-    pin.length >= MIN_WALLET_PIN_LENGTH &&
-    pin.length <= MAX_WALLET_PIN_LENGTH
-  );
+  return {};
 }
 
-/**
- * Backend integration contract.
- *
- * PIN creation, verification and recovery must happen
- * through secure server-side Supabase functions.
- *
- * Never store plaintext PINs locally.
- */
-export interface WalletSecurityProvider {
-  checkPinStatus?(): Promise<WalletPinStatusResult>;
+function unavailableMessage() {
+  return "Wallet security service is unavailable. Please try again later.";
+}
 
-  createPin?(
-    pin: string
-  ): Promise<WalletPinSetupResult>;
+export const walletSecurityService: WalletSecurityProvider & {
+  checkPinStatus(): Promise<WalletPinStatusResult>;
+  createPin(pin: string): Promise<WalletPinSetupResult>;
+} = {
+  async checkPinStatus() {
+    if (!supabase) {
+      return {
+        configured: false,
+        message: unavailableMessage(),
+      };
+    }
 
-  verifyPin(
-    pin: string
-  ): Promise<WalletPinVerificationResult>;
+    const { data, error } = await supabase.rpc(
+      "wallet_pin_status"
+    );
 
-  requestPinReset(
+    if (error) {
+      return {
+        configured: false,
+        message: error.message,
+      };
+    }
+
+    const result = getResult(data);
+
+    return {
+      configured: result.configured === true,
+      message: result.message,
+    };
+  },
+
+  async createPin(pin: string) {
+    if (!supabase) {
+      return {
+        success: false,
+        message: unavailableMessage(),
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "create_wallet_pin",
+      {
+        p_pin: pin,
+      }
+    );
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+
+    const result = getResult(data);
+
+    return {
+      success: result.success === true,
+      message: result.message,
+    };
+  },
+
+  async verifyPin(pin: string): Promise<WalletPinVerificationResult> {
+    if (!supabase) {
+      return {
+        success: false,
+        message: unavailableMessage(),
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "verify_wallet_pin",
+      {
+        p_pin: pin,
+      }
+    );
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+
+    const result = getResult(data);
+
+    return {
+      success: result.success === true,
+      message: result.message,
+    };
+  },
+
+  async requestPinReset(
     request: WalletRecoveryRequest
-  ): Promise<WalletRecoveryRequestResult>;
-}
+  ): Promise<WalletRecoveryRequestResult> {
+    if (!supabase) {
+      return {
+        success: false,
+        message: unavailableMessage(),
+      };
+    }
 
-Save this replacement, buddy. Don't enter anything in Supabase yet. Next we'll connect the setup screen and security service, then prepare the database migration carefully.
+    const { data, error } = await supabase.rpc(
+      "request_wallet_pin_reset",
+      {
+        p_reason: request.reason ?? "",
+      }
+    );
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+
+    const result = getResult(data);
+
+    return {
+      success: result.success === true,
+      status: result.status,
+      message: result.message,
+    };
+  },
+};
