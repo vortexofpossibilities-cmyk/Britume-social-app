@@ -1,10 +1,9 @@
-
-import { supabase } from "./supabase";
+import { supabase } from './supabase';
 
 export type WalletCategory =
-  | "purchased"
-  | "earned"
-  | "promotional";
+  | 'purchased'
+  | 'earned'
+  | 'promotional';
 
 export type WalletBalances = Record<WalletCategory, number>;
 
@@ -31,18 +30,28 @@ const EMPTY_BALANCES: WalletBalances = {
 function getClient() {
   if (!supabase) {
     throw new Error(
-      "Supabase is not configured. Check your environment variables."
+      'Supabase is not configured. Check your environment variables.',
     );
   }
 
   return supabase;
 }
 
+function safeAmount(value: unknown): number {
+  const amount = Number(value ?? 0);
+
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+
+  return amount;
+}
+
 export async function fetchWalletData(
-  userId: string
+  userId: string,
 ): Promise<WalletData> {
   if (!userId) {
-    throw new Error("You must be signed in to view your wallet.");
+    throw new Error('You must be signed in to view your wallet.');
   }
 
   const client = getClient();
@@ -50,17 +59,17 @@ export async function fetchWalletData(
   const [balancesResult, transactionsResult] =
     await Promise.all([
       client
-        .from("wallet_balances")
-        .select("category, balance")
-        .eq("user_id", userId),
+        .from('wallet_balances')
+        .select('category, balance')
+        .eq('user_id', userId),
 
       client
-        .from("wallet_ledger")
+        .from('wallet_ledger')
         .select(
-          "id, transfer_id, category, entry_type, amount, created_at"
+          'id, transfer_id, category, entry_type, amount, created_at',
         )
-        .eq("account_user_id", userId)
-        .order("created_at", { ascending: false })
+        .eq('account_user_id', userId)
+        .order('created_at', { ascending: false })
         .limit(20),
     ]);
 
@@ -72,29 +81,33 @@ export async function fetchWalletData(
     throw transactionsResult.error;
   }
 
-  const balances: WalletBalances = { ...EMPTY_BALANCES };
+  const balances: WalletBalances = {
+    ...EMPTY_BALANCES,
+  };
 
   for (const row of balancesResult.data ?? []) {
     if (
-      row.category === "purchased" ||
-      row.category === "earned" ||
-      row.category === "promotional"
+      row.category === 'purchased' ||
+      row.category === 'earned' ||
+      row.category === 'promotional'
     ) {
-      const category = row.category as WalletCategory;
-      balances[category] = Number(row.balance ?? 0);
+      balances[row.category] = safeAmount(row.balance);
     }
   }
 
   const transactions: WalletLedgerEntry[] = (
     transactionsResult.data ?? []
-  ).map((row) => ({
+  ).map(row => ({
     id: Number(row.id),
-    transfer_id: row.transfer_id,
+    transfer_id: row.transfer_id ?? null,
     category: row.category as WalletCategory,
-    entry_type: row.entry_type,
-    amount: Number(row.amount),
-    created_at: row.created_at,
+    entry_type: String(row.entry_type ?? 'transaction'),
+    amount: safeAmount(row.amount),
+    created_at: String(row.created_at ?? ''),
   }));
 
-  return { balances, transactions };
+  return {
+    balances,
+    transactions,
+  };
 }
