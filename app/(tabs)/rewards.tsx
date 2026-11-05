@@ -50,7 +50,7 @@ const games: Game[] = [
     title: 'Challenges',
     description: 'Complete challenges and earn points.',
     icon: 'trophy-outline',
-    status: 'coming',
+    status: 'available',
     color: '#E47B63',
   },
   {
@@ -82,6 +82,8 @@ export default function RewardsScreen() {
       router.push('/rewards/mystery-box' as never);
     } else if (game.id === 'daily') {
       router.push('/rewards/daily' as never);
+    } else if (game.id === 'challenges') {
+      router.push('/rewards/challenges' as never);
     }
   };
 
@@ -389,4 +391,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 25,
     },
   });
-      }
+        }
