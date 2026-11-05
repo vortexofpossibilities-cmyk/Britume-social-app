@@ -120,12 +120,15 @@ export default function ChallengesScreen() {
       ))}
 
       <View style={styles.footerCard}>
-        <Ionicons name="shield-checkmark-outline" size={27} color={theme.cyan} />
+        <Ionicons
+          name="shield-checkmark-outline"
+          size={27}
+          color={theme.cyan}
+        />
         <Text style={styles.footerTitle}>Fair rewards for everyone</Text>
         <Text style={styles.footerText}>
-          BRITUME will verify completed activities on the server
-          before awarding points. Repeated or fraudulent activity
-          will not qualify.
+          BRITUME will verify completed activities on the server before
+          awarding points. Repeated or fraudulent activity will not qualify.
         </Text>
       </View>
     </ScrollView>
