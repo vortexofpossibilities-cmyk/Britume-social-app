@@ -76,14 +76,19 @@ export default function RewardsScreen() {
       return;
     }
 
-    if (game.id === 'spin') {
-      router.push('/rewards/spin' as never);
-    } else if (game.id === 'mystery') {
-      router.push('/rewards/mystery-box' as never);
-    } else if (game.id === 'daily') {
-      router.push('/rewards/daily' as never);
-    } else if (game.id === 'challenges') {
-      router.push('/rewards/challenges' as never);
+    switch (game.id) {
+      case 'spin':
+        router.push('/rewards/spin' as never);
+        break;
+      case 'mystery':
+        router.push('/rewards/mystery-box' as never);
+        break;
+      case 'daily':
+        router.push('/rewards/daily' as never);
+        break;
+      case 'challenges':
+        router.push('/rewards/challenges' as never);
+        break;
     }
   };
 
@@ -101,6 +106,7 @@ export default function RewardsScreen() {
             Play games. Complete challenges. Earn rewards.
           </Text>
         </View>
+
         <View style={styles.headerIcon}>
           <Ionicons name="gift" size={27} color="#FFFFFF" />
         </View>
@@ -113,12 +119,17 @@ export default function RewardsScreen() {
             Your next reward could be one game away!
           </Text>
           <Text style={styles.heroDescription}>
-            Explore games and activities in one place.
-            More experiences will be added over time.
+            Explore games and activities in one place. More experiences
+            will be added over time.
           </Text>
         </View>
+
         <View style={styles.heroIcon}>
-          <Ionicons name="game-controller" size={55} color="#FFFFFF" />
+          <Ionicons
+            name="game-controller"
+            size={55}
+            color="#FFFFFF"
+          />
         </View>
       </View>
 
@@ -129,6 +140,7 @@ export default function RewardsScreen() {
             Choose an experience to get started.
           </Text>
         </View>
+
         <Ionicons name="sparkles" size={23} color={theme.cyan} />
       </View>
 
@@ -148,7 +160,11 @@ export default function RewardsScreen() {
                 { backgroundColor: game.color },
               ]}
             >
-              <Ionicons name={game.icon} size={29} color="#FFFFFF" />
+              <Ionicons
+                name={game.icon}
+                size={29}
+                color="#FFFFFF"
+              />
             </View>
 
             <View style={styles.gameText}>
@@ -391,4 +407,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 25,
     },
   });
-        }
+      }
