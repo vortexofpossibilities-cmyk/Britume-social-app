@@ -62,7 +62,9 @@ export default function DailyRewardsScreen() {
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Your 7-day reward journey</Text>
+      <Text style={styles.sectionTitle}>
+        Your 7-day reward journey
+      </Text>
 
       {rewards.map((reward, index) => (
         <View key={reward.day} style={styles.rewardRow}>
@@ -77,11 +79,14 @@ export default function DailyRewardsScreen() {
           <View style={styles.rewardInfo}>
             <Text style={styles.dayTitle}>{reward.day}</Text>
             <Text style={styles.dayDescription}>
-              {index === 6 ? 'Weekly streak reward' : 'Daily check-in reward'}
+              {index === 6
+                ? 'Weekly streak reward'
+                : 'Daily check-in reward'}
             </Text>
           </View>
 
           <Text style={styles.points}>{reward.points} pts</Text>
+
           <Ionicons
             name="lock-closed"
             size={17}
@@ -95,7 +100,7 @@ export default function DailyRewardsScreen() {
         <Text style={styles.footerTitle}>Keep showing up</Text>
         <Text style={styles.footerText}>
           The daily reward system will track check-ins securely and prevent
-          duplicate claims when it is connected to the BRITUME backend.
+          duplicate claims when connected to the BRITUME backend.
         </Text>
       </View>
     </ScrollView>
@@ -106,7 +111,7 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.background,
+      backgroundColor: theme.bg,
     },
     content: {
       padding: 20,
@@ -150,7 +155,7 @@ const createStyles = (theme: any) =>
       gap: 10,
       padding: 14,
       borderRadius: 14,
-      backgroundColor: theme.card,
+      backgroundColor: theme.panel,
       marginBottom: 22,
     },
     noticeText: {
@@ -163,7 +168,7 @@ const createStyles = (theme: any) =>
       alignItems: 'center',
       padding: 25,
       borderRadius: 22,
-      backgroundColor: theme.card,
+      backgroundColor: theme.panel,
       marginBottom: 27,
     },
     streakNumber: {
@@ -197,7 +202,7 @@ const createStyles = (theme: any) =>
       gap: 11,
       padding: 13,
       borderRadius: 15,
-      backgroundColor: theme.card,
+      backgroundColor: theme.panel,
       borderWidth: 1,
       borderColor: theme.border,
       marginBottom: 10,
@@ -206,7 +211,7 @@ const createStyles = (theme: any) =>
       width: 43,
       height: 43,
       borderRadius: 13,
-      backgroundColor: theme.background,
+      backgroundColor: theme.panel2,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -232,7 +237,7 @@ const createStyles = (theme: any) =>
       alignItems: 'center',
       padding: 20,
       borderRadius: 17,
-      backgroundColor: theme.card,
+      backgroundColor: theme.panel,
       marginTop: 17,
     },
     footerTitle: {
