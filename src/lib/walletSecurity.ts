@@ -1,8 +1,20 @@
+File path: "src/lib/walletSecurity.ts"
+
 export const MIN_WALLET_PIN_LENGTH = 4;
 export const MAX_WALLET_PIN_LENGTH = 6;
 
 export type WalletPinVerificationResult = {
   success: boolean;
+  message?: string;
+};
+
+export type WalletPinSetupResult = {
+  success: boolean;
+  message?: string;
+};
+
+export type WalletPinStatusResult = {
+  configured: boolean;
   message?: string;
 };
 
@@ -22,10 +34,6 @@ export type WalletRecoveryRequestResult = {
   message?: string;
 };
 
-/**
- * Checks the format of a wallet PIN.
- * This does NOT verify the PIN against the server.
- */
 export function validateWalletPinFormat(pin: string): boolean {
   return (
     /^\d+$/.test(pin) &&
@@ -35,11 +43,20 @@ export function validateWalletPinFormat(pin: string): boolean {
 }
 
 /**
- * Backend integration contract:
- * PIN verification must eventually happen securely on the server.
- * Never store or compare a real PIN in local storage.
+ * Backend integration contract.
+ *
+ * PIN creation, verification and recovery must happen
+ * through secure server-side Supabase functions.
+ *
+ * Never store plaintext PINs locally.
  */
 export interface WalletSecurityProvider {
+  checkPinStatus?(): Promise<WalletPinStatusResult>;
+
+  createPin?(
+    pin: string
+  ): Promise<WalletPinSetupResult>;
+
   verifyPin(
     pin: string
   ): Promise<WalletPinVerificationResult>;
@@ -48,3 +65,5 @@ export interface WalletSecurityProvider {
     request: WalletRecoveryRequest
   ): Promise<WalletRecoveryRequestResult>;
 }
+
+Save this replacement, buddy. Don't enter anything in Supabase yet. Next we'll connect the setup screen and security service, then prepare the database migration carefully.
