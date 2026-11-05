@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -6,24 +5,23 @@ import React, {
   useState,
 } from 'react';
 
-import type { Session } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
 type AuthState = {
   session: Session | null;
+  user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthState | undefined>(
-  undefined
-);
+const AuthContext = createContext<AuthState | undefined>(undefined);
 
 function getSupabaseClient() {
   if (!supabase) {
     throw new Error(
-      'Supabase is not configured. Check your environment variables.'
+      'Supabase is not configured. Check your environment variables.',
     );
   }
 
@@ -86,7 +84,7 @@ export function AuthProvider({
 
   const signIn = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<void> => {
     const client = getSupabaseClient();
 
@@ -105,9 +103,7 @@ export function AuthProvider({
       scope: 'local',
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     setSession(null);
   };
@@ -116,6 +112,7 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         session,
+        user: session?.user ?? null,
         loading,
         signIn,
         signOut,
@@ -130,9 +127,7 @@ export function useAuth(): AuthState {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      'useAuth must be used inside AuthProvider.'
-    );
+    throw new Error('useAuth must be used inside AuthProvider.');
   }
 
   return context;
