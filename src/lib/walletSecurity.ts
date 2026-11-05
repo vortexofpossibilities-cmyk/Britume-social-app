@@ -1,159 +1,44 @@
-import { supabase } from "./supabase";
-import {
-  WalletSecurityProvider,
-  WalletPinStatusResult,
-  WalletPinSetupResult,
-  WalletPinVerificationResult,
-  WalletRecoveryRequest,
-  WalletRecoveryRequestResult,
-} from "./walletSecurity";
-
-type RpcResult = {
-  success?: boolean;
-  configured?: boolean;
-  status?: "pending" | "under_review" | "approved" | "rejected";
+export type WalletPinStatusResult = {
+  configured: boolean;
   message?: string;
 };
 
-function parseResult(data: unknown): RpcResult {
-  if (Array.isArray(data)) {
-    return parseResult(data[0]);
-  }
-
-  if (typeof data === "boolean") {
-    return { success: data };
-  }
-
-  if (data && typeof data === "object") {
-    return data as RpcResult;
-  }
-
-  return {};
-}
-
-function unavailable(): string {
-  return "Wallet security service is unavailable. Please try again.";
-}
-
-export const walletSecurityService: WalletSecurityProvider & {
-  checkPinStatus(): Promise<WalletPinStatusResult>;
-  createPin(pin: string): Promise<WalletPinSetupResult>;
-} = {
-  async checkPinStatus() {
-    if (!supabase) {
-      return {
-        configured: false,
-        message: unavailable(),
-      };
-    }
-
-    const { data, error } = await supabase.rpc(
-      "wallet_pin_status"
-    );
-
-    if (error) {
-      return {
-        configured: false,
-        message: error.message,
-      };
-    }
-
-    const result = parseResult(data);
-
-    return {
-      configured: result.configured === true,
-      message: result.message,
-    };
-  },
-
-  async createPin(pin: string) {
-    if (!supabase) {
-      return {
-        success: false,
-        message: unavailable(),
-      };
-    }
-
-    const { data, error } = await supabase.rpc(
-      "create_wallet_pin",
-      { p_pin: pin }
-    );
-
-    if (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-
-    const result = parseResult(data);
-
-    return {
-      success: result.success === true,
-      message: result.message,
-    };
-  },
-
-  async verifyPin(
-    pin: string
-  ): Promise<WalletPinVerificationResult> {
-    if (!supabase) {
-      return {
-        success: false,
-        message: unavailable(),
-      };
-    }
-
-    const { data, error } = await supabase.rpc(
-      "verify_wallet_pin",
-      { p_pin: pin }
-    );
-
-    if (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-
-    const result = parseResult(data);
-
-    return {
-      success: result.success === true,
-      message: result.message,
-    };
-  },
-
-  async requestPinReset(
-    request: WalletRecoveryRequest
-  ): Promise<WalletRecoveryRequestResult> {
-    if (!supabase) {
-      return {
-        success: false,
-        message: unavailable(),
-      };
-    }
-
-    const { data, error } = await supabase.rpc(
-      "request_wallet_pin_reset",
-      {
-        p_reason: request.reason ?? "",
-      }
-    );
-
-    if (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-
-    const result = parseResult(data);
-
-    return {
-      success: result.success === true,
-      status: result.status,
-      message: result.message,
-    };
-  },
+export type WalletPinSetupResult = {
+  success: boolean;
+  message?: string;
 };
+
+export type WalletPinVerificationResult = {
+  success: boolean;
+  message?: string;
+};
+
+export type WalletRecoveryRequest = {
+  reason?: string;
+};
+
+export type WalletRecoveryRequestResult = {
+  success: boolean;
+  status?: 'pending' | 'under_review' | 'approved' | 'rejected';
+  message?: string;
+};
+
+export type WalletSecurityProvider = {
+  checkPinStatus(): Promise<WalletPinStatusResult>;
+
+  createPin(pin: string): Promise<WalletPinSetupResult>;
+
+  verifyPin(pin: string): Promise<WalletPinVerificationResult>;
+
+  requestPinReset(
+    request: WalletRecoveryRequest,
+  ): Promise<WalletRecoveryRequestResult>;
+};
+
+export function validateWalletPinFormat(pin: string): boolean {
+  return /^\d{4,6}$/.test(pin);
+}
+
+export function validateRecoveryReason(reason: string): boolean {
+  return reason.trim().length >= 5 && reason.trim().length <= 500;
+}
