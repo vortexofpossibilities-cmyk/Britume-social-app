@@ -34,6 +34,11 @@ const items = [
     key: 'home',
   },
   {
+    icon: 'gift-outline' as const,
+    route: '/(tabs)/rewards',
+    key: 'rewards',
+  },
+  {
     icon: 'wallet-outline' as const,
     route: '/(tabs)/wallet',
     key: 'wallet',
@@ -63,7 +68,11 @@ function IconBar() {
       <View style={styles.bar}>
         {items.map(item => {
           const label =
-            item.key === 'wallet' ? 'Wallet' : t(item.key);
+            item.key === 'wallet'
+              ? 'Wallet'
+              : item.key === 'rewards'
+                ? 'Rewards'
+                : t(item.key);
 
           const active =
             item.key === 'home'
@@ -105,7 +114,7 @@ function IconBar() {
             >
               <Ionicons
                 name={item.icon}
-                size={25}
+                size={23}
                 color={active ? theme.cyan : theme.muted}
               />
             </Pressable>
@@ -133,6 +142,7 @@ export default function TabLayout() {
       <Tabs.Screen name="create" />
 
       <Tabs.Screen name="wallet" options={{ href: null }} />
+      <Tabs.Screen name="rewards" options={{ href: null }} />
       <Tabs.Screen name="discover" options={{ href: null }} />
       <Tabs.Screen name="offline" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
@@ -187,7 +197,7 @@ function createStyles(theme: any) {
     },
 
     createButton: {
-      width: 53,
+      width: 48,
       height: 53,
       borderRadius: 19,
       backgroundColor: theme.cyan,
