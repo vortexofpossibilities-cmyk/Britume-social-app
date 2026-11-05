@@ -35,7 +35,7 @@ const games: Game[] = [
     title: 'Mystery Boxes',
     description: 'Open mysterious boxes and discover rewards.',
     icon: 'gift-outline',
-    status: 'coming',
+    status: 'available',
     color: '#A77AF5',
   },
   {
@@ -79,6 +79,11 @@ export default function RewardsScreen() {
 
     if (game.id === 'spin') {
       router.push('/rewards/spin' as never);
+      return;
+    }
+
+    if (game.id === 'mystery') {
+      router.push('/rewards/mystery-box' as never);
     }
   };
 
@@ -395,4 +400,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 25,
     },
   });
-    }
+                }
