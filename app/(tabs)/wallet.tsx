@@ -3,7 +3,7 @@ import React, {
   useEffect,
   useRef,
   useState,
-} from "react";
+} from 'react';
 
 import {
   ActivityIndicator,
@@ -15,23 +15,23 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
+} from 'react-native';
 
-import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 
-import { useAuth } from "../../src/auth/AuthProvider";
+import { useAuth } from '../../src/auth/AuthProvider';
 import {
   fetchWalletData,
   WalletData,
-} from "../../src/lib/wallet";
-import { useAppTheme } from "../../src/contexts/ThemeContext";
+} from '../../src/lib/wallet';
+import { useAppTheme } from '../../src/contexts/ThemeContext';
 
-import WalletPinScreen from "../../src/components/wallet/WalletPinScreen";
-import WalletPinSetupScreen from "../../src/components/wallet/WalletPinSetupScreen";
-import WalletRecoveryScreen from "../../src/components/wallet/WalletRecoveryScreen";
+import WalletPinScreen from '../../src/components/wallet/WalletPinScreen';
+import WalletPinSetupScreen from '../../src/components/wallet/WalletPinSetupScreen';
+import WalletRecoveryScreen from '../../src/components/wallet/WalletRecoveryScreen';
 
-import { walletSecurityService } from "../../src/lib/walletSecurityService";
+import { walletSecurityService } from '../../src/lib/walletSecurityService';
 
 const EMPTY_WALLET: WalletData = {
   balances: {
@@ -43,11 +43,11 @@ const EMPTY_WALLET: WalletData = {
 };
 
 type WalletView =
-  | "checking"
-  | "setup"
-  | "locked"
-  | "wallet"
-  | "recovery";
+  | 'checking'
+  | 'setup'
+  | 'locked'
+  | 'wallet'
+  | 'recovery';
 
 function formatPoints(value: number) {
   return `${value.toLocaleString(undefined, {
@@ -57,45 +57,45 @@ function formatPoints(value: number) {
 
 function transactionTitle(type: string) {
   const titles: Record<string, string> = {
-    transfer_sent: "Points sent",
-    transfer_received: "Points received",
-    transfer_fee: "Transfer fee",
-    purchase: "Points purchased",
-    reward: "Reward received",
-    spin_cost: "Mystery Wheel spin",
-    cashback: "Cashback",
+    transfer_sent: 'Points sent',
+    transfer_received: 'Points received',
+    transfer_fee: 'Transfer fee',
+    purchase: 'Points purchased',
+    reward: 'Reward received',
+    spin_cost: 'Mystery Wheel spin',
+    cashback: 'Cashback',
   };
 
   return (
     titles[type] ??
-    type.replace(/_/g, " ").replace(/\b\w/g, letter =>
-      letter.toUpperCase()
+    type.replace(/_/g, ' ').replace(/\b\w/g, letter =>
+      letter.toUpperCase(),
     )
   );
 }
 
 function transactionIcon(
-  type: string
-): React.ComponentProps<typeof Ionicons>["name"] {
+  type: string,
+): React.ComponentProps<typeof Ionicons>['name'] {
   if (
-    type.includes("received") ||
-    type.includes("reward")
+    type.includes('received') ||
+    type.includes('reward')
   ) {
-    return "arrow-down-circle-outline";
+    return 'arrow-down-circle-outline';
   }
 
   if (
-    type.includes("fee") ||
-    type.includes("sent")
+    type.includes('fee') ||
+    type.includes('sent')
   ) {
-    return "arrow-up-circle-outline";
+    return 'arrow-up-circle-outline';
   }
 
-  if (type.includes("spin")) {
-    return "gift-outline";
+  if (type.includes('spin')) {
+    return 'gift-outline';
   }
 
-  return "swap-horizontal-outline";
+  return 'swap-horizontal-outline';
 }
 
 export default function WalletScreen() {
@@ -105,117 +105,145 @@ export default function WalletScreen() {
   const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [walletView, setWalletView] =
-    useState<WalletView>("checking");
+    useState<WalletView>('checking');
 
-  const appState = useRef<AppStateStatus>(
-    AppState.currentState
-  );
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const mounted = useRef(true);
 
   const styles = createStyles(theme);
-
-  const checkPinStatus = useCallback(async () => {
-    const result =
-      await walletSecurityService.checkPinStatus();
-
-    if (result.message && !result.configured) {
-      setError(result.message);
-    }
-
-    setWalletView(
-      result.configured ? "locked" : "setup"
-    );
-  }, []);
 
   const loadWallet = useCallback(async () => {
     const userId = session?.user?.id;
 
     if (!userId) {
       setWallet(EMPTY_WALLET);
-      setError("Please sign in to view your wallet.");
+      setError('Please sign in to view your wallet.');
       setLoading(false);
       setRefreshing(false);
       return;
     }
 
     try {
-      setError("");
+      setError('');
       const data = await fetchWalletData(userId);
-      setWallet(data);
+
+      if (mounted.current) {
+        setWallet(data);
+      }
     } catch (err) {
-      console.error("Wallet loading error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not load your wallet."
-      );
+      console.error('Wallet loading error:', err);
+
+      if (mounted.current) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load your wallet.',
+        );
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session?.user?.id]);
+
+  const checkPinStatus = useCallback(async () => {
+    try {
+      const result =
+        await walletSecurityService.checkPinStatus();
+
+      if (!mounted.current) return;
+
+      if (result.message && !result.configured) {
+        setError(result.message);
+      } else {
+        setError('');
+      }
+
+      setWalletView(
+        result.configured ? 'locked' : 'setup',
+      );
+    } catch (err) {
+      console.error('PIN status error:', err);
+
+      if (mounted.current) {
+        setError('Could not check wallet security.');
+        setWalletView('locked');
+      }
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
-      setWalletView("checking");
+      setWalletView('checking');
 
-      walletSecurityService.checkPinStatus().then(result => {
-        if (!active) return;
+      walletSecurityService
+        .checkPinStatus()
+        .then(result => {
+          if (!active || !mounted.current) return;
 
-        if (result.message && !result.configured) {
-          setError(result.message);
-        } else {
-          setError("");
-        }
+          if (result.message && !result.configured) {
+            setError(result.message);
+          } else {
+            setError('');
+          }
 
-        setWalletView(
-          result.configured ? "locked" : "setup"
-        );
-      }).catch(err => {
-        if (!active) return;
+          setWalletView(
+            result.configured ? 'locked' : 'setup',
+          );
+        })
+        .catch(err => {
+          if (!active || !mounted.current) return;
 
-        console.error("PIN status error:", err);
-        setError("Could not check wallet security.");
-        setWalletView("locked");
-      });
+          console.error('PIN status error:', err);
+          setError('Could not check wallet security.');
+          setWalletView('locked');
+        });
 
       return () => {
         active = false;
-        setWalletView("locked");
+        setWalletView('locked');
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
+    mounted.current = true;
     void loadWallet();
+
+    return () => {
+      mounted.current = false;
+    };
   }, [loadWallet]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener(
-      "change",
-      nextState => {
+      'change',
+      (nextState: AppStateStatus) => {
         const previousState = appState.current;
 
         if (
-          previousState === "active" &&
-          nextState !== "active"
+          previousState === 'active' &&
+          nextState !== 'active'
         ) {
-          setWalletView("locked");
+          setWalletView('locked');
         }
 
         if (
-          previousState !== "active" &&
-          nextState === "active"
+          previousState !== 'active' &&
+          nextState === 'active'
         ) {
-          setWalletView("checking");
+          setWalletView('checking');
           void checkPinStatus();
         }
 
         appState.current = nextState;
-      }
+      },
     );
 
     return () => subscription.remove();
@@ -233,16 +261,16 @@ export default function WalletScreen() {
 
       if (!result.success) {
         setError(
-          result.message ?? "Could not create your wallet PIN."
+          result.message ?? 'Could not create your wallet PIN.',
         );
         return false;
       }
 
-      setError("");
-      setWalletView("locked");
+      setError('');
+      setWalletView('locked');
       return true;
     },
-    []
+    [],
   );
 
   const handleVerifyPin = useCallback(
@@ -252,18 +280,18 @@ export default function WalletScreen() {
 
       if (!result.success) {
         setError(
-          result.message ?? "Incorrect wallet PIN."
+          result.message ?? 'Incorrect wallet PIN.',
         );
         return false;
       }
 
-      setError("");
-      setWalletView("wallet");
+      setError('');
+      setWalletView('wallet');
       await loadWallet();
 
       return true;
     },
-    [loadWallet]
+    [loadWallet],
   );
 
   const handleRecoveryRequest = useCallback(
@@ -276,15 +304,15 @@ export default function WalletScreen() {
       if (!result.success) {
         setError(
           result.message ??
-            "Could not submit your recovery request."
+            'Could not submit your recovery request.',
         );
         return false;
       }
 
-      setError("");
+      setError('');
       return true;
     },
-    []
+    [],
   );
 
   const total =
@@ -292,7 +320,7 @@ export default function WalletScreen() {
     wallet.balances.earned +
     wallet.balances.promotional;
 
-  if (walletView === "checking") {
+  if (walletView === 'checking') {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.cyan} />
@@ -303,32 +331,32 @@ export default function WalletScreen() {
     );
   }
 
-  if (walletView === "setup") {
+  if (walletView === 'setup') {
     return (
       <WalletPinSetupScreen
         onCreatePin={handleCreatePin}
-        onCancel={() => setWalletView("locked")}
+        onCancel={() => setWalletView('locked')}
       />
     );
   }
 
-  if (walletView === "locked") {
+  if (walletView === 'locked') {
     return (
       <WalletPinScreen
         onVerifyPin={handleVerifyPin}
         onForgotPin={() => {
-          setError("");
-          setWalletView("recovery");
+          setError('');
+          setWalletView('recovery');
         }}
       />
     );
   }
 
-  if (walletView === "recovery") {
+  if (walletView === 'recovery') {
     return (
       <WalletRecoveryScreen
         onSubmitRequest={handleRecoveryRequest}
-        onBack={() => setWalletView("locked")}
+        onBack={() => setWalletView('locked')}
       />
     );
   }
@@ -356,7 +384,7 @@ export default function WalletScreen() {
 
               <Pressable
                 style={styles.walletIcon}
-                onPress={() => setWalletView("locked")}
+                onPress={() => setWalletView('locked')}
                 accessibilityLabel="Lock wallet"
               >
                 <Ionicons
@@ -468,10 +496,10 @@ export default function WalletScreen() {
         }
         renderItem={({ item }) => {
           const isCredit =
-            item.entry_type.includes("received") ||
-            item.entry_type.includes("reward") ||
-            item.entry_type === "purchase" ||
-            item.entry_type === "cashback";
+            item.entry_type.includes('received') ||
+            item.entry_type.includes('reward') ||
+            item.entry_type === 'purchase' ||
+            item.entry_type === 'cashback';
 
           return (
             <View style={styles.transaction}>
@@ -498,7 +526,7 @@ export default function WalletScreen() {
                   isCredit ? styles.credit : styles.debit,
                 ]}
               >
-                {isCredit ? "+" : "-"}
+                {isCredit ? '+' : '-'}
                 {formatPoints(item.amount)}
               </Text>
             </View>
@@ -518,7 +546,7 @@ function BalanceRow({
 }: {
   title: string;
   amount: number;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  icon: React.ComponentProps<typeof Ionicons>['name'];
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
@@ -542,8 +570,8 @@ function createStyles(theme: any) {
     },
     center: {
       flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: theme.bg,
       gap: 12,
     },
@@ -556,21 +584,21 @@ function createStyles(theme: any) {
       paddingBottom: 30,
     },
     header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       marginBottom: 20,
     },
     brand: {
       color: theme.cyan,
       fontSize: 13,
-      fontWeight: "800",
+      fontWeight: '800',
       letterSpacing: 2,
     },
     heading: {
       color: theme.text,
       fontSize: 27,
-      fontWeight: "800",
+      fontWeight: '800',
       marginTop: 3,
     },
     walletIcon: {
@@ -580,8 +608,8 @@ function createStyles(theme: any) {
       backgroundColor: theme.panel,
       borderWidth: 1,
       borderColor: theme.border,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     balanceCard: {
       backgroundColor: theme.cyan,
@@ -590,20 +618,20 @@ function createStyles(theme: any) {
       marginBottom: 25,
     },
     balanceLabel: {
-      color: "#FFFFFF",
+      color: '#FFFFFF',
       opacity: 0.85,
       fontSize: 12,
-      fontWeight: "700",
+      fontWeight: '700',
       letterSpacing: 1.5,
     },
     total: {
-      color: "#FFFFFF",
+      color: '#FFFFFF',
       fontSize: 32,
-      fontWeight: "900",
+      fontWeight: '900',
       marginTop: 12,
     },
     balanceNote: {
-      color: "#FFFFFF",
+      color: '#FFFFFF',
       opacity: 0.85,
       marginTop: 8,
       fontSize: 13,
@@ -611,7 +639,7 @@ function createStyles(theme: any) {
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
-      fontWeight: "800",
+      fontWeight: '800',
       marginBottom: 12,
       marginTop: 8,
     },
@@ -624,41 +652,41 @@ function createStyles(theme: any) {
     },
     balanceRow: {
       minHeight: 62,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
     },
     categoryLeft: {
-      flexDirection: "row",
-      alignItems: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 10,
       flex: 1,
     },
     categoryTitle: {
       color: theme.text,
       fontSize: 14,
-      fontWeight: "600",
+      fontWeight: '600',
     },
     categoryAmount: {
       color: theme.text,
       fontSize: 14,
-      fontWeight: "800",
+      fontWeight: '800',
     },
     separator: {
       height: 1,
       backgroundColor: theme.border,
     },
     actions: {
-      flexDirection: "row",
+      flexDirection: 'row',
       marginVertical: 20,
     },
     disabledButton: {
       flex: 1,
       minHeight: 48,
       borderRadius: 14,
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
       gap: 9,
       backgroundColor: theme.panel2,
       borderWidth: 1,
@@ -666,7 +694,7 @@ function createStyles(theme: any) {
     },
     disabledText: {
       color: theme.muted,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     messageCard: {
       backgroundColor: theme.panel,
@@ -674,31 +702,31 @@ function createStyles(theme: any) {
       borderWidth: 1,
       borderColor: theme.border,
       padding: 20,
-      alignItems: "center",
+      alignItems: 'center',
       gap: 9,
     },
     emptyTitle: {
       color: theme.text,
-      fontWeight: "800",
+      fontWeight: '800',
       fontSize: 15,
     },
     emptyText: {
       color: theme.muted,
-      textAlign: "center",
+      textAlign: 'center',
       fontSize: 13,
     },
     errorText: {
       color: theme.danger,
-      textAlign: "center",
+      textAlign: 'center',
     },
     retry: {
       color: theme.cyan,
-      fontWeight: "800",
+      fontWeight: '800',
       padding: 6,
     },
     transaction: {
-      flexDirection: "row",
-      alignItems: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
       backgroundColor: theme.panel,
       borderRadius: 15,
       borderWidth: 1,
@@ -712,15 +740,15 @@ function createStyles(theme: any) {
       height: 40,
       borderRadius: 13,
       backgroundColor: theme.panel2,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     transactionDetails: {
       flex: 1,
     },
     transactionTitle: {
       color: theme.text,
-      fontWeight: "700",
+      fontWeight: '700',
       fontSize: 13,
     },
     transactionDate: {
@@ -730,13 +758,13 @@ function createStyles(theme: any) {
     },
     transactionAmount: {
       fontSize: 13,
-      fontWeight: "800",
+      fontWeight: '800',
     },
     credit: {
-      color: "#168B65",
+      color: '#168B65',
     },
     debit: {
       color: theme.danger,
     },
   });
-    }
+}
