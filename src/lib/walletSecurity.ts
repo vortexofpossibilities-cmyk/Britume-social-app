@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-
 import {
   WalletSecurityProvider,
   WalletPinStatusResult,
@@ -16,13 +15,13 @@ type RpcResult = {
   message?: string;
 };
 
-function getResult(data: unknown): RpcResult {
-  if (typeof data === "boolean") {
-    return { success: data };
+function parseResult(data: unknown): RpcResult {
+  if (Array.isArray(data)) {
+    return parseResult(data[0]);
   }
 
-  if (Array.isArray(data)) {
-    return getResult(data[0]);
+  if (typeof data === "boolean") {
+    return { success: data };
   }
 
   if (data && typeof data === "object") {
@@ -32,8 +31,8 @@ function getResult(data: unknown): RpcResult {
   return {};
 }
 
-function unavailableMessage() {
-  return "Wallet security service is unavailable. Please try again later.";
+function unavailable(): string {
+  return "Wallet security service is unavailable. Please try again.";
 }
 
 export const walletSecurityService: WalletSecurityProvider & {
@@ -44,7 +43,7 @@ export const walletSecurityService: WalletSecurityProvider & {
     if (!supabase) {
       return {
         configured: false,
-        message: unavailableMessage(),
+        message: unavailable(),
       };
     }
 
@@ -59,7 +58,7 @@ export const walletSecurityService: WalletSecurityProvider & {
       };
     }
 
-    const result = getResult(data);
+    const result = parseResult(data);
 
     return {
       configured: result.configured === true,
@@ -71,15 +70,13 @@ export const walletSecurityService: WalletSecurityProvider & {
     if (!supabase) {
       return {
         success: false,
-        message: unavailableMessage(),
+        message: unavailable(),
       };
     }
 
     const { data, error } = await supabase.rpc(
       "create_wallet_pin",
-      {
-        p_pin: pin,
-      }
+      { p_pin: pin }
     );
 
     if (error) {
@@ -89,7 +86,7 @@ export const walletSecurityService: WalletSecurityProvider & {
       };
     }
 
-    const result = getResult(data);
+    const result = parseResult(data);
 
     return {
       success: result.success === true,
@@ -97,19 +94,19 @@ export const walletSecurityService: WalletSecurityProvider & {
     };
   },
 
-  async verifyPin(pin: string): Promise<WalletPinVerificationResult> {
+  async verifyPin(
+    pin: string
+  ): Promise<WalletPinVerificationResult> {
     if (!supabase) {
       return {
         success: false,
-        message: unavailableMessage(),
+        message: unavailable(),
       };
     }
 
     const { data, error } = await supabase.rpc(
       "verify_wallet_pin",
-      {
-        p_pin: pin,
-      }
+      { p_pin: pin }
     );
 
     if (error) {
@@ -119,7 +116,7 @@ export const walletSecurityService: WalletSecurityProvider & {
       };
     }
 
-    const result = getResult(data);
+    const result = parseResult(data);
 
     return {
       success: result.success === true,
@@ -133,7 +130,7 @@ export const walletSecurityService: WalletSecurityProvider & {
     if (!supabase) {
       return {
         success: false,
-        message: unavailableMessage(),
+        message: unavailable(),
       };
     }
 
@@ -151,7 +148,7 @@ export const walletSecurityService: WalletSecurityProvider & {
       };
     }
 
-    const result = getResult(data);
+    const result = parseResult(data);
 
     return {
       success: result.success === true,
