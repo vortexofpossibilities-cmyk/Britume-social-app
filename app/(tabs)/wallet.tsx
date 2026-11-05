@@ -1,12 +1,14 @@
-
 import React, {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
   FlatList,
   Pressable,
   RefreshControl,
@@ -16,12 +18,21 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
+
 import { useAuth } from "../../src/auth/AuthProvider";
 import {
   fetchWalletData,
   WalletData,
 } from "../../src/lib/wallet";
 import { useAppTheme } from "../../src/contexts/ThemeContext";
+
+import WalletPinScreen from "../../src/components/wallet/WalletPinScreen";
+import WalletRecoveryScreen from "../../src/components/wallet/WalletRecoveryScreen";
+
+import {
+  WalletSecurityProvider,
+} from "../../src/lib/walletSecurity";
 
 const EMPTY_WALLET: WalletData = {
   balances: {
@@ -31,6 +42,8 @@ const EMPTY_WALLET: WalletData = {
   },
   transactions: [],
 };
+
+type WalletView = "locked" | "wallet" | "recovery";
 
 function formatPoints(value: number) {
   return `${value.toLocaleString(undefined, {
@@ -75,6 +88,31 @@ function transactionIcon(
   return "swap-horizontal-outline";
 }
 
+/**
+ * SECURITY PLACEHOLDER
+ *
+ * This provider intentionally refuses verification until a real
+ * server-side PIN verification service is connected.
+ *
+ * Never replace this with a local PIN comparison or a hardcoded
+ * successful verification.
+ */
+const walletSecurityProvider: WalletSecurityProvider = {
+  async verifyPin() {
+    return {
+      success: false,
+      message: "Secure wallet PIN verification is not connected yet.",
+    };
+  },
+
+  async requestPinReset() {
+    return {
+      success: false,
+      message: "Secure wallet recovery is not connected yet.",
+    };
+  },
+};
+
 export default function WalletScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
@@ -86,7 +124,15 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
+  const [walletView, setWalletView] =
+    useState<WalletView>("locked");
+
   const styles = createStyles(theme);
+
+  const isScreenFocused = useRef(false);
+  const appState = useRef<AppStateStatus>(
+    AppState.currentState
+  );
 
   const loadWallet = useCallback(async () => {
     const userId = session?.user?.id;
@@ -118,6 +164,44 @@ export default function WalletScreen() {
     }
   }, [session?.user?.id]);
 
+  /**
+   * Lock immediately when the wallet screen loses focus.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      isScreenFocused.current = true;
+      setWalletView("locked");
+
+      return () => {
+        isScreenFocused.current = false;
+        setWalletView("locked");
+      };
+    }, [])
+  );
+
+  /**
+   * Lock when the application moves into the background.
+   */
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        const previousState = appState.current;
+
+        if (
+          previousState === "active" &&
+          nextState !== "active"
+        ) {
+          setWalletView("locked");
+        }
+
+        appState.current = nextState;
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     void loadWallet();
   }, [loadWallet]);
@@ -127,10 +211,77 @@ export default function WalletScreen() {
     void loadWallet();
   }, [loadWallet]);
 
+  const handleVerifyPin = useCallback(
+    async (pin: string): Promise<boolean> => {
+      const result =
+        await walletSecurityProvider.verifyPin(pin);
+
+      if (!result.success) {
+        setError(
+          result.message ??
+          "Secure PIN verification is not available."
+        );
+      }
+
+      if (result.success) {
+        setError("");
+        setWalletView("wallet");
+        await loadWallet();
+        return true;
+      }
+
+      return false;
+    },
+    [loadWallet]
+  );
+
+  const handleRecoveryRequest = useCallback(
+    async (reason: string): Promise<boolean> => {
+      const result =
+        await walletSecurityProvider.requestPinReset({
+          reason,
+        });
+
+      if (!result.success) {
+        setError(
+          result.message ??
+          "Secure recovery is not available."
+        );
+        return false;
+      }
+
+      return true;
+    },
+    []
+  );
+
   const total =
     wallet.balances.purchased +
     wallet.balances.earned +
     wallet.balances.promotional;
+
+  if (walletView === "locked") {
+    return (
+      <WalletPinScreen
+        onVerifyPin={handleVerifyPin}
+        onForgotPin={() => {
+          setError("");
+          setWalletView("recovery");
+        }}
+      />
+    );
+  }
+
+  if (walletView === "recovery") {
+    return (
+      <WalletRecoveryScreen
+        onSubmitRequest={handleRecoveryRequest}
+        onBack={() => {
+          setWalletView("locked");
+        }}
+      />
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -153,13 +304,17 @@ export default function WalletScreen() {
                 <Text style={styles.heading}>My Wallet</Text>
               </View>
 
-              <View style={styles.walletIcon}>
+              <Pressable
+                style={styles.walletIcon}
+                onPress={() => setWalletView("locked")}
+                accessibilityLabel="Lock wallet"
+              >
                 <Ionicons
-                  name="wallet-outline"
-                  size={26}
+                  name="lock-closed-outline"
+                  size={24}
                   color={theme.cyan}
                 />
-              </View>
+              </Pressable>
             </View>
 
             <View style={styles.balanceCard}>
