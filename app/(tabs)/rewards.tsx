@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 type Game = {
@@ -43,7 +42,7 @@ const games: Game[] = [
     title: 'Daily Rewards',
     description: 'Come back daily and collect rewards.',
     icon: 'calendar-outline',
-    status: 'coming',
+    status: 'available',
     color: '#36B9A0',
   },
   {
@@ -79,11 +78,10 @@ export default function RewardsScreen() {
 
     if (game.id === 'spin') {
       router.push('/rewards/spin' as never);
-      return;
-    }
-
-    if (game.id === 'mystery') {
+    } else if (game.id === 'mystery') {
       router.push('/rewards/mystery-box' as never);
+    } else if (game.id === 'daily') {
+      router.push('/rewards/daily' as never);
     }
   };
 
@@ -101,7 +99,6 @@ export default function RewardsScreen() {
             Play games. Complete challenges. Earn rewards.
           </Text>
         </View>
-
         <View style={styles.headerIcon}>
           <Ionicons name="gift" size={27} color="#FFFFFF" />
         </View>
@@ -118,7 +115,6 @@ export default function RewardsScreen() {
             More experiences will be added over time.
           </Text>
         </View>
-
         <View style={styles.heroIcon}>
           <Ionicons name="game-controller" size={55} color="#FFFFFF" />
         </View>
@@ -150,11 +146,7 @@ export default function RewardsScreen() {
                 { backgroundColor: game.color },
               ]}
             >
-              <Ionicons
-                name={game.icon}
-                size={29}
-                color="#FFFFFF"
-              />
+              <Ionicons name={game.icon} size={29} color="#FFFFFF" />
             </View>
 
             <View style={styles.gameText}>
@@ -180,9 +172,7 @@ export default function RewardsScreen() {
                     : styles.comingText,
                 ]}
               >
-                {game.status === 'available'
-                  ? 'PLAY'
-                  : 'COMING SOON'}
+                {game.status === 'available' ? 'PLAY' : 'COMING SOON'}
               </Text>
             </View>
 
@@ -202,9 +192,8 @@ export default function RewardsScreen() {
           color={theme.cyan}
         />
         <Text style={styles.noticeText}>
-          Game rewards, costs and winning chances will be
-          displayed before you play. Rewards are subject
-          to BRITUME game rules.
+          Game rewards, costs and winning chances will be displayed
+          before you play. Rewards are subject to BRITUME game rules.
         </Text>
       </View>
 
@@ -400,4 +389,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 25,
     },
   });
-                }
+      }
