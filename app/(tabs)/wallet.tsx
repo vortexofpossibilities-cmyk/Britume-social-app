@@ -28,6 +28,7 @@ import {
 import { useAppTheme } from "../../src/contexts/ThemeContext";
 
 import WalletPinScreen from "../../src/components/wallet/WalletPinScreen";
+import WalletPinSetupScreen from "../../src/components/wallet/WalletPinSetupScreen";
 import WalletRecoveryScreen from "../../src/components/wallet/WalletRecoveryScreen";
 
 import {
@@ -43,7 +44,47 @@ const EMPTY_WALLET: WalletData = {
   transactions: [],
 };
 
-type WalletView = "locked" | "wallet" | "recovery";
+type WalletView =
+  | "setup"
+  | "locked"
+  | "wallet"
+  | "recovery";
+
+/**
+ * SECURITY PLACEHOLDER
+ *
+ * Real PIN creation, verification and recovery
+ * must be implemented using secure Supabase RPCs.
+ *
+ * This placeholder deliberately refuses all requests.
+ * Never replace it with local PIN storage or a
+ * hardcoded successful verification.
+ */
+const walletSecurityProvider: WalletSecurityProvider = {
+  async createPin() {
+    return {
+      success: false,
+      message:
+        "Secure PIN creation is not connected yet.",
+    };
+  },
+
+  async verifyPin() {
+    return {
+      success: false,
+      message:
+        "Secure PIN verification is not connected yet.",
+    };
+  },
+
+  async requestPinReset() {
+    return {
+      success: false,
+      message:
+        "Secure wallet recovery is not connected yet.",
+    };
+  },
+};
 
 function formatPoints(value: number) {
   return `${value.toLocaleString(undefined, {
@@ -73,11 +114,17 @@ function transactionTitle(type: string) {
 function transactionIcon(
   type: string
 ): React.ComponentProps<typeof Ionicons>["name"] {
-  if (type.includes("received") || type.includes("reward")) {
+  if (
+    type.includes("received") ||
+    type.includes("reward")
+  ) {
     return "arrow-down-circle-outline";
   }
 
-  if (type.includes("fee") || type.includes("sent")) {
+  if (
+    type.includes("fee") ||
+    type.includes("sent")
+  ) {
     return "arrow-up-circle-outline";
   }
 
@@ -87,31 +134,6 @@ function transactionIcon(
 
   return "swap-horizontal-outline";
 }
-
-/**
- * SECURITY PLACEHOLDER
- *
- * This provider intentionally refuses verification until a real
- * server-side PIN verification service is connected.
- *
- * Never replace this with a local PIN comparison or a hardcoded
- * successful verification.
- */
-const walletSecurityProvider: WalletSecurityProvider = {
-  async verifyPin() {
-    return {
-      success: false,
-      message: "Secure wallet PIN verification is not connected yet.",
-    };
-  },
-
-  async requestPinReset() {
-    return {
-      success: false,
-      message: "Secure wallet recovery is not connected yet.",
-    };
-  },
-};
 
 export default function WalletScreen() {
   const { session } = useAuth();
@@ -124,12 +146,15 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Until the server-side PIN status check is ready,
+   * the wallet starts at setup and remains inaccessible.
+   */
   const [walletView, setWalletView] =
-    useState<WalletView>("locked");
+    useState<WalletView>("setup");
 
   const styles = createStyles(theme);
 
-  const isScreenFocused = useRef(false);
   const appState = useRef<AppStateStatus>(
     AppState.currentState
   );
@@ -165,22 +190,21 @@ export default function WalletScreen() {
   }, [session?.user?.id]);
 
   /**
-   * Lock immediately when the wallet screen loses focus.
+   * Lock the wallet whenever this screen loses focus.
    */
   useFocusEffect(
     useCallback(() => {
-      isScreenFocused.current = true;
-      setWalletView("locked");
+      setWalletView("setup");
 
       return () => {
-        isScreenFocused.current = false;
         setWalletView("locked");
       };
     }, [])
   );
 
   /**
-   * Lock when the application moves into the background.
+   * Lock the wallet when the app goes into
+   * the background or becomes inactive.
    */
   useEffect(() => {
     const subscription = AppState.addEventListener(
@@ -211,46 +235,114 @@ export default function WalletScreen() {
     void loadWallet();
   }, [loadWallet]);
 
-  const handleVerifyPin = useCallback(
+  /**
+   * First-time PIN setup.
+   *
+   * The server must confirm successful creation.
+   * A successful setup still returns the user to
+   * the locked screen so they must verify their PIN.
+   */
+  const handleCreatePin = useCallback(
     async (pin: string): Promise<boolean> => {
-      const result =
-        await walletSecurityProvider.verifyPin(pin);
-
-      if (!result.success) {
+      if (!walletSecurityProvider.createPin) {
         setError(
-          result.message ??
-          "Secure PIN verification is not available."
-        );
-      }
-
-      if (result.success) {
-        setError("");
-        setWalletView("wallet");
-        await loadWallet();
-        return true;
-      }
-
-      return false;
-    },
-    [loadWallet]
-  );
-
-  const handleRecoveryRequest = useCallback(
-    async (reason: string): Promise<boolean> => {
-      const result =
-        await walletSecurityProvider.requestPinReset({
-          reason,
-        });
-
-      if (!result.success) {
-        setError(
-          result.message ??
-          "Secure recovery is not available."
+          "Secure PIN creation is not available yet."
         );
         return false;
       }
 
-      return true;
+      try {
+        const result =
+          await walletSecurityProvider.createPin(pin);
+
+        if (!result.success) {
+          setError(
+            result.message ??
+              "Could not create your wallet PIN."
+          );
+          return false;
+        }
+
+        setError("");
+        setWalletView("locked");
+
+        return true;
+      } catch (err) {
+        console.error("PIN setup error:", err);
+
+        setError("PIN setup failed. Please try again.");
+        return false;
+      }
+    },
+    []
+  );
+
+  /**
+   * Verify PIN before opening the wallet.
+   */
+  const handleVerifyPin = useCallback(
+    async (pin: string): Promise<boolean> => {
+      try {
+        const result =
+          await walletSecurityProvider.verifyPin(pin);
+
+        if (!result.success) {
+          setError(
+            result.message ??
+              "Wallet PIN verification failed."
+          );
+          return false;
+        }
+
+        setError("");
+        setWalletView("wallet");
+
+        await loadWallet();
+
+        return true;
+      } catch (err) {
+        console.error("PIN verification error:", err);
+
+        setError(
+          "Could not verify your PIN. Please try again."
+        );
+
+        return false;
+      }
+    },
+    [loadWallet]
+  );
+
+  /**
+   * Submit forgotten PIN recovery request.
+   */
+  const handleRecoveryRequest = useCallback(
+    async (reason: string): Promise<boolean> => {
+      try {
+        const result =
+          await walletSecurityProvider.requestPinReset({
+            reason,
+          });
+
+        if (!result.success) {
+          setError(
+            result.message ??
+              "Wallet recovery is not available yet."
+          );
+          return false;
+        }
+
+        setError("");
+        return true;
+      } catch (err) {
+        console.error("Wallet recovery error:", err);
+
+        setError(
+          "Could not submit your recovery request."
+        );
+
+        return false;
+      }
     },
     []
   );
@@ -260,6 +352,21 @@ export default function WalletScreen() {
     wallet.balances.earned +
     wallet.balances.promotional;
 
+  /**
+   * First-time PIN setup screen.
+   */
+  if (walletView === "setup") {
+    return (
+      <WalletPinSetupScreen
+        onCreatePin={handleCreatePin}
+        onCancel={() => setWalletView("locked")}
+      />
+    );
+  }
+
+  /**
+   * Wallet locked screen.
+   */
   if (walletView === "locked") {
     return (
       <WalletPinScreen
@@ -272,17 +379,21 @@ export default function WalletScreen() {
     );
   }
 
+  /**
+   * Forgotten PIN recovery screen.
+   */
   if (walletView === "recovery") {
     return (
       <WalletRecoveryScreen
         onSubmitRequest={handleRecoveryRequest}
-        onBack={() => {
-          setWalletView("locked");
-        }}
+        onBack={() => setWalletView("locked")}
       />
     );
   }
 
+  /**
+   * Main wallet screen.
+   */
   return (
     <View style={styles.screen}>
       <FlatList
@@ -300,8 +411,13 @@ export default function WalletScreen() {
           <View>
             <View style={styles.header}>
               <View>
-                <Text style={styles.brand}>BRITUME</Text>
-                <Text style={styles.heading}>My Wallet</Text>
+                <Text style={styles.brand}>
+                  BRITUME
+                </Text>
+
+                <Text style={styles.heading}>
+                  My Wallet
+                </Text>
               </View>
 
               <Pressable
@@ -408,8 +524,12 @@ export default function WalletScreen() {
                   {error}
                 </Text>
 
-                <Pressable onPress={() => void loadWallet()}>
-                  <Text style={styles.retry}>Retry</Text>
+                <Pressable
+                  onPress={() => void loadWallet()}
+                >
+                  <Text style={styles.retry}>
+                    Retry
+                  </Text>
                 </Pressable>
               </View>
             )}
@@ -458,14 +578,18 @@ export default function WalletScreen() {
                 </Text>
 
                 <Text style={styles.transactionDate}>
-                  {new Date(item.created_at).toLocaleString()}
+                  {new Date(
+                    item.created_at
+                  ).toLocaleString()}
                 </Text>
               </View>
 
               <Text
                 style={[
                   styles.transactionAmount,
-                  isCredit ? styles.credit : styles.debit,
+                  isCredit
+                    ? styles.credit
+                    : styles.debit,
                 ]}
               >
                 {isCredit ? "+" : "-"}
@@ -522,28 +646,33 @@ function createStyles(theme: any) {
       flex: 1,
       backgroundColor: theme.bg,
     },
+
     content: {
       padding: 18,
       paddingBottom: 30,
     },
+
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       marginBottom: 20,
     },
+
     brand: {
       color: theme.cyan,
       fontSize: 13,
       fontWeight: "800",
       letterSpacing: 2,
     },
+
     heading: {
       color: theme.text,
       fontSize: 27,
       fontWeight: "800",
       marginTop: 3,
     },
+
     walletIcon: {
       width: 48,
       height: 48,
@@ -554,12 +683,14 @@ function createStyles(theme: any) {
       alignItems: "center",
       justifyContent: "center",
     },
+
     balanceCard: {
       backgroundColor: theme.cyan,
       borderRadius: 22,
       padding: 23,
       marginBottom: 25,
     },
+
     balanceLabel: {
       color: "#FFFFFF",
       opacity: 0.85,
@@ -567,18 +698,21 @@ function createStyles(theme: any) {
       fontWeight: "700",
       letterSpacing: 1.5,
     },
+
     total: {
       color: "#FFFFFF",
       fontSize: 32,
       fontWeight: "900",
       marginTop: 12,
     },
+
     balanceNote: {
       color: "#FFFFFF",
       opacity: 0.85,
       marginTop: 8,
       fontSize: 13,
     },
+
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
@@ -586,6 +720,7 @@ function createStyles(theme: any) {
       marginBottom: 12,
       marginTop: 8,
     },
+
     categoryCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -593,36 +728,43 @@ function createStyles(theme: any) {
       borderColor: theme.border,
       paddingHorizontal: 15,
     },
+
     balanceRow: {
       minHeight: 62,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
     },
+
     categoryLeft: {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
       flex: 1,
     },
+
     categoryTitle: {
       color: theme.text,
       fontSize: 14,
       fontWeight: "600",
     },
+
     categoryAmount: {
       color: theme.text,
       fontSize: 14,
       fontWeight: "800",
     },
+
     separator: {
       height: 1,
       backgroundColor: theme.border,
     },
+
     actions: {
       flexDirection: "row",
       marginVertical: 20,
     },
+
     actionButton: {
       flex: 1,
       minHeight: 48,
@@ -632,15 +774,18 @@ function createStyles(theme: any) {
       alignItems: "center",
       gap: 9,
     },
+
     disabledButton: {
       backgroundColor: theme.panel2,
       borderWidth: 1,
       borderColor: theme.border,
     },
+
     disabledText: {
       color: theme.muted,
       fontWeight: "700",
     },
+
     messageCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -650,25 +795,30 @@ function createStyles(theme: any) {
       alignItems: "center",
       gap: 9,
     },
+
     emptyTitle: {
       color: theme.text,
       fontWeight: "800",
       fontSize: 15,
     },
+
     emptyText: {
       color: theme.muted,
       textAlign: "center",
       fontSize: 13,
     },
+
     errorText: {
       color: theme.danger,
       textAlign: "center",
     },
+
     retry: {
       color: theme.cyan,
       fontWeight: "800",
       padding: 6,
     },
+
     transaction: {
       flexDirection: "row",
       alignItems: "center",
@@ -680,6 +830,7 @@ function createStyles(theme: any) {
       marginBottom: 9,
       gap: 10,
     },
+
     transactionIcon: {
       width: 40,
       height: 40,
@@ -688,28 +839,34 @@ function createStyles(theme: any) {
       alignItems: "center",
       justifyContent: "center",
     },
+
     transactionDetails: {
       flex: 1,
     },
+
     transactionTitle: {
       color: theme.text,
       fontWeight: "700",
       fontSize: 13,
     },
+
     transactionDate: {
       color: theme.muted,
       fontSize: 11,
       marginTop: 4,
     },
+
     transactionAmount: {
       fontSize: 13,
       fontWeight: "800",
     },
+
     credit: {
       color: "#168B65",
     },
+
     debit: {
       color: theme.danger,
     },
   });
-}
+      }
