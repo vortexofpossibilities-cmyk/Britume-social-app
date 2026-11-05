@@ -40,5 +40,6 @@ export function validateWalletPinFormat(pin: string): boolean {
 }
 
 export function validateRecoveryReason(reason: string): boolean {
-  return reason.trim().length >= 5 && reason.trim().length <= 500;
+  const trimmed = reason.trim();
+  return trimmed.length >= 5 && trimmed.length <= 500;
 }
