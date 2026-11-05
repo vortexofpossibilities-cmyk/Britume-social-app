@@ -40,11 +40,15 @@ function getClient() {
 function safeAmount(value: unknown): number {
   const amount = Number(value ?? 0);
 
-  if (!Number.isFinite(amount)) {
-    return 0;
-  }
+  return Number.isFinite(amount) ? amount : 0;
+}
 
-  return amount;
+function isWalletCategory(value: unknown): value is WalletCategory {
+  return (
+    value === 'purchased' ||
+    value === 'earned' ||
+    value === 'promotional'
+  );
 }
 
 export async function fetchWalletData(
@@ -56,22 +60,21 @@ export async function fetchWalletData(
 
   const client = getClient();
 
-  const [balancesResult, transactionsResult] =
-    await Promise.all([
-      client
-        .from('wallet_balances')
-        .select('category, balance')
-        .eq('user_id', userId),
+  const [balancesResult, transactionsResult] = await Promise.all([
+    client
+      .from('wallet_balances')
+      .select('category, balance')
+      .eq('user_id', userId),
 
-      client
-        .from('wallet_ledger')
-        .select(
-          'id, transfer_id, category, entry_type, amount, created_at',
-        )
-        .eq('account_user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(20),
-    ]);
+    client
+      .from('wallet_ledger')
+      .select(
+        'id, transfer_id, category, entry_type, amount, created_at',
+      )
+      .eq('account_user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ]);
 
   if (balancesResult.error) {
     throw balancesResult.error;
@@ -86,21 +89,34 @@ export async function fetchWalletData(
   };
 
   for (const row of balancesResult.data ?? []) {
-    if (
-      row.category === 'purchased' ||
-      row.category === 'earned' ||
-      row.category === 'promotional'
-    ) {
-      balances[row.category] = safeAmount(row.balance);
+    const category: unknown = row.category;
+    const amount = safeAmount(row.balance);
+
+    if (!isWalletCategory(category)) {
+      continue;
+    }
+
+    switch (category) {
+      case 'purchased':
+        balances.purchased = amount;
+        break;
+      case 'earned':
+        balances.earned = amount;
+        break;
+      case 'promotional':
+        balances.promotional = amount;
+        break;
     }
   }
 
   const transactions: WalletLedgerEntry[] = (
     transactionsResult.data ?? []
-  ).map(row => ({
+  ).map((row) => ({
     id: Number(row.id),
     transfer_id: row.transfer_id ?? null,
-    category: row.category as WalletCategory,
+    category: isWalletCategory(row.category)
+      ? row.category
+      : 'earned',
     entry_type: String(row.entry_type ?? 'transaction'),
     amount: safeAmount(row.amount),
     created_at: String(row.created_at ?? ''),
