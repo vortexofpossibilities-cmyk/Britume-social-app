@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 
 export type WalletCategory =
@@ -39,16 +40,37 @@ function getClient() {
 
 function safeAmount(value: unknown): number {
   const amount = Number(value ?? 0);
-
   return Number.isFinite(amount) ? amount : 0;
 }
 
-function isWalletCategory(value: unknown): value is WalletCategory {
+function isWalletCategory(
+  value: unknown,
+): value is WalletCategory {
   return (
     value === 'purchased' ||
     value === 'earned' ||
     value === 'promotional'
   );
+}
+
+function setBalance(
+  balances: WalletBalances,
+  category: WalletCategory,
+  amount: number,
+): void {
+  switch (category) {
+    case 'purchased':
+      balances.purchased = amount;
+      break;
+
+    case 'earned':
+      balances.earned = amount;
+      break;
+
+    case 'promotional':
+      balances.promotional = amount;
+      break;
+  }
 }
 
 export async function fetchWalletData(
@@ -90,23 +112,16 @@ export async function fetchWalletData(
 
   for (const row of balancesResult.data ?? []) {
     const category: unknown = row.category;
-    const amount = safeAmount(row.balance);
 
     if (!isWalletCategory(category)) {
       continue;
     }
 
-    switch (category) {
-      case 'purchased':
-        balances.purchased = amount;
-        break;
-      case 'earned':
-        balances.earned = amount;
-        break;
-      case 'promotional':
-        balances.promotional = amount;
-        break;
-    }
+    setBalance(
+      balances,
+      category,
+      safeAmount(row.balance),
+    );
   }
 
   const transactions: WalletLedgerEntry[] = (
