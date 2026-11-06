@@ -31,7 +31,7 @@ const EMPTY_BALANCES: WalletBalances = {
 function getClient() {
   if (!supabase) {
     throw new Error(
-      'Supabase is not configured. Check your environment variables.',
+      'Supabase is not configured. Check your environment variables.'
     );
   }
 
@@ -44,7 +44,7 @@ function safeAmount(value: unknown): number {
 }
 
 function isWalletCategory(
-  value: unknown,
+  value: unknown
 ): value is WalletCategory {
   return (
     value === 'purchased' ||
@@ -56,7 +56,7 @@ function isWalletCategory(
 function setBalance(
   balances: WalletBalances,
   category: WalletCategory,
-  amount: number,
+  amount: number
 ): void {
   switch (category) {
     case 'purchased':
@@ -74,29 +74,32 @@ function setBalance(
 }
 
 export async function fetchWalletData(
-  userId: string,
+  userId: string
 ): Promise<WalletData> {
   if (!userId) {
-    throw new Error('You must be signed in to view your wallet.');
+    throw new Error(
+      'You must be signed in to view your wallet.'
+    );
   }
 
   const client = getClient();
 
-  const [balancesResult, transactionsResult] = await Promise.all([
-    client
-      .from('wallet_balances')
-      .select('category, balance')
-      .eq('user_id', userId),
+  const [balancesResult, transactionsResult] =
+    await Promise.all([
+      client
+        .from('wallet_balances')
+        .select('category, balance')
+        .eq('user_id', userId),
 
-    client
-      .from('wallet_ledger')
-      .select(
-        'id, transfer_id, category, entry_type, amount, created_at',
-      )
-      .eq('account_user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(20),
-  ]);
+      client
+        .from('wallet_ledger')
+        .select(
+          'id, transfer_id, category, entry_type, amount, created_at'
+        )
+        .eq('account_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
 
   if (balancesResult.error) {
     throw balancesResult.error;
@@ -120,7 +123,7 @@ export async function fetchWalletData(
     setBalance(
       balances,
       category,
-      safeAmount(row.balance),
+      safeAmount(row.balance)
     );
   }
 
