@@ -66,9 +66,15 @@ export default function DailyRewardsScreen() {
       </View>
 
       <View style={styles.streakCard}>
-        <Ionicons name="flame" size={48} color="#F59E0B" />
+        <Ionicons
+          name="flame"
+          size={48}
+          color="#F59E0B"
+        />
         <Text style={styles.streakNumber}>0 Days</Text>
-        <Text style={styles.streakLabel}>Your current streak</Text>
+        <Text style={styles.streakLabel}>
+          Your current streak
+        </Text>
         <Text style={styles.streakHint}>
           Your streak will begin when daily rewards are activated.
         </Text>
@@ -93,7 +99,9 @@ export default function DailyRewardsScreen() {
           </View>
 
           <View style={styles.rewardInfo}>
-            <Text style={styles.dayTitle}>{reward.day}</Text>
+            <Text style={styles.dayTitle}>
+              {reward.day}
+            </Text>
             <Text style={styles.dayDescription}>
               {index === 6
                 ? 'Weekly streak reward'
@@ -101,7 +109,9 @@ export default function DailyRewardsScreen() {
             </Text>
           </View>
 
-          <Text style={styles.points}>{reward.points} pts</Text>
+          <Text style={styles.points}>
+            {reward.points} pts
+          </Text>
 
           <Ionicons
             name="lock-closed"
@@ -117,7 +127,9 @@ export default function DailyRewardsScreen() {
           size={27}
           color={theme.cyan}
         />
-        <Text style={styles.footerTitle}>Keep showing up</Text>
+        <Text style={styles.footerTitle}>
+          Keep showing up
+        </Text>
         <Text style={styles.footerText}>
           The daily reward system will track check-ins securely and prevent
           duplicate claims when connected to the BRITUME backend.
@@ -274,4 +286,4 @@ function createStyles(theme: ThemeColors) {
       marginTop: 8,
     },
   });
-          }
+}
