@@ -10,7 +10,19 @@ import {
   type TextInputProps,
   type ViewProps,
 } from 'react-native';
+
 import { theme as C } from '../lib/theme';
+
+type ChildrenProps = {
+  children: React.ReactNode;
+};
+
+type ActionProps = {
+  title: string;
+  onPress: () => void;
+  secondary?: boolean;
+  disabled?: boolean;
+};
 
 export function Page({ children, style, ...props }: ViewProps) {
   return (
@@ -20,33 +32,33 @@ export function Page({ children, style, ...props }: ViewProps) {
   );
 }
 
-export function Heading({ children }: { children: React.ReactNode }) {
+export function Heading({ children }: ChildrenProps) {
   return <Text style={styles.heading}>{children}</Text>;
 }
 
-export function Copy({ children }: { children: React.ReactNode }) {
+export function Copy({ children }: ChildrenProps) {
   return <Text style={styles.copy}>{children}</Text>;
 }
 
-export function Panel({ children }: { children: React.ReactNode }) {
-  return <View style={styles.panel}>{children}</View>;
+export function Panel({ children }: ChildrenProps) {
+  return (
+    <View style={styles.panel}>
+      {children}
+    </View>
+  );
 }
 
 export function Action({
   title,
   onPress,
-  secondary,
-  disabled,
-}: {
-  title: string;
-  onPress: () => void;
-  secondary?: boolean;
-  disabled?: boolean;
-}) {
+  secondary = false,
+  disabled = false,
+}: ActionProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityState={{ disabled }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
@@ -68,10 +80,11 @@ export function Action({
   );
 }
 
-export function Field({
-  label,
-  ...props
-}: TextInputProps & { label: string }) {
+type FieldProps = TextInputProps & {
+  label: string;
+};
+
+export function Field({ label, ...props }: FieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
