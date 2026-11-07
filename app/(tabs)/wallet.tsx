@@ -8,7 +8,7 @@ import React, {
 import {
   ActivityIndicator,
   AppState,
-  AppStateStatus,
+  type AppStateStatus,
   FlatList,
   Pressable,
   RefreshControl,
@@ -21,10 +21,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+
 import {
   fetchWalletData,
-  WalletData,
+  type WalletData,
 } from '../../src/lib/wallet';
+
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 import WalletPinScreen from '../../src/components/wallet/WalletPinScreen';
@@ -49,13 +51,13 @@ type WalletView =
   | 'wallet'
   | 'recovery';
 
-function formatPoints(value: number) {
+function formatPoints(value: number): string {
   return `${value.toLocaleString(undefined, {
     maximumFractionDigits: 4,
   })} pts`;
 }
 
-function transactionTitle(type: string) {
+function transactionTitle(type: string): string {
   const titles: Record<string, string> = {
     transfer_sent: 'Points sent',
     transfer_received: 'Points received',
@@ -79,7 +81,9 @@ function transactionIcon(
 ): React.ComponentProps<typeof Ionicons>['name'] {
   if (
     type.includes('received') ||
-    type.includes('reward')
+    type.includes('reward') ||
+    type === 'purchase' ||
+    type === 'cashback'
   ) {
     return 'arrow-down-circle-outline';
   }
@@ -102,40 +106,54 @@ export default function WalletScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
+  const userId = session?.user?.id;
+
   const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
   const [walletView, setWalletView] =
     useState<WalletView>('checking');
 
-  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const appState = useRef<AppStateStatus>(
+    AppState.currentState,
+  );
+
   const mounted = useRef(true);
+  const unlocked = useRef(false);
 
   const styles = createStyles(theme);
 
+  // Load wallet information only after PIN verification.
   const loadWallet = useCallback(async () => {
-    const userId = session?.user?.id;
-
     if (!userId) {
-      setWallet(EMPTY_WALLET);
-      setError('Please sign in to view your wallet.');
-      setLoading(false);
-      setRefreshing(false);
+      if (mounted.current) {
+        setWallet(EMPTY_WALLET);
+        setError('Please sign in to view your wallet.');
+        setLoading(false);
+        setRefreshing(false);
+      }
+      return;
+    }
+
+    if (!unlocked.current) {
       return;
     }
 
     try {
       setError('');
+      setLoading(true);
+
       const data = await fetchWalletData(userId);
 
-      if (mounted.current) {
+      if (mounted.current && unlocked.current) {
         setWallet(data);
       }
     } catch (err) {
       console.error('Wallet loading error:', err);
 
-      if (mounted.current) {
+      if (mounted.current && unlocked.current) {
         setError(
           err instanceof Error
             ? err.message
@@ -148,8 +166,9 @@ export default function WalletScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.user?.id]);
+  }, [userId]);
 
+  // Check whether the user has already created a wallet PIN.
   const checkPinStatus = useCallback(async () => {
     try {
       const result =
@@ -163,6 +182,9 @@ export default function WalletScreen() {
         setError('');
       }
 
+      unlocked.current = false;
+      setWallet(EMPTY_WALLET);
+
       setWalletView(
         result.configured ? 'locked' : 'setup',
       );
@@ -170,22 +192,30 @@ export default function WalletScreen() {
       console.error('PIN status error:', err);
 
       if (mounted.current) {
+        unlocked.current = false;
+        setWallet(EMPTY_WALLET);
         setError('Could not check wallet security.');
         setWalletView('locked');
       }
     }
   }, []);
 
+  // Check security whenever the wallet screen receives focus.
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
+      unlocked.current = false;
+      setWallet(EMPTY_WALLET);
+      setError('');
       setWalletView('checking');
 
       walletSecurityService
         .checkPinStatus()
         .then(result => {
           if (!active || !mounted.current) return;
+
+          unlocked.current = false;
 
           if (result.message && !result.configured) {
             setError(result.message);
@@ -201,26 +231,33 @@ export default function WalletScreen() {
           if (!active || !mounted.current) return;
 
           console.error('PIN status error:', err);
+
+          unlocked.current = false;
           setError('Could not check wallet security.');
           setWalletView('locked');
         });
 
       return () => {
         active = false;
+
+        unlocked.current = false;
+        setWallet(EMPTY_WALLET);
         setWalletView('locked');
       };
     }, []),
   );
 
+  // Track whether the component is mounted.
   useEffect(() => {
     mounted.current = true;
-    void loadWallet();
 
     return () => {
       mounted.current = false;
+      unlocked.current = false;
     };
-  }, [loadWallet]);
+  }, []);
 
+  // Lock the wallet whenever the app leaves the foreground.
   useEffect(() => {
     const subscription = AppState.addEventListener(
       'change',
@@ -231,6 +268,10 @@ export default function WalletScreen() {
           previousState === 'active' &&
           nextState !== 'active'
         ) {
+          unlocked.current = false;
+          setWallet(EMPTY_WALLET);
+          setRefreshing(false);
+          setLoading(false);
           setWalletView('locked');
         }
 
@@ -238,7 +279,6 @@ export default function WalletScreen() {
           previousState !== 'active' &&
           nextState === 'active'
         ) {
-          setWalletView('checking');
           void checkPinStatus();
         }
 
@@ -250,80 +290,135 @@ export default function WalletScreen() {
   }, [checkPinStatus]);
 
   const onRefresh = useCallback(() => {
+    if (!unlocked.current) return;
+
     setRefreshing(true);
     void loadWallet();
   }, [loadWallet]);
 
+  // Create a new wallet PIN.
   const handleCreatePin = useCallback(
     async (pin: string): Promise<boolean> => {
-      const result =
-        await walletSecurityService.createPin(pin);
+      try {
+        const result =
+          await walletSecurityService.createPin(pin);
 
-      if (!result.success) {
+        if (!result.success) {
+          setError(
+            result.message ??
+              'Could not create your wallet PIN.',
+          );
+          return false;
+        }
+
+        unlocked.current = false;
+        setError('');
+        setWalletView('locked');
+
+        return true;
+      } catch (err) {
         setError(
-          result.message ?? 'Could not create your wallet PIN.',
+          err instanceof Error
+            ? err.message
+            : 'Could not create your wallet PIN.',
         );
+
         return false;
       }
-
-      setError('');
-      setWalletView('locked');
-      return true;
     },
     [],
   );
 
+  // Verify the wallet PIN before showing wallet information.
   const handleVerifyPin = useCallback(
     async (pin: string): Promise<boolean> => {
-      const result =
-        await walletSecurityService.verifyPin(pin);
+      try {
+        const result =
+          await walletSecurityService.verifyPin(pin);
 
-      if (!result.success) {
+        if (!result.success) {
+          setError(
+            result.message ?? 'Incorrect wallet PIN.',
+          );
+          return false;
+        }
+
+        unlocked.current = true;
+        setError('');
+        setWalletView('wallet');
+
+        await loadWallet();
+
+        return true;
+      } catch (err) {
+        unlocked.current = false;
+
         setError(
-          result.message ?? 'Incorrect wallet PIN.',
+          err instanceof Error
+            ? err.message
+            : 'Could not verify your wallet PIN.',
         );
+
         return false;
       }
-
-      setError('');
-      setWalletView('wallet');
-      await loadWallet();
-
-      return true;
     },
     [loadWallet],
   );
 
+  // Submit a forgotten PIN recovery request.
   const handleRecoveryRequest = useCallback(
     async (reason: string): Promise<boolean> => {
-      const result =
-        await walletSecurityService.requestPinReset({
-          reason,
-        });
+      try {
+        const result =
+          await walletSecurityService.requestPinReset({
+            reason,
+          });
 
-      if (!result.success) {
+        if (!result.success) {
+          setError(
+            result.message ??
+              'Could not submit your recovery request.',
+          );
+
+          return false;
+        }
+
+        setError('');
+        return true;
+      } catch (err) {
         setError(
-          result.message ??
-            'Could not submit your recovery request.',
+          err instanceof Error
+            ? err.message
+            : 'Could not submit your recovery request.',
         );
+
         return false;
       }
-
-      setError('');
-      return true;
     },
     [],
   );
+
+  const handleLockWallet = useCallback(() => {
+    unlocked.current = false;
+    setWallet(EMPTY_WALLET);
+    setError('');
+    setWalletView('locked');
+  }, []);
 
   const total =
     wallet.balances.purchased +
     wallet.balances.earned +
     wallet.balances.promotional;
 
+  // Security check in progress.
   if (walletView === 'checking') {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.cyan} />
+        <ActivityIndicator
+          size="large"
+          color={theme.cyan}
+        />
+
         <Text style={styles.loadingText}>
           Checking wallet security...
         </Text>
@@ -331,6 +426,7 @@ export default function WalletScreen() {
     );
   }
 
+  // First-time wallet PIN setup.
   if (walletView === 'setup') {
     return (
       <WalletPinSetupScreen
@@ -340,6 +436,7 @@ export default function WalletScreen() {
     );
   }
 
+  // Locked wallet.
   if (walletView === 'locked') {
     return (
       <WalletPinScreen
@@ -352,12 +449,29 @@ export default function WalletScreen() {
     );
   }
 
+  // PIN recovery.
   if (walletView === 'recovery') {
     return (
       <WalletRecoveryScreen
         onSubmitRequest={handleRecoveryRequest}
         onBack={() => setWalletView('locked')}
       />
+    );
+  }
+
+  // Do not render wallet data unless PIN verification succeeded.
+  if (!unlocked.current) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator
+          size="large"
+          color={theme.cyan}
+        />
+
+        <Text style={styles.loadingText}>
+          Securing your wallet...
+        </Text>
+      </View>
     );
   }
 
@@ -378,13 +492,18 @@ export default function WalletScreen() {
           <View>
             <View style={styles.header}>
               <View>
-                <Text style={styles.brand}>BRITUME</Text>
-                <Text style={styles.heading}>My Wallet</Text>
+                <Text style={styles.brand}>
+                  BRITUME
+                </Text>
+
+                <Text style={styles.heading}>
+                  My Wallet
+                </Text>
               </View>
 
               <Pressable
                 style={styles.walletIcon}
-                onPress={() => setWalletView('locked')}
+                onPress={handleLockWallet}
                 accessibilityLabel="Lock wallet"
               >
                 <Ionicons
@@ -401,7 +520,10 @@ export default function WalletScreen() {
               </Text>
 
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="large" />
+                <ActivityIndicator
+                  color="#FFFFFF"
+                  size="large"
+                />
               ) : (
                 <Text style={styles.total}>
                   {formatPoints(total)}
@@ -451,6 +573,7 @@ export default function WalletScreen() {
                   size={19}
                   color={theme.muted}
                 />
+
                 <Text style={styles.disabledText}>
                   Send points
                 </Text>
@@ -468,9 +591,17 @@ export default function WalletScreen() {
                   size={22}
                   color={theme.danger}
                 />
-                <Text style={styles.errorText}>{error}</Text>
-                <Pressable onPress={() => void loadWallet()}>
-                  <Text style={styles.retry}>Retry</Text>
+
+                <Text style={styles.errorText}>
+                  {error}
+                </Text>
+
+                <Pressable
+                  onPress={() => void loadWallet()}
+                >
+                  <Text style={styles.retry}>
+                    Retry
+                  </Text>
                 </Pressable>
               </View>
             )}
@@ -484,9 +615,11 @@ export default function WalletScreen() {
                     size={28}
                     color={theme.muted}
                   />
+
                   <Text style={styles.emptyTitle}>
                     No transactions yet
                   </Text>
+
                   <Text style={styles.emptyText}>
                     Your wallet activity will appear here.
                   </Text>
@@ -515,6 +648,7 @@ export default function WalletScreen() {
                 <Text style={styles.transactionTitle}>
                   {transactionTitle(item.entry_type)}
                 </Text>
+
                 <Text style={styles.transactionDate}>
                   {new Date(item.created_at).toLocaleString()}
                 </Text>
@@ -532,7 +666,9 @@ export default function WalletScreen() {
             </View>
           );
         }}
-        ListFooterComponent={<View style={{ height: 30 }} />}
+        ListFooterComponent={
+          <View style={{ height: 30 }} />
+        }
       />
     </View>
   );
@@ -552,9 +688,17 @@ function BalanceRow({
   return (
     <View style={styles.balanceRow}>
       <View style={styles.categoryLeft}>
-        <Ionicons name={icon} size={21} color="#16A6B5" />
-        <Text style={styles.categoryTitle}>{title}</Text>
+        <Ionicons
+          name={icon}
+          size={21}
+          color="#16A6B5"
+        />
+
+        <Text style={styles.categoryTitle}>
+          {title}
+        </Text>
       </View>
+
       <Text style={styles.categoryAmount}>
         {formatPoints(amount)}
       </Text>
@@ -568,6 +712,7 @@ function createStyles(theme: any) {
       flex: 1,
       backgroundColor: theme.bg,
     },
+
     center: {
       flex: 1,
       alignItems: 'center',
@@ -575,32 +720,38 @@ function createStyles(theme: any) {
       backgroundColor: theme.bg,
       gap: 12,
     },
+
     loadingText: {
       color: theme.text,
       fontSize: 14,
     },
+
     content: {
       padding: 18,
       paddingBottom: 30,
     },
+
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 20,
     },
+
     brand: {
       color: theme.cyan,
       fontSize: 13,
       fontWeight: '800',
       letterSpacing: 2,
     },
+
     heading: {
       color: theme.text,
       fontSize: 27,
       fontWeight: '800',
       marginTop: 3,
     },
+
     walletIcon: {
       width: 48,
       height: 48,
@@ -611,12 +762,14 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+
     balanceCard: {
       backgroundColor: theme.cyan,
       borderRadius: 22,
       padding: 23,
       marginBottom: 25,
     },
+
     balanceLabel: {
       color: '#FFFFFF',
       opacity: 0.85,
@@ -624,18 +777,21 @@ function createStyles(theme: any) {
       fontWeight: '700',
       letterSpacing: 1.5,
     },
+
     total: {
       color: '#FFFFFF',
       fontSize: 32,
       fontWeight: '900',
       marginTop: 12,
     },
+
     balanceNote: {
       color: '#FFFFFF',
       opacity: 0.85,
       marginTop: 8,
       fontSize: 13,
     },
+
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
@@ -643,6 +799,7 @@ function createStyles(theme: any) {
       marginBottom: 12,
       marginTop: 8,
     },
+
     categoryCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -650,36 +807,43 @@ function createStyles(theme: any) {
       borderColor: theme.border,
       paddingHorizontal: 15,
     },
+
     balanceRow: {
       minHeight: 62,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
+
     categoryLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       flex: 1,
     },
+
     categoryTitle: {
       color: theme.text,
       fontSize: 14,
       fontWeight: '600',
     },
+
     categoryAmount: {
       color: theme.text,
       fontSize: 14,
       fontWeight: '800',
     },
+
     separator: {
       height: 1,
       backgroundColor: theme.border,
     },
+
     actions: {
       flexDirection: 'row',
       marginVertical: 20,
     },
+
     disabledButton: {
       flex: 1,
       minHeight: 48,
@@ -692,10 +856,12 @@ function createStyles(theme: any) {
       borderWidth: 1,
       borderColor: theme.border,
     },
+
     disabledText: {
       color: theme.muted,
       fontWeight: '700',
     },
+
     messageCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -705,25 +871,30 @@ function createStyles(theme: any) {
       alignItems: 'center',
       gap: 9,
     },
+
     emptyTitle: {
       color: theme.text,
       fontWeight: '800',
       fontSize: 15,
     },
+
     emptyText: {
       color: theme.muted,
       textAlign: 'center',
       fontSize: 13,
     },
+
     errorText: {
       color: theme.danger,
       textAlign: 'center',
     },
+
     retry: {
       color: theme.cyan,
       fontWeight: '800',
       padding: 6,
     },
+
     transaction: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -735,6 +906,7 @@ function createStyles(theme: any) {
       marginBottom: 9,
       gap: 10,
     },
+
     transactionIcon: {
       width: 40,
       height: 40,
@@ -743,26 +915,32 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+
     transactionDetails: {
       flex: 1,
     },
+
     transactionTitle: {
       color: theme.text,
       fontWeight: '700',
       fontSize: 13,
     },
+
     transactionDate: {
       color: theme.muted,
       fontSize: 11,
       marginTop: 4,
     },
+
     transactionAmount: {
       fontSize: 13,
       fontWeight: '800',
     },
+
     credit: {
       color: '#168B65',
     },
+
     debit: {
       color: theme.danger,
     },
