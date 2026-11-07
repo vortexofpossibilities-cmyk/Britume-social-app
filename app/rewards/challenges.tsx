@@ -41,6 +41,8 @@ const challenges = [
   },
 ];
 
+type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
+
 export default function ChallengesScreen() {
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
@@ -51,8 +53,17 @@ export default function ChallengesScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable style={styles.back} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={23} color={theme.text} />
+      <Pressable
+        style={styles.back}
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back to Rewards Hub"
+      >
+        <Ionicons
+          name="arrow-back"
+          size={23}
+          color={theme.text}
+        />
         <Text style={styles.backText}>Rewards Hub</Text>
       </Pressable>
 
@@ -77,18 +88,30 @@ export default function ChallengesScreen() {
       </View>
 
       <View style={styles.progressCard}>
-        <Ionicons name="trophy" size={42} color="#E5A52E" />
-        <Text style={styles.progressTitle}>Your challenge journey</Text>
+        <Ionicons
+          name="trophy"
+          size={42}
+          color="#E5A52E"
+        />
+        <Text style={styles.progressTitle}>
+          Your challenge journey
+        </Text>
         <Text style={styles.progressNumber}>0 completed</Text>
         <Text style={styles.progressHint}>
           Your progress will appear here when challenges are activated.
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Available challenges</Text>
+      <Text style={styles.sectionTitle}>
+        Available challenges
+      </Text>
 
-      {challenges.map(challenge => (
-        <View key={challenge.id} style={styles.challengeCard}>
+      {challenges.map((challenge) => (
+        <View
+          key={challenge.id}
+          style={styles.challengeCard}
+          accessibilityLabel={`${challenge.title}. Preview reward: ${challenge.reward} points. Locked.`}
+        >
           <View style={styles.challengeIcon}>
             <Ionicons
               name={challenge.icon}
@@ -125,7 +148,9 @@ export default function ChallengesScreen() {
           size={27}
           color={theme.cyan}
         />
-        <Text style={styles.footerTitle}>Fair rewards for everyone</Text>
+        <Text style={styles.footerTitle}>
+          Fair rewards for everyone
+        </Text>
         <Text style={styles.footerText}>
           BRITUME will verify completed activities on the server before
           awarding points. Repeated or fraudulent activity will not qualify.
@@ -135,8 +160,8 @@ export default function ChallengesScreen() {
   );
 }
 
-const createStyles = (theme: any) =>
-  StyleSheet.create({
+function createStyles(theme: ThemeColors) {
+  return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: theme.bg,
@@ -287,3 +312,4 @@ const createStyles = (theme: any) =>
       marginTop: 8,
     },
   });
+}
