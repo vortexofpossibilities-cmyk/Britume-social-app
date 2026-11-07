@@ -11,8 +11,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+type GameId = 'spin' | 'mystery' | 'daily' | 'challenges' | 'more';
+
 type Game = {
-  id: string;
+  id: GameId;
   title: string;
   description: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -79,16 +81,27 @@ export default function RewardsScreen() {
     switch (game.id) {
       case 'spin':
         router.push('/rewards/spin' as never);
-        break;
+        return;
+
       case 'mystery':
         router.push('/rewards/mystery-box' as never);
-        break;
+        return;
+
       case 'daily':
         router.push('/rewards/daily' as never);
-        break;
+        return;
+
       case 'challenges':
         router.push('/rewards/challenges' as never);
-        break;
+        return;
+
+      case 'more':
+        return;
+
+      default: {
+        const neverGame: never = game.id;
+        return neverGame;
+      }
     }
   };
 
@@ -115,9 +128,11 @@ export default function RewardsScreen() {
       <View style={styles.hero}>
         <View style={styles.heroText}>
           <Text style={styles.heroEyebrow}>WELCOME TO THE HUB</Text>
+
           <Text style={styles.heroTitle}>
             Your next reward could be one game away!
           </Text>
+
           <Text style={styles.heroDescription}>
             Explore games and activities in one place. More experiences
             will be added over time.
@@ -149,6 +164,8 @@ export default function RewardsScreen() {
           <Pressable
             key={game.id}
             onPress={() => openGame(game)}
+            accessibilityRole="button"
+            accessibilityLabel={`${game.title}. ${game.description}`}
             style={({ pressed }) => [
               styles.gameCard,
               pressed && styles.pressed,
@@ -169,6 +186,7 @@ export default function RewardsScreen() {
 
             <View style={styles.gameText}>
               <Text style={styles.gameTitle}>{game.title}</Text>
+
               <Text style={styles.gameDescription}>
                 {game.description}
               </Text>
@@ -209,6 +227,7 @@ export default function RewardsScreen() {
           size={22}
           color={theme.cyan}
         />
+
         <Text style={styles.noticeText}>
           Game rewards, costs and winning chances will be displayed
           before you play. Rewards are subject to BRITUME game rules.
@@ -222,7 +241,9 @@ export default function RewardsScreen() {
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
+function createStyles(
+  theme: ReturnType<typeof useAppTheme>['theme'],
+) {
   return StyleSheet.create({
     screen: {
       flex: 1,
@@ -407,4 +428,4 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 25,
     },
   });
-      }
+        }
