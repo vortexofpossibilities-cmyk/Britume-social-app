@@ -102,7 +102,9 @@ export default function MysteryBoxScreen() {
           size={82}
           color={selectedBox.color}
         />
-        <Text style={styles.boxName}>{selectedBox.name}</Text>
+        <Text style={styles.boxName}>
+          {selectedBox.name}
+        </Text>
         <Text style={styles.boxCost}>
           {selectedBox.cost} points
         </Text>
@@ -111,57 +113,61 @@ export default function MysteryBoxScreen() {
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Choose your box</Text>
+      <Text style={styles.sectionTitle}>
+        Choose your box
+      </Text>
 
-      {boxes.map((box) => {
-        const active = selected === box.id;
+      <View accessibilityRole="radiogroup">
+        {boxes.map((box) => {
+          const active = selected === box.id;
 
-        return (
-          <Pressable
-            key={box.id}
-            onPress={() => chooseBox(box.id)}
-            accessibilityRole="radio"
-            accessibilityLabel={`${box.name}, ${box.cost} points`}
-            accessibilityState={{ selected: active }}
-            style={[
-              styles.option,
-              active && styles.optionActive,
-            ]}
-          >
-            <View
+          return (
+            <Pressable
+              key={box.id}
+              onPress={() => chooseBox(box.id)}
+              accessibilityRole="radio"
+              accessibilityLabel={`${box.name}, ${box.cost} points`}
+              accessibilityState={{ selected: active }}
               style={[
-                styles.optionIcon,
-                { backgroundColor: box.color },
+                styles.option,
+                active && styles.optionActive,
               ]}
             >
+              <View
+                style={[
+                  styles.optionIcon,
+                  { backgroundColor: box.color },
+                ]}
+              >
+                <Ionicons
+                  name={box.icon}
+                  size={25}
+                  color="#FFFFFF"
+                />
+              </View>
+
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>
+                  {box.name}
+                </Text>
+                <Text style={styles.optionSubtitle}>
+                  Preview cost: {box.cost} points
+                </Text>
+              </View>
+
               <Ionicons
-                name={box.icon}
-                size={25}
-                color="#FFFFFF"
+                name={
+                  active
+                    ? 'radio-button-on'
+                    : 'radio-button-off'
+                }
+                size={23}
+                color={active ? theme.cyan : theme.muted}
               />
-            </View>
-
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>
-                {box.name}
-              </Text>
-              <Text style={styles.optionSubtitle}>
-                Preview cost: {box.cost} points
-              </Text>
-            </View>
-
-            <Ionicons
-              name={
-                active
-                  ? 'radio-button-on'
-                  : 'radio-button-off'
-              }
-              size={23}
-              color={active ? theme.cyan : theme.muted}
-            />
-          </Pressable>
-        );
-      })}
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Pressable
         style={styles.openButton}
@@ -180,7 +186,10 @@ export default function MysteryBoxScreen() {
       </Pressable>
 
       {opened && (
-        <View style={styles.result}>
+        <View
+          style={styles.result}
+          accessibilityLiveRegion="polite"
+        >
           <Ionicons
             name="sparkles"
             size={25}
@@ -361,4 +370,4 @@ function createStyles(theme: ThemeColors) {
       fontSize: 13,
     },
   });
-      }
+            }
