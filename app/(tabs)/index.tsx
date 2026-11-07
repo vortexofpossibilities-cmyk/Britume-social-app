@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -296,10 +295,7 @@ export default function HomeScreen() {
 
   const handleLike = async (postId: string) => {
     if (!userId) {
-      Alert.alert(
-        t('signInRequired'),
-        t('signInToLike'),
-      );
+      Alert.alert(t('signInRequired'), t('signInToLike'));
       return;
     }
 
@@ -327,10 +323,7 @@ export default function HomeScreen() {
 
   const handleSave = async (postId: string) => {
     if (!userId) {
-      Alert.alert(
-        t('signInRequired'),
-        t('signInToSave'),
-      );
+      Alert.alert(t('signInRequired'), t('signInToSave'));
       return;
     }
 
@@ -399,10 +392,7 @@ export default function HomeScreen() {
 
   const submitComment = async () => {
     if (!activePostId || !userId) {
-      Alert.alert(
-        t('signInRequired'),
-        t('signInToComment'),
-      );
+      Alert.alert(t('signInRequired'), t('signInToComment'));
       return;
     }
 
@@ -434,8 +424,6 @@ export default function HomeScreen() {
       setSendingComment(false);
     }
   };
-
-  // HOME HEADER
 
   const Header = (
     <View>
@@ -593,8 +581,6 @@ export default function HomeScreen() {
     </View>
   );
 
-  // POST CARD
-
   const renderPost = ({ item }: { item: FeedPost }) => {
     const interaction = interactions[item.id];
 
@@ -692,6 +678,7 @@ export default function HomeScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             style={styles.imageScroller}
+            contentContainerStyle={styles.mediaGallery}
           >
             {images.map(media => (
               <Image
@@ -766,8 +753,6 @@ export default function HomeScreen() {
     );
   };
 
-  // VIDEO AND REELS
-
   const renderVideoSection = (
     title: string,
     data: FeedPost[],
@@ -796,8 +781,6 @@ export default function HomeScreen() {
       </View>
     );
   };
-
-  // MAIN SCREEN
 
   const hasAnyPosts =
     photoPosts.length > 0 ||
@@ -862,8 +845,6 @@ export default function HomeScreen() {
           renderItem={renderPost}
         />
       )}
-
-      {/* COMMENTS MODAL */}
 
       <Modal
         visible={activePostId !== null}
@@ -972,8 +953,6 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-// DYNAMIC GLOBAL THEME STYLES
 
 function createStyles(theme: AppTheme, isDark: boolean) {
   const surface = theme.panel ?? (isDark ? '#1B2B40' : '#FFFFFF');
@@ -1279,6 +1258,13 @@ function createStyles(theme: AppTheme, isDark: boolean) {
     imageScroller: {
       marginHorizontal: -4,
       marginBottom: 8,
+    },
+
+    mediaGallery: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'flex-start',
+      paddingHorizontal: 2,
     },
 
     postImage: {
