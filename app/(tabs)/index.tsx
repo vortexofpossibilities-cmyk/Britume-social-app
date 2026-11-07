@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1260,9 +1261,9 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       marginBottom: 8,
     },
 
+    // FIX: mediaGallery is defined here and used by the image ScrollView.
     mediaGallery: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       alignItems: 'flex-start',
       paddingHorizontal: 2,
     },
