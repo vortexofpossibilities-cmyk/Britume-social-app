@@ -37,6 +37,8 @@ const colors = [
 
 const costs = [20, 40, 60, 100];
 
+type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
+
 export default function SpinWheelScreen() {
   const { theme } = useAppTheme();
 
@@ -53,25 +55,27 @@ export default function SpinWheelScreen() {
     setPreviewResult(null);
     rotation.setValue(0);
 
+    const destination = 360 * 5 + Math.floor(Math.random() * 360);
+
     Animated.timing(rotation, {
-      toValue: 360 * 5 + Math.floor(Math.random() * 360),
+      toValue: destination,
       duration: 4500,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       setSpinning(false);
 
-      if (finished) {
-        const result =
-          prizes[Math.floor(Math.random() * prizes.length)];
+      if (!finished) return;
 
-        setPreviewResult(result);
+      const result =
+        prizes[Math.floor(Math.random() * prizes.length)];
 
-        Alert.alert(
-          'Spin preview',
-          `Your preview result is: ${result}\n\nNo points were charged or awarded. Secure wallet integration is still required.`,
-        );
-      }
+      setPreviewResult(result);
+
+      Alert.alert(
+        'Spin preview',
+        `Your preview result is: ${result}\n\nNo points were charged or awarded. Secure wallet integration is still required.`
+      );
     });
   };
 
@@ -92,6 +96,8 @@ export default function SpinWheelScreen() {
         <Pressable
           style={styles.backButton}
           onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Ionicons
             name="arrow-back"
@@ -175,7 +181,7 @@ export default function SpinWheelScreen() {
           </Animated.View>
         </View>
 
-        {previewResult && (
+        {previewResult !== null && (
           <View style={styles.resultCard}>
             <Ionicons
               name="trophy"
@@ -198,16 +204,24 @@ export default function SpinWheelScreen() {
         </Text>
 
         <View style={styles.costGrid}>
-          {costs.map(cost => {
+          {costs.map((cost) => {
             const active = selectedCost === cost;
 
             return (
               <Pressable
                 key={cost}
                 onPress={() => setSelectedCost(cost)}
+                disabled={spinning}
+                accessibilityRole="button"
+                accessibilityLabel={`${cost} point spin level`}
+                accessibilityState={{
+                  selected: active,
+                  disabled: spinning,
+                }}
                 style={[
                   styles.costButton,
                   active && styles.costButtonActive,
+                  spinning && styles.costButtonDisabled,
                 ]}
               >
                 <Ionicons
@@ -232,12 +246,30 @@ export default function SpinWheelScreen() {
       <Pressable
         onPress={spinWheel}
         disabled={spinning}
+        accessibilityRole="button"
+        accessibilityLabel="Spin wheel preview"
+        accessibilityState={{ disabled: spinning }}
         style={[
           styles.spinButton,
           spinning && styles.spinButtonDisabled,
         ]}
       >
-        <Ionicons name="sync" size={23} color="#FFFFFF" />
+        {spinning ? (
+          <Animated.View>
+            <Ionicons
+              name="sync"
+              size={23}
+              color="#FFFFFF"
+            />
+          </Animated.View>
+        ) : (
+          <Ionicons
+            name="sync"
+            size={23}
+            color="#FFFFFF"
+          />
+        )}
+
         <Text style={styles.spinButtonText}>
           {spinning ? 'Spinning...' : 'SPIN PREVIEW'}
         </Text>
@@ -251,7 +283,7 @@ export default function SpinWheelScreen() {
   );
 }
 
-function createStyles(theme: any) {
+function createStyles(theme: ThemeColors) {
   return StyleSheet.create({
     screen: {
       flex: 1,
@@ -423,6 +455,9 @@ function createStyles(theme: any) {
       backgroundColor: theme.cyan,
       borderColor: theme.cyan,
     },
+    costButtonDisabled: {
+      opacity: 0.6,
+    },
     costText: {
       color: theme.text,
       fontWeight: '800',
@@ -458,4 +493,4 @@ function createStyles(theme: any) {
       lineHeight: 17,
     },
   });
-                }
+            }
