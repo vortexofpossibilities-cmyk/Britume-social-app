@@ -20,6 +20,8 @@ const rewards = [
   { day: 'Day 7', points: 25 },
 ];
 
+type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
+
 export default function DailyRewardsScreen() {
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
@@ -28,9 +30,19 @@ export default function DailyRewardsScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      <Pressable style={styles.back} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={23} color={theme.text} />
+      <Pressable
+        style={styles.back}
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back to Rewards Hub"
+      >
+        <Ionicons
+          name="arrow-back"
+          size={23}
+          color={theme.text}
+        />
         <Text style={styles.backText}>Rewards Hub</Text>
       </Pressable>
 
@@ -67,7 +79,11 @@ export default function DailyRewardsScreen() {
       </Text>
 
       {rewards.map((reward, index) => (
-        <View key={reward.day} style={styles.rewardRow}>
+        <View
+          key={reward.day}
+          style={styles.rewardRow}
+          accessibilityLabel={`${reward.day}, ${reward.points} points, locked`}
+        >
           <View style={styles.dayIcon}>
             <Ionicons
               name={index === 6 ? 'trophy' : 'gift-outline'}
@@ -96,7 +112,11 @@ export default function DailyRewardsScreen() {
       ))}
 
       <View style={styles.footerCard}>
-        <Ionicons name="calendar" size={27} color={theme.cyan} />
+        <Ionicons
+          name="calendar"
+          size={27}
+          color={theme.cyan}
+        />
         <Text style={styles.footerTitle}>Keep showing up</Text>
         <Text style={styles.footerText}>
           The daily reward system will track check-ins securely and prevent
@@ -107,8 +127,8 @@ export default function DailyRewardsScreen() {
   );
 }
 
-const createStyles = (theme: any) =>
-  StyleSheet.create({
+function createStyles(theme: ThemeColors) {
+  return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: theme.bg,
@@ -254,3 +274,4 @@ const createStyles = (theme: any) =>
       marginTop: 8,
     },
   });
+          }
