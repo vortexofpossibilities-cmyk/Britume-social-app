@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+
+import { supabase, supabaseConfigured } from './supabase';
 
 import type {
   WalletSecurityProvider,
@@ -7,26 +8,57 @@ import type {
   WalletPinVerificationResult,
   WalletRecoveryRequest,
   WalletRecoveryRequestResult,
+  WalletRecoveryStatus,
 } from './walletSecurity';
 
 type RpcResult = {
   success?: boolean;
   configured?: boolean;
-  status?: 'pending' | 'under_review' | 'approved' | 'rejected';
+  status?: WalletRecoveryStatus;
   message?: string;
 };
 
 function parseResult(data: unknown): RpcResult {
   if (Array.isArray(data)) {
-    return parseResult(data[0]);
+    return data.length > 0 ? parseResult(data[0]) : {};
   }
 
   if (typeof data === 'boolean') {
     return { success: data };
   }
 
-  if (data && typeof data === 'object') {
-    return data as RpcResult;
+  if (
+    data !== null &&
+    typeof data === 'object'
+  ) {
+    const value = data as Record<string, unknown>;
+
+    const validStatuses: WalletRecoveryStatus[] = [
+      'pending',
+      'under_review',
+      'approved',
+      'rejected',
+    ];
+
+    return {
+      success:
+        typeof value.success === 'boolean'
+          ? value.success
+          : undefined,
+      configured:
+        typeof value.configured === 'boolean'
+          ? value.configured
+          : undefined,
+      status:
+        typeof value.status === 'string' &&
+        validStatuses.includes(value.status as WalletRecoveryStatus)
+          ? (value.status as WalletRecoveryStatus)
+          : undefined,
+      message:
+        typeof value.message === 'string'
+          ? value.message
+          : undefined,
+    };
   }
 
   return {};
@@ -36,92 +68,185 @@ function unavailable(): string {
   return 'Wallet security service is unavailable. Please try again.';
 }
 
+function getClient() {
+  const client = supabase;
+
+  if (!supabaseConfigured || !client) {
+    return null;
+  }
+
+  return client;
+}
+
 export const walletSecurityService: WalletSecurityProvider = {
   async checkPinStatus(): Promise<WalletPinStatusResult> {
-    if (!supabase) {
-      return { configured: false, message: unavailable() };
+    const client = getClient();
+
+    if (!client) {
+      return {
+        configured: false,
+        message: unavailable(),
+      };
     }
 
-    const { data, error } = await supabase.rpc('wallet_pin_status');
+    try {
+      const { data, error } = await client.rpc('wallet_pin_status');
 
-    if (error) {
-      return { configured: false, message: error.message };
+      if (error) {
+        return {
+          configured: false,
+          message: unavailable(),
+        };
+      }
+
+      const result = parseResult(data);
+
+      return {
+        configured: result.configured === true,
+        message: result.message,
+      };
+    } catch {
+      return {
+        configured: false,
+        message: unavailable(),
+      };
     }
-
-    const result = parseResult(data);
-
-    return {
-      configured: result.configured === true,
-      message: result.message,
-    };
   },
 
   async createPin(pin: string): Promise<WalletPinSetupResult> {
-    if (!supabase) {
-      return { success: false, message: unavailable() };
+    if (!/^\d{4,6}$/.test(pin)) {
+      return {
+        success: false,
+        message: 'PIN must contain 4–6 digits.',
+      };
     }
 
-    const { data, error } = await supabase.rpc('create_wallet_pin', {
-      p_pin: pin,
-    });
+    const client = getClient();
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!client) {
+      return {
+        success: false,
+        message: unavailable(),
+      };
     }
 
-    const result = parseResult(data);
+    try {
+      const { data, error } = await client.rpc('create_wallet_pin', {
+        p_pin: pin,
+      });
 
-    return {
-      success: result.success === true,
-      message: result.message,
-    };
+      if (error) {
+        return {
+          success: false,
+          message: unavailable(),
+        };
+      }
+
+      const result = parseResult(data);
+
+      return {
+        success: result.success === true,
+        message: result.message,
+      };
+    } catch {
+      return {
+        success: false,
+        message: unavailable(),
+      };
+    }
   },
 
   async verifyPin(pin: string): Promise<WalletPinVerificationResult> {
-    if (!supabase) {
-      return { success: false, message: unavailable() };
+    if (!/^\d{4,6}$/.test(pin)) {
+      return {
+        success: false,
+        message: 'PIN must contain 4–6 digits.',
+      };
     }
 
-    const { data, error } = await supabase.rpc('verify_wallet_pin', {
-      p_pin: pin,
-    });
+    const client = getClient();
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!client) {
+      return {
+        success: false,
+        message: unavailable(),
+      };
     }
 
-    const result = parseResult(data);
+    try {
+      const { data, error } = await client.rpc('verify_wallet_pin', {
+        p_pin: pin,
+      });
 
-    return {
-      success: result.success === true,
-      message: result.message,
-    };
+      if (error) {
+        return {
+          success: false,
+          message: unavailable(),
+        };
+      }
+
+      const result = parseResult(data);
+
+      return {
+        success: result.success === true,
+        message: result.message,
+      };
+    } catch {
+      return {
+        success: false,
+        message: unavailable(),
+      };
+    }
   },
 
   async requestPinReset(
-    request: WalletRecoveryRequest,
+    request: WalletRecoveryRequest
   ): Promise<WalletRecoveryRequestResult> {
-    if (!supabase) {
-      return { success: false, message: unavailable() };
+    const reason = request.reason?.trim() ?? '';
+
+    if (reason.length < 5 || reason.length > 500) {
+      return {
+        success: false,
+        message: 'Recovery reason must contain 5–500 characters.',
+      };
     }
 
-    const { data, error } = await supabase.rpc(
-      'request_wallet_pin_reset',
-      {
-        p_reason: request.reason?.trim() ?? '',
-      },
-    );
+    const client = getClient();
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!client) {
+      return {
+        success: false,
+        message: unavailable(),
+      };
     }
 
-    const result = parseResult(data);
+    try {
+      const { data, error } = await client.rpc(
+        'request_wallet_pin_reset',
+        {
+          p_reason: reason,
+        }
+      );
 
-    return {
-      success: result.success === true,
-      status: result.status,
-      message: result.message,
-    };
+      if (error) {
+        return {
+          success: false,
+          message: unavailable(),
+        };
+      }
+
+      const result = parseResult(data);
+
+      return {
+        success: result.success === true,
+        status: result.status,
+        message: result.message,
+      };
+    } catch {
+      return {
+        success: false,
+        message: unavailable(),
+      };
+    }
   },
 };
