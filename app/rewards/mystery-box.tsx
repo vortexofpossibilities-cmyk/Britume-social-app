@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -35,32 +34,45 @@ const boxes = [
   },
 ];
 
+type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
+
 export default function MysteryBoxScreen() {
   const { theme } = useAppTheme();
+
   const [selected, setSelected] = useState('bronze');
   const [opened, setOpened] = useState(false);
 
   const styles = createStyles(theme);
-  const selectedBox = boxes.find(box => box.id === selected)!;
+
+  const selectedBox =
+    boxes.find((box) => box.id === selected) ?? boxes[0];
 
   const openPreview = () => {
-    setOpened(false);
-
-    Alert.alert(
-      'Mystery Box Preview',
-      `${selectedBox.name} selected.\n\nThis is a preview only. No points have been deducted and no prize has been awarded.`,
-    );
-
     setOpened(true);
+  };
+
+  const chooseBox = (boxId: string) => {
+    setSelected(boxId);
+    setOpened(false);
   };
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      <Pressable style={styles.back} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={23} color={theme.text} />
+      <Pressable
+        style={styles.back}
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back to Rewards Hub"
+      >
+        <Ionicons
+          name="arrow-back"
+          size={23}
+          color={theme.text}
+        />
         <Text style={styles.backText}>Rewards Hub</Text>
       </Pressable>
 
@@ -79,30 +91,38 @@ export default function MysteryBoxScreen() {
           color={theme.cyan}
         />
         <Text style={styles.noticeText}>
-          Preview mode. Real point payments, prize odds and payouts are not
-          active yet.
+          Preview mode. Real point payments, prize odds and payouts
+          are not active yet.
         </Text>
       </View>
 
       <View style={styles.boxDisplay}>
-        <Ionicons name="gift" size={82} color={selectedBox.color} />
+        <Ionicons
+          name="gift"
+          size={82}
+          color={selectedBox.color}
+        />
         <Text style={styles.boxName}>{selectedBox.name}</Text>
-        <Text style={styles.boxCost}>{selectedBox.cost} points</Text>
-        <Text style={styles.boxHint}>Your selected mystery box</Text>
+        <Text style={styles.boxCost}>
+          {selectedBox.cost} points
+        </Text>
+        <Text style={styles.boxHint}>
+          Your selected mystery box
+        </Text>
       </View>
 
       <Text style={styles.sectionTitle}>Choose your box</Text>
 
-      {boxes.map(box => {
+      {boxes.map((box) => {
         const active = selected === box.id;
 
         return (
           <Pressable
             key={box.id}
-            onPress={() => {
-              setSelected(box.id);
-              setOpened(false);
-            }}
+            onPress={() => chooseBox(box.id)}
+            accessibilityRole="radio"
+            accessibilityLabel={`${box.name}, ${box.cost} points`}
+            accessibilityState={{ selected: active }}
             style={[
               styles.option,
               active && styles.optionActive,
@@ -122,14 +142,20 @@ export default function MysteryBoxScreen() {
             </View>
 
             <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>{box.name}</Text>
+              <Text style={styles.optionTitle}>
+                {box.name}
+              </Text>
               <Text style={styles.optionSubtitle}>
                 Preview cost: {box.cost} points
               </Text>
             </View>
 
             <Ionicons
-              name={active ? 'radio-button-on' : 'radio-button-off'}
+              name={
+                active
+                  ? 'radio-button-on'
+                  : 'radio-button-off'
+              }
               size={23}
               color={active ? theme.cyan : theme.muted}
             />
@@ -137,13 +163,20 @@ export default function MysteryBoxScreen() {
         );
       })}
 
-      <Pressable style={styles.openButton} onPress={openPreview}>
+      <Pressable
+        style={styles.openButton}
+        onPress={openPreview}
+        accessibilityRole="button"
+        accessibilityLabel={`Preview ${selectedBox.name}`}
+      >
         <Ionicons
           name="lock-open-outline"
           size={21}
           color="#FFFFFF"
         />
-        <Text style={styles.openButtonText}>Preview box</Text>
+        <Text style={styles.openButtonText}>
+          Preview box
+        </Text>
       </Pressable>
 
       {opened && (
@@ -153,10 +186,15 @@ export default function MysteryBoxScreen() {
             size={25}
             color="#E5A52E"
           />
-          <Text style={styles.resultTitle}>Preview completed</Text>
+          <Text style={styles.resultTitle}>
+            Preview completed
+          </Text>
           <Text style={styles.resultText}>
-            The real mystery box prize system will be activated after secure
-            wallet and prize controls are ready.
+            You selected the {selectedBox.name}.
+            {'\n\n'}
+            The real mystery box prize system will be activated
+            after secure wallet and prize controls are ready.
+            No points were deducted and no prize was awarded.
           </Text>
         </View>
       )}
@@ -164,8 +202,8 @@ export default function MysteryBoxScreen() {
   );
 }
 
-const createStyles = (theme: any) =>
-  StyleSheet.create({
+function createStyles(theme: ThemeColors) {
+  return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: theme.bg,
@@ -323,3 +361,4 @@ const createStyles = (theme: any) =>
       fontSize: 13,
     },
   });
+      }
