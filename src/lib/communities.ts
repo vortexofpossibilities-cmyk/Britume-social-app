@@ -1,3 +1,4 @@
+
 import { supabase, supabaseConfigured } from './supabase';
 
 export type Community = {
@@ -9,12 +10,19 @@ export type Community = {
   image_url: string | null;
 };
 
+const COMMUNITY_SELECT =
+  'id, owner_id, name, description, created_at, image_url';
+
 function getClient() {
-  if (!supabaseConfigured || !supabase) {
-    throw new Error('BRITUME is not connected to Supabase. Check your environment variables.');
+  const client = supabase;
+
+  if (!supabaseConfigured || !client) {
+    throw new Error(
+      'BRITUME is not connected to Supabase. Check your environment variables.'
+    );
   }
 
-  return supabase;
+  return client;
 }
 
 export async function fetchCommunities(): Promise<Community[]> {
@@ -22,7 +30,7 @@ export async function fetchCommunities(): Promise<Community[]> {
 
   const { data, error } = await client
     .from('communities')
-    .select('id, owner_id, name, description, created_at, image_url')
+    .select(COMMUNITY_SELECT)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -46,14 +54,20 @@ export async function createCommunity(input: {
   }
 
   if (description.length > 500) {
-    throw new Error('Description must be 500 characters or fewer.');
+    throw new Error(
+      'Description must be 500 characters or fewer.'
+    );
   }
 
-  const { data: userData, error: userError } =
-    await client.auth.getUser();
+  const {
+    data: userData,
+    error: userError,
+  } = await client.auth.getUser();
 
   if (userError || !userData.user) {
-    throw new Error('Please sign in before creating a community.');
+    throw new Error(
+      'Please sign in before creating a community.'
+    );
   }
 
   const { data, error } = await client
@@ -63,11 +77,19 @@ export async function createCommunity(input: {
       description: description || null,
       owner_id: userData.user.id,
     })
-    .select('id, owner_id, name, description, created_at, image_url')
+    .select(COMMUNITY_SELECT)
     .single();
 
   if (error) {
-    throw new Error(`Could not create community: ${error.message}`);
+    throw new Error(
+      `Could not create community: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      'Community creation did not return a saved community.'
+    );
   }
 
   return data as Community;
