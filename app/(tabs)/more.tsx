@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import {
   Alert,
@@ -19,6 +18,10 @@ export default function MoreScreen() {
   const { t } = useLanguage();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const openSettings = () => {
+    router.push('/settings' as never);
+  };
 
   const openInformation = () => {
     Alert.alert(
@@ -53,7 +56,9 @@ export default function MoreScreen() {
 
       <View style={styles.card}>
         <Pressable
-          onPress={() => router.push('/settings')}
+          onPress={openSettings}
+          accessibilityRole="button"
+          accessibilityLabel={t('personalDetails')}
           style={({ pressed }) => [
             styles.row,
             styles.rowDivider,
@@ -86,6 +91,8 @@ export default function MoreScreen() {
           pressed && styles.rowPressed,
         ]}
         onPress={openInformation}
+        accessibilityRole="button"
+        accessibilityLabel={t('information')}
       >
         <View style={styles.helpIcon}>
           <Ionicons
@@ -111,7 +118,9 @@ export default function MoreScreen() {
           styles.settingsLink,
           pressed && styles.rowPressed,
         ]}
-        onPress={() => router.push('/settings')}
+        onPress={openSettings}
+        accessibilityRole="button"
+        accessibilityLabel={t('openSettings')}
       >
         <Ionicons
           name="settings-outline"
@@ -133,7 +142,9 @@ export default function MoreScreen() {
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
+function createStyles(
+  theme: ReturnType<typeof useAppTheme>['theme'],
+) {
   return StyleSheet.create({
     screen: {
       flex: 1,
