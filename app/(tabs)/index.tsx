@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +16,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +39,8 @@ import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+
+type AppTheme = ReturnType<typeof useAppTheme>['theme'];
 
 type Interaction = {
   liked: boolean;
@@ -70,7 +75,7 @@ function MediaVideo({
   videoStyle,
 }: {
   uri: string;
-  videoStyle: any;
+  videoStyle: StyleProp<ViewStyle>;
 }) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
@@ -794,6 +799,11 @@ export default function HomeScreen() {
 
   // MAIN SCREEN
 
+  const hasAnyPosts =
+    photoPosts.length > 0 ||
+    videoPosts.length > 0 ||
+    reelPosts.length > 0;
+
   return (
     <View style={styles.screen}>
       {loading ? (
@@ -827,25 +837,27 @@ export default function HomeScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Ionicons
-                name="images-outline"
-                size={43}
-                color={theme.cyan}
-              />
+            !hasAnyPosts ? (
+              <View style={styles.emptyBox}>
+                <Ionicons
+                  name="images-outline"
+                  size={43}
+                  color={theme.cyan}
+                />
 
-              <Text style={styles.emptyTitle}>
-                {search.trim()
-                  ? t('noMatchingPosts')
-                  : t('welcomeToBritume')}
-              </Text>
+                <Text style={styles.emptyTitle}>
+                  {search.trim()
+                    ? t('noMatchingPosts')
+                    : t('welcomeToBritume')}
+                </Text>
 
-              <Text style={styles.emptyText}>
-                {search.trim()
-                  ? t('trySearchingElse')
-                  : t('communityStarts')}
-              </Text>
-            </View>
+                <Text style={styles.emptyText}>
+                  {search.trim()
+                    ? t('trySearchingElse')
+                    : t('communityStarts')}
+                </Text>
+              </View>
+            ) : null
           }
           renderItem={renderPost}
         />
@@ -963,7 +975,7 @@ export default function HomeScreen() {
 
 // DYNAMIC GLOBAL THEME STYLES
 
-function createStyles(theme: any, isDark: boolean) {
+function createStyles(theme: AppTheme, isDark: boolean) {
   const surface = theme.panel ?? (isDark ? '#1B2B40' : '#FFFFFF');
   const raised = theme.panel2 ?? (isDark ? '#243A52' : '#E4F1FF');
   const border = theme.border ?? (isDark ? '#304A65' : '#D3E6F8');
@@ -1527,4 +1539,4 @@ function createStyles(theme: any, isDark: boolean) {
       shadowOffset: { width: 4, height: 5 },
     },
   });
-            }
+}
