@@ -1,67 +1,83 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Tabs, router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   Platform,
 } from 'react-native';
 
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 
-const items = [
+type TabItem = {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  route: string;
+  activePath: string;
+  key: string;
+};
+
+const items: TabItem[] = [
   {
-    icon: 'people-outline' as const,
+    icon: 'people-outline',
     route: '/(tabs)/discover',
+    activePath: '/discover',
     key: 'friends',
   },
   {
-    icon: 'people-circle-outline' as const,
+    icon: 'people-circle-outline',
     route: '/communities',
+    activePath: '/communities',
     key: 'communities',
   },
   {
-    icon: 'add' as const,
+    icon: 'add',
     route: '/(tabs)/create',
+    activePath: '/create',
     key: 'create',
   },
   {
-    icon: 'home-outline' as const,
+    icon: 'home-outline',
     route: '/(tabs)',
+    activePath: '/',
     key: 'home',
   },
   {
-    icon: 'gift-outline' as const,
+    icon: 'gift-outline',
     route: '/(tabs)/rewards',
+    activePath: '/rewards',
     key: 'rewards',
   },
   {
-    icon: 'wallet-outline' as const,
+    icon: 'wallet-outline',
     route: '/(tabs)/wallet',
+    activePath: '/wallet',
     key: 'wallet',
   },
   {
-    icon: 'chatbubble-ellipses-outline' as const,
+    icon: 'chatbubble-ellipses-outline',
     route: '/messages',
+    activePath: '/messages',
     key: 'messages',
   },
   {
-    icon: 'videocam-outline' as const,
+    icon: 'videocam-outline',
     route: '/stories',
+    activePath: '/stories',
     key: 'videos',
   },
-] as const;
+];
 
 function IconBar() {
-  const { width } = useWindowDimensions();
   const pathname = usePathname();
   const { theme } = useAppTheme();
   const { t } = useLanguage();
 
-  const styles = createStyles(theme);
+  const styles = useMemo(
+    () => createStyles(theme),
+    [theme],
+  );
 
   return (
     <View style={styles.barContainer}>
@@ -76,9 +92,9 @@ function IconBar() {
 
           const active =
             item.key === 'home'
-              ? pathname === '/(tabs)' || pathname === '/'
-              : pathname === item.route ||
-                pathname.startsWith(item.route + '/');
+              ? pathname === '/' || pathname === '/index'
+              : pathname === item.activePath ||
+                pathname.startsWith(item.activePath + '/');
 
           if (item.key === 'create') {
             return (
@@ -92,7 +108,11 @@ function IconBar() {
                   pressed && styles.pressedCreate,
                 ]}
               >
-                <Ionicons name="add" size={34} color="#FFFFFF" />
+                <Ionicons
+                  name="add"
+                  size={34}
+                  color="#FFFFFF"
+                />
               </Pressable>
             );
           }
@@ -106,7 +126,6 @@ function IconBar() {
               onPress={() => router.push(item.route as never)}
               style={({ pressed }) => [
                 styles.iconButton,
-                { width: (width - 24) / items.length },
                 active && styles.activeIconButton,
                 pressed && styles.pressedIcon,
               ]}
@@ -141,18 +160,47 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="create" />
 
-      <Tabs.Screen name="wallet" options={{ href: null }} />
-      <Tabs.Screen name="rewards" options={{ href: null }} />
-      <Tabs.Screen name="discover" options={{ href: null }} />
-      <Tabs.Screen name="offline" options={{ href: null }} />
-      <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="settings" options={{ href: null }} />
-      <Tabs.Screen name="more" options={{ href: null }} />
+      <Tabs.Screen
+        name="wallet"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="rewards"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="discover"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="offline"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="more"
+        options={{ href: null }}
+      />
     </Tabs>
   );
 }
 
-function createStyles(theme: any) {
+function createStyles(
+  theme: ReturnType<typeof useAppTheme>['theme'],
+) {
   return StyleSheet.create({
     barContainer: {
       backgroundColor: theme.bg,
@@ -169,14 +217,17 @@ function createStyles(theme: any) {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 25,
-      paddingHorizontal: 2,
+      paddingHorizontal: 5,
       paddingTop: 7,
       paddingBottom: 7,
+      gap: 2,
     },
 
     iconButton: {
+      flex: 1,
+      minWidth: 0,
       height: 46,
-      borderRadius: 16,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -197,9 +248,9 @@ function createStyles(theme: any) {
     },
 
     createButton: {
-      width: 48,
+      width: 43,
       height: 53,
-      borderRadius: 19,
+      borderRadius: 17,
       backgroundColor: theme.cyan,
       alignItems: 'center',
       justifyContent: 'center',
@@ -218,4 +269,4 @@ function createStyles(theme: any) {
       elevation: 3,
     },
   });
-}
+                }
