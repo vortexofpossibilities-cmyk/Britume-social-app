@@ -22,6 +22,20 @@ export type WalletData = {
   transactions: WalletLedgerEntry[];
 };
 
+type WalletBalanceRow = {
+  category: string;
+  balance: number | string | null;
+};
+
+type WalletLedgerRow = {
+  id: number | string;
+  transfer_id: string | null;
+  category: string;
+  entry_type: string;
+  amount: number | string;
+  created_at: string;
+};
+
 const EMPTY_BALANCES: WalletBalances = {
   purchased: 0,
   earned: 0,
@@ -38,11 +52,49 @@ function getClient() {
   return supabase;
 }
 
+function isWalletCategory(
+  category: string
+): category is WalletCategory {
+  return (
+    category === "purchased" ||
+    category === "earned" ||
+    category === "promotional"
+  );
+}
+
+function safeAmount(value: number | string | null): number {
+  const amount = Number(value ?? 0);
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function setBalance(
+  balances: WalletBalances,
+  category: WalletCategory,
+  amount: number
+): void {
+  switch (category) {
+    case "purchased":
+      balances.purchased = amount;
+      break;
+
+    case "earned":
+      balances.earned = amount;
+      break;
+
+    case "promotional":
+      balances.promotional = amount;
+      break;
+  }
+}
+
 export async function fetchWalletData(
   userId: string
 ): Promise<WalletData> {
   if (!userId) {
-    throw new Error("You must be signed in to view your wallet.");
+    throw new Error(
+      "You must be signed in to view your wallet."
+    );
   }
 
   const client = getClient();
@@ -72,28 +124,47 @@ export async function fetchWalletData(
     throw transactionsResult.error;
   }
 
-  const balances = { ...EMPTY_BALANCES };
+  const balanceRows =
+    (balancesResult.data ?? []) as WalletBalanceRow[];
 
-  for (const row of balancesResult.data ?? []) {
-    if (
-      row.category === "purchased" ||
-      row.category === "earned" ||
-      row.category === "promotional"
-    ) {
-      balances[row.category] = Number(row.balance ?? 0);
+  const ledgerRows =
+    (transactionsResult.data ?? []) as WalletLedgerRow[];
+
+  const balances: WalletBalances = {
+    ...EMPTY_BALANCES,
+  };
+
+  for (const row of balanceRows) {
+    if (!isWalletCategory(row.category)) {
+      continue;
     }
+
+    setBalance(
+      balances,
+      row.category,
+      safeAmount(row.balance)
+    );
   }
 
-  const transactions: WalletLedgerEntry[] = (
-    transactionsResult.data ?? []
-  ).map((row) => ({
-    id: Number(row.id),
-    transfer_id: row.transfer_id,
-    category: row.category as WalletCategory,
-    entry_type: row.entry_type,
-    amount: Number(row.amount),
-    created_at: row.created_at,
-  }));
+  const transactions: WalletLedgerEntry[] = [];
 
-  return { balances, transactions };
+  for (const row of ledgerRows) {
+    if (!isWalletCategory(row.category)) {
+      continue;
+    }
+
+    transactions.push({
+      id: Number(row.id),
+      transfer_id: row.transfer_id,
+      category: row.category,
+      entry_type: row.entry_type,
+      amount: safeAmount(row.amount),
+      created_at: row.created_at,
+    });
+  }
+
+  return {
+    balances,
+    transactions,
+  };
 }
