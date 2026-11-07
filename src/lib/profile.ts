@@ -38,7 +38,7 @@ function getClient() {
 function normalizeProfile(
   profile: Partial<ProfileRecord> | null
 ): ProfileRecord | null {
-  if (!profile || !profile.user_id) {
+  if (!profile || typeof profile.user_id !== 'string' || !profile.user_id) {
     return null;
   }
 
@@ -59,24 +59,36 @@ function normalizeProfile(
       typeof profile.is_public === 'boolean'
         ? profile.is_public
         : true,
-    created_at: profile.created_at ?? fallbackDate,
-    updated_at: profile.updated_at ?? fallbackDate,
+    created_at:
+      typeof profile.created_at === 'string'
+        ? profile.created_at
+        : fallbackDate,
+    updated_at:
+      typeof profile.updated_at === 'string'
+        ? profile.updated_at
+        : fallbackDate,
   };
+}
+
+function cleanUsername(username: string): string {
+  return typeof username === 'string' ? username.trim() : '';
 }
 
 export async function fetchCurrentUserProfile(
   userId: string
 ): Promise<ProfileRecord | null> {
-  const client = getClient();
+  const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
 
-  if (!userId.trim()) {
+  if (!cleanUserId) {
     return null;
   }
+
+  const client = getClient();
 
   const { data, error } = await client
     .from('profiles')
     .select(PROFILE_SELECT)
-    .eq('user_id', userId)
+    .eq('user_id', cleanUserId)
     .maybeSingle();
 
   if (error) {
@@ -89,13 +101,13 @@ export async function fetchCurrentUserProfile(
 export async function fetchProfileByUsername(
   username: string
 ): Promise<ProfileRecord | null> {
-  const client = getClient();
-
-  const clean = username.trim();
+  const clean = cleanUsername(username);
 
   if (!usernamePattern.test(clean)) {
     return null;
   }
+
+  const client = getClient();
 
   const { data, error } = await client
     .from('profiles')
@@ -104,9 +116,7 @@ export async function fetchProfileByUsername(
     .maybeSingle();
 
   if (error) {
-    throw new Error(
-      `Could not load profile: ${error.message}`
-    );
+    throw new Error(`Could not load profile: ${error.message}`);
   }
 
   return normalizeProfile(data);
@@ -115,13 +125,13 @@ export async function fetchProfileByUsername(
 export async function fetchPublicProfileByUsername(
   username: string
 ): Promise<ProfileRecord | null> {
-  const client = getClient();
-
-  const clean = username.trim();
+  const clean = cleanUsername(username);
 
   if (!usernamePattern.test(clean)) {
     return null;
   }
+
+  const client = getClient();
 
   const { data, error } = await client
     .from('profiles')
@@ -146,11 +156,11 @@ export async function updateOwnProfile(input: {
   bio?: string;
   is_public?: boolean;
 }): Promise<ProfileRecord> {
-  const client = getClient();
-
-  if (!input.userId.trim()) {
+  if (!input || typeof input.userId !== 'string' || !input.userId.trim()) {
     throw new Error('A valid user ID is required.');
   }
+
+  const client = getClient();
 
   const {
     data: userData,
@@ -161,7 +171,9 @@ export async function updateOwnProfile(input: {
     throw new Error('Please sign in before updating your profile.');
   }
 
-  if (userData.user.id !== input.userId) {
+  const userId = input.userId.trim();
+
+  if (userData.user.id !== userId) {
     throw new Error('You can only update your own profile.');
   }
 
@@ -198,7 +210,6 @@ export async function updateOwnProfile(input: {
     );
   }
 
-  // Preserve the user's existing privacy setting when it is not supplied.
   let isPublic = input.is_public;
 
   if (typeof isPublic !== 'boolean') {
@@ -206,7 +217,7 @@ export async function updateOwnProfile(input: {
       await client
         .from('profiles')
         .select('is_public')
-        .eq('user_id', input.userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
     if (profileError) {
@@ -222,7 +233,7 @@ export async function updateOwnProfile(input: {
   }
 
   const payload = {
-    user_id: input.userId,
+    user_id: userId,
     username: username || null,
     display_name: displayName || null,
     bio,
@@ -237,9 +248,7 @@ export async function updateOwnProfile(input: {
     .single();
 
   if (error) {
-    throw new Error(
-      `Could not save profile: ${error.message}`
-    );
+    throw new Error(`Could not save profile: ${error.message}`);
   }
 
   const profile = normalizeProfile(data);
