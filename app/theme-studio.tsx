@@ -52,9 +52,10 @@ export default function ThemeStudioScreen() {
     [availableThemes, previewId, selectedThemeStyle],
   );
 
+  // AccentColour uses "value", not "color".
   const previewAccentValue =
     availableAccentColours.find(item => item.id === previewAccent)
-      ?.color ?? '#168BFF';
+      ?.value ?? '#168BFF';
 
   const filteredThemes = useMemo(
     () =>
@@ -421,7 +422,8 @@ export default function ThemeStudioScreen() {
                   style={[
                     styles.colourCircle,
                     {
-                      backgroundColor: item.color,
+                      // AccentColour uses "value", not "color".
+                      backgroundColor: item.value,
                       borderColor: active ? mainText : 'transparent',
                     },
                   ]}
