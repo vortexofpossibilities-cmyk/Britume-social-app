@@ -6,25 +6,30 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+
+permissions:
+  contents: read
 
 jobs:
   typecheck:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
+      - name: Download BRITUME source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
+          cd source
+          git checkout "${GITHUB_SHA}"
 
       - name: Install dependencies
-        run: npm install
+        working-directory: source
+        run: |
+          node --version
+          npm --version
+          npm install
 
       - name: Run TypeScript check
+        working-directory: source
         run: npm run typecheck
