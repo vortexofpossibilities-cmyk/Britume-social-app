@@ -16,12 +16,23 @@ import { router } from 'expo-router';
 
 import { useAuth } from '../src/auth/AuthProvider';
 import { useAppTheme } from '../src/contexts/ThemeContext';
-import { useLanguage, supportedLanguages, type Language } from '../src/contexts/LanguageContext';
+import {
+  useLanguage,
+  supportedLanguages,
+  type Language,
+} from '../src/contexts/LanguageContext';
 import { theme as lightTheme } from '../src/lib/theme';
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
-  const { theme: colors, isDark, setMode } = useAppTheme();
+
+  const {
+    theme: colors,
+    isDark,
+    setMode,
+    selectedThemeStyle,
+  } = useAppTheme();
+
   const { language, setLanguage, t } = useLanguage();
 
   const [languageModal, setLanguageModal] = useState(false);
@@ -46,6 +57,10 @@ export default function SettingsScreen() {
     } catch {
       Alert.alert(t('settings'), t('languageSaveError'));
     }
+  };
+
+  const openThemeStudio = () => {
+    router.push('/theme-studio');
   };
 
   const handleSignOut = async () => {
@@ -145,9 +160,12 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={styles.pageTitle}>{t('settings')}</Text>
+
         <Text style={styles.pageSubtitle}>
           {t('settingsSubtitle')}
         </Text>
+
+        {/* ACCOUNT */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('account')}</Text>
@@ -171,6 +189,8 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+
+        {/* APPEARANCE */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('appearance')}</Text>
@@ -197,8 +217,20 @@ export default function SettingsScreen() {
                 />
               }
             />
+
+            <View style={styles.separator} />
+
+            <SettingRow
+              icon="color-palette-outline"
+              title="BRITUME Theme Studio"
+              subtitle={`Current material: ${selectedThemeStyle.name}`}
+              color={colors.gold}
+              onPress={openThemeStudio}
+            />
           </View>
         </View>
+
+        {/* LANGUAGE */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('language')}</Text>
@@ -214,6 +246,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* INFORMATION */}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('information')}</Text>
 
@@ -227,6 +261,8 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+
+        {/* SIGN OUT */}
 
         <View style={styles.section}>
           <View style={styles.card}>
@@ -254,6 +290,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* FOOTER */}
+
         <View style={styles.footer}>
           <View style={styles.footerLogo}>
             <Text style={styles.footerLetter}>B</Text>
@@ -264,6 +302,8 @@ export default function SettingsScreen() {
           <Text style={styles.footerNote}>{t('footerNote')}</Text>
         </View>
       </ScrollView>
+
+      {/* SIGN OUT MODAL */}
 
       <Modal
         visible={signOutModal}
@@ -292,7 +332,9 @@ export default function SettingsScreen() {
             </Text>
 
             {signOutError ? (
-              <Text style={styles.errorText}>{signOutError}</Text>
+              <Text style={styles.errorText}>
+                {signOutError}
+              </Text>
             ) : null}
 
             <Pressable
@@ -325,6 +367,8 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* LANGUAGE MODAL */}
+
       <Modal
         visible={languageModal}
         transparent
@@ -338,12 +382,15 @@ export default function SettingsScreen() {
                 <Text style={styles.modalTitle}>
                   {t('chooseLanguage')}
                 </Text>
+
                 <Text style={styles.modalSubtitle}>
                   {t('chooseLanguageSubtitle')}
                 </Text>
               </View>
 
-              <Pressable onPress={() => setLanguageModal(false)}>
+              <Pressable
+                onPress={() => setLanguageModal(false)}
+              >
                 <Ionicons
                   name="close-circle"
                   size={28}
@@ -359,7 +406,9 @@ export default function SettingsScreen() {
                   onPress={() => changeLanguage(item)}
                   style={styles.languageOption}
                 >
-                  <Text style={styles.languageText}>{item}</Text>
+                  <Text style={styles.languageText}>
+                    {item}
+                  </Text>
 
                   {language === item && (
                     <Ionicons
@@ -381,6 +430,10 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+// --------------------------------------------------
+// STYLES
+// --------------------------------------------------
 
 function createStyles(colors: typeof lightTheme) {
   return StyleSheet.create({
