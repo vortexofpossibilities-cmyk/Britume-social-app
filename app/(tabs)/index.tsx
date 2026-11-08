@@ -16,6 +16,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -93,68 +94,40 @@ function MediaVideo({
   );
 }
 
-function VideoPost({ post }: { post: FeedPost }) {
-  const { theme, isDark } = useAppTheme();
-  const { t } = useLanguage();
-
-  const styles = useMemo(
-    () => createStyles(theme, isDark),
-    [theme, isDark],
-  );
-
-  const video = post.media?.find(
-    item => item.media_type === 'video',
-  );
-
-  if (!video) return null;
-
-  const author =
-    post.author?.display_name ||
-    post.author?.username ||
-    t('britumeMember');
-
-  return (
-    <View style={styles.videoPostCard}>
-      <View style={styles.videoPostHeader}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={18} color={theme.cyan} />
-        </View>
-
-        <View style={styles.videoAuthor}>
-          <Text style={styles.authorName} numberOfLines={1}>
-            {author}
-          </Text>
-
-          <Text style={styles.postDate}>
-            {new Date(post.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-
-        <Ionicons name="videocam" size={20} color={theme.purple} />
-      </View>
-
-      <MediaVideo
-        uri={video.url}
-        videoStyle={styles.videoPlayer}
-      />
-
-      {post.content ? (
-        <Text style={styles.videoCaption} numberOfLines={3}>
-          {post.content}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 export default function HomeScreen() {
-  const { theme, isDark } = useAppTheme();
+  const { theme: appTheme, isDark } = useAppTheme();
   const { t } = useLanguage();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Dark mode is customized on this screen only.
+  // The global ThemeContext and the rest of the app are not changed.
+  const theme = useMemo(
+    () =>
+      isDark
+        ? {
+            ...appTheme,
+            bg: '#000000',
+            panel: '#000000',
+            panel2: '#050505',
+            border: '#FFFFFF',
+            borderStrong: '#FFFFFF',
+            text: '#FFFFFF',
+            muted: '#C9C9C9',
+            cyan: '#FFFFFF',
+            purple: '#FFFFFF',
+            gold: '#FFFFFF',
+            blueDark: '#FFFFFF',
+          }
+        : appTheme,
+    [appTheme, isDark],
+  );
 
   const styles = useMemo(
     () => createStyles(theme, isDark),
     [theme, isDark],
   );
+
+  const mediaWidth = Math.max(240, windowWidth - 48);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
@@ -260,26 +233,6 @@ export default function HomeScreen() {
       );
     });
   }, [posts, search]);
-
-  const photoPosts = useMemo(
-    () =>
-      filteredPosts.filter(
-        post =>
-          post.post_type === 'text' ||
-          post.post_type === 'photo',
-      ),
-    [filteredPosts],
-  );
-
-  const videoPosts = useMemo(
-    () => filteredPosts.filter(post => post.post_type === 'video'),
-    [filteredPosts],
-  );
-
-  const reelPosts = useMemo(
-    () => filteredPosts.filter(post => post.post_type === 'reel'),
-    [filteredPosts],
-  );
 
   const refreshInteractions = async () => {
     if (!posts.length) return;
@@ -450,7 +403,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/discover')}
           accessibilityLabel={t('discoverPeople')}
         >
-          <Ionicons name="search" size={22} color={theme.cyan} />
+          <Ionicons name="search" size={23} color={theme.cyan} />
         </Pressable>
 
         <Pressable
@@ -460,7 +413,7 @@ export default function HomeScreen() {
         >
           <Ionicons
             name="notifications-outline"
-            size={22}
+            size={23}
             color={theme.cyan}
           />
         </Pressable>
@@ -470,14 +423,14 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/more')}
           accessibilityLabel={t('moreMenu')}
         >
-          <Ionicons name="menu" size={25} color={theme.cyan} />
+          <Ionicons name="menu" size={26} color={theme.cyan} />
         </Pressable>
       </View>
 
       <View style={styles.searchBox}>
         <Ionicons
           name="search-outline"
-          size={21}
+          size={22}
           color={theme.cyan}
         />
 
@@ -493,15 +446,17 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => router.push('/(tabs)/discover')}
           accessibilityLabel={t('searchFilters')}
+          hitSlop={8}
         >
           <Ionicons
             name="options-outline"
-            size={22}
+            size={23}
             color={theme.purple}
           />
         </Pressable>
       </View>
 
+      {/* Compact circular stories instead of large story cards */}
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
           <Ionicons
@@ -519,7 +474,7 @@ export default function HomeScreen() {
           <Text style={styles.seeAllText}>{t('seeAll')}</Text>
           <Ionicons
             name="chevron-forward"
-            size={16}
+            size={17}
             color={theme.cyan}
           />
         </Pressable>
@@ -532,11 +487,12 @@ export default function HomeScreen() {
         contentContainerStyle={styles.storiesContent}
       >
         <Pressable
-          style={[styles.storyCard, styles.yourStoryCard]}
+          style={styles.storyCircleItem}
           onPress={() => router.push('/(tabs)/create')}
+          accessibilityLabel={t('yourStory')}
         >
-          <View style={styles.storyCardTop}>
-            <View style={styles.storyAvatar}>
+          <View style={styles.storyCircleOuter}>
+            <View style={styles.storyCircleInner}>
               <Ionicons
                 name="person"
                 size={25}
@@ -544,19 +500,14 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.storyStatus}>
-              <Ionicons name="add" size={17} color="#FFFFFF" />
+            <View style={styles.storyAddBadge}>
+              <Ionicons name="add" size={16} color="#000000" />
             </View>
           </View>
 
-          <View style={styles.storyCardBottom}>
-            <Text style={styles.storyCardTitle}>
-              {t('yourStory')}
-            </Text>
-            <Text style={styles.storyCardSubtitle}>
-              {t('shareMoment')}
-            </Text>
-          </View>
+          <Text style={styles.storyCircleLabel} numberOfLines={1}>
+            {t('yourStory')}
+          </Text>
         </Pressable>
       </ScrollView>
 
@@ -564,7 +515,7 @@ export default function HomeScreen() {
         <View style={styles.headingWithIcon}>
           <Ionicons
             name="grid-outline"
-            size={22}
+            size={23}
             color={theme.cyan}
           />
           <Text style={styles.sectionTitle}>{t('posts')}</Text>
@@ -598,13 +549,20 @@ export default function HomeScreen() {
       media => media.media_type === 'image',
     );
 
+    const video = (item.media ?? []).find(
+      media => media.media_type === 'video',
+    );
+
+    const isVideoPost =
+      item.post_type === 'video' || item.post_type === 'reel';
+
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
             <Ionicons
               name="person"
-              size={19}
+              size={20}
               color={theme.cyan}
             />
           </View>
@@ -616,6 +574,7 @@ export default function HomeScreen() {
 
             <Text style={styles.postDate}>
               {new Date(item.created_at).toLocaleDateString()}
+              {isVideoPost ? '  •  Video' : ''}
             </Text>
           </View>
 
@@ -633,10 +592,12 @@ export default function HomeScreen() {
               ])
             }
             accessibilityLabel={t('postOptions')}
+            hitSlop={12}
+            style={styles.moreButton}
           >
             <Ionicons
               name="ellipsis-vertical"
-              size={20}
+              size={22}
               color={theme.muted}
             />
           </Pressable>
@@ -646,7 +607,7 @@ export default function HomeScreen() {
           <View style={styles.postCaptionWrap}>
             <Text
               style={styles.postContent}
-              numberOfLines={expanded ? undefined : 4}
+              numberOfLines={expanded ? undefined : 5}
               ellipsizeMode="tail"
             >
               {item.content}
@@ -673,6 +634,15 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {video ? (
+          <View style={styles.videoMediaWrap}>
+            <MediaVideo
+              uri={video.url}
+              videoStyle={styles.videoPlayer}
+            />
+          </View>
+        ) : null}
+
         {images.length > 0 ? (
           <ScrollView
             horizontal
@@ -685,7 +655,10 @@ export default function HomeScreen() {
               <Image
                 key={media.id}
                 source={{ uri: media.url }}
-                style={styles.postImage}
+                style={[
+                  styles.postImage,
+                  { width: mediaWidth },
+                ]}
                 resizeMode="cover"
               />
             ))}
@@ -697,10 +670,11 @@ export default function HomeScreen() {
             style={styles.actionButton}
             onPress={() => void handleLike(item.id)}
             disabled={busyPosts.includes(item.id)}
+            accessibilityLabel={t('likeFailed')}
           >
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
-              size={20}
+              size={23}
               color={liked ? '#FF5478' : theme.cyan}
             />
 
@@ -716,7 +690,7 @@ export default function HomeScreen() {
           >
             <Ionicons
               name="chatbubble-outline"
-              size={19}
+              size={22}
               color={theme.cyan}
             />
 
@@ -732,7 +706,7 @@ export default function HomeScreen() {
           >
             <Ionicons
               name="share-social-outline"
-              size={19}
+              size={22}
               color={theme.cyan}
             />
           </Pressable>
@@ -745,7 +719,7 @@ export default function HomeScreen() {
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
-              size={19}
+              size={22}
               color={saved ? theme.gold : theme.cyan}
             />
           </Pressable>
@@ -754,39 +728,7 @@ export default function HomeScreen() {
     );
   };
 
-  const renderVideoSection = (
-    title: string,
-    data: FeedPost[],
-    kind: 'video' | 'reel',
-  ) => {
-    if (data.length === 0) return null;
-
-    return (
-      <View style={styles.mediaSection}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.headingWithIcon}>
-            <Ionicons
-              name={kind === 'reel' ? 'play-circle' : 'videocam'}
-              size={23}
-              color={kind === 'reel' ? theme.purple : theme.cyan}
-            />
-            <Text style={styles.sectionTitle}>{title}</Text>
-          </View>
-        </View>
-
-        <View style={styles.videoGrid}>
-          {data.map(post => (
-            <VideoPost key={post.id} post={post} />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  const hasAnyPosts =
-    photoPosts.length > 0 ||
-    videoPosts.length > 0 ||
-    reelPosts.length > 0;
+  const hasAnyPosts = filteredPosts.length > 0;
 
   return (
     <View style={styles.screen}>
@@ -801,16 +743,10 @@ export default function HomeScreen() {
         <FlatList
           style={styles.screen}
           contentContainerStyle={styles.content}
-          data={photoPosts}
+          data={filteredPosts}
           keyExtractor={item => item.id}
           numColumns={1}
           ListHeaderComponent={Header}
-          ListFooterComponent={
-            <View>
-              {renderVideoSection(t('videos'), videoPosts, 'video')}
-              {renderVideoSection(t('reels'), reelPosts, 'reel')}
-            </View>
-          }
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
@@ -825,7 +761,7 @@ export default function HomeScreen() {
               <View style={styles.emptyBox}>
                 <Ionicons
                   name="images-outline"
-                  size={43}
+                  size={48}
                   color={theme.cyan}
                 />
 
@@ -847,6 +783,16 @@ export default function HomeScreen() {
         />
       )}
 
+      {/* White neon glass edge frame. It does not intercept taps. */}
+      {isDark ? (
+        <View
+          pointerEvents="none"
+          style={styles.screenNeonFrame}
+        >
+          <View style={styles.screenNeonInner} />
+        </View>
+      ) : null}
+
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -862,7 +808,7 @@ export default function HomeScreen() {
               <View style={styles.headingWithIcon}>
                 <Ionicons
                   name="chatbubbles"
-                  size={23}
+                  size={24}
                   color={theme.cyan}
                 />
                 <Text style={styles.modalTitle}>
@@ -873,10 +819,11 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => setActivePostId(null)}
                 accessibilityLabel={t('cancel')}
+                hitSlop={10}
               >
                 <Ionicons
                   name="close-circle"
-                  size={29}
+                  size={30}
                   color={theme.muted}
                 />
               </Pressable>
@@ -902,7 +849,7 @@ export default function HomeScreen() {
                       <View style={styles.avatar}>
                         <Ionicons
                           name="person"
-                          size={17}
+                          size={18}
                           color={theme.cyan}
                         />
                       </View>
@@ -942,9 +889,9 @@ export default function HomeScreen() {
                 accessibilityLabel={t('comments')}
               >
                 {sendingComment ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color="#000000" />
                 ) : (
-                  <Ionicons name="send" size={19} color="#FFFFFF" />
+                  <Ionicons name="send" size={20} color="#000000" />
                 )}
               </Pressable>
             </View>
@@ -956,38 +903,67 @@ export default function HomeScreen() {
 }
 
 function createStyles(theme: AppTheme, isDark: boolean) {
-  const surface = theme.panel ?? (isDark ? '#1B2B40' : '#FFFFFF');
-  const raised = theme.panel2 ?? (isDark ? '#243A52' : '#E4F1FF');
-  const border = theme.border ?? (isDark ? '#304A65' : '#D3E6F8');
+  const surface = theme.panel ?? (isDark ? '#000000' : '#FFFFFF');
+  const raised = theme.panel2 ?? (isDark ? '#050505' : '#E4F1FF');
+  const border = theme.border ?? (isDark ? '#FFFFFF' : '#D3E6F8');
   const borderStrong =
-    theme.borderStrong ?? (isDark ? '#456482' : '#B9D8F5');
+    theme.borderStrong ?? (isDark ? '#FFFFFF' : '#B9D8F5');
 
-  const shadow = isDark ? '#080F19' : '#548BCB';
-  const softText = theme.muted ?? (isDark ? '#A9BED3' : '#66829B');
+  const shadow = isDark ? '#FFFFFF' : '#548BCB';
+  const softText = theme.muted ?? (isDark ? '#C9C9C9' : '#66829B');
 
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.bg,
+      backgroundColor: isDark ? '#000000' : theme.bg,
     },
 
     content: {
       paddingHorizontal: 12,
-      paddingTop: 12,
-      paddingBottom: 35,
+      paddingTop: 13,
+      paddingBottom: 45,
     },
 
     loading: {
       flex: 1,
-      backgroundColor: theme.bg,
+      backgroundColor: isDark ? '#000000' : theme.bg,
       justifyContent: 'center',
       alignItems: 'center',
     },
 
     loadingText: {
       color: theme.text,
-      marginTop: 12,
+      marginTop: 13,
       fontWeight: '800',
+      fontSize: 15,
+    },
+
+    // Screen-wide neon glass frame
+    screenNeonFrame: {
+      position: 'absolute',
+      top: 4,
+      left: 4,
+      right: 4,
+      bottom: 4,
+      borderWidth: 2,
+      borderColor: '#FFFFFF',
+      borderRadius: 22,
+      shadowColor: '#FFFFFF',
+      shadowOpacity: 0.95,
+      shadowRadius: 13,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 12,
+    },
+
+    screenNeonInner: {
+      position: 'absolute',
+      top: 3,
+      left: 3,
+      right: 3,
+      bottom: 3,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.42)',
+      borderRadius: 17,
     },
 
     topBar: {
@@ -997,7 +973,7 @@ function createStyles(theme: AppTheme, isDark: boolean) {
     },
 
     logoHolder: {
-      marginRight: 8,
+      marginRight: 9,
     },
 
     brandText: {
@@ -1006,62 +982,62 @@ function createStyles(theme: AppTheme, isDark: boolean) {
 
     brandName: {
       color: theme.blueDark ?? '#0756B5',
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '900',
-      letterSpacing: 1,
+      letterSpacing: 1.2,
     },
 
     tagline: {
       color: theme.cyan,
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: '900',
     },
 
     byline: {
       color: softText,
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: '700',
     },
 
     topButtonLight: {
-      width: 38,
-      height: 38,
+      width: 41,
+      height: 41,
       borderRadius: 15,
       backgroundColor: surface,
-      borderWidth: 2,
+      borderWidth: isDark ? 1.5 : 2,
       borderColor: border,
       justifyContent: 'center',
       alignItems: 'center',
       marginLeft: 5,
-      elevation: isDark ? 2 : 7,
+      elevation: isDark ? 8 : 7,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.15 : 0.27,
-      shadowRadius: 8,
-      shadowOffset: { width: 4, height: 5 },
+      shadowOpacity: isDark ? 0.85 : 0.27,
+      shadowRadius: isDark ? 9 : 8,
+      shadowOffset: { width: 0, height: 0 },
     },
 
     searchBox: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: surface,
-      borderRadius: 24,
-      borderWidth: 2,
+      borderRadius: 25,
+      borderWidth: isDark ? 1.5 : 2,
       borderColor: border,
       paddingHorizontal: 15,
-      marginBottom: 25,
-      elevation: isDark ? 2 : 9,
+      marginBottom: 24,
+      elevation: isDark ? 8 : 9,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.15 : 0.28,
-      shadowRadius: 12,
-      shadowOffset: { width: 6, height: 8 },
+      shadowOpacity: isDark ? 0.85 : 0.28,
+      shadowRadius: isDark ? 10 : 12,
+      shadowOffset: { width: 0, height: 0 },
     },
 
     searchInput: {
       flex: 1,
       color: theme.text,
-      paddingHorizontal: 10,
+      paddingHorizontal: 11,
       paddingVertical: 15,
-      fontSize: 12,
+      fontSize: 15,
       fontWeight: '700',
     },
 
@@ -1069,19 +1045,19 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 14,
+      marginBottom: 13,
       marginTop: 5,
     },
 
     headingWithIcon: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 9,
     },
 
     sectionTitle: {
       color: theme.text,
-      fontSize: 19,
+      fontSize: 20,
       fontWeight: '900',
     },
 
@@ -1089,193 +1065,203 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: surface,
-      borderRadius: 16,
-      paddingHorizontal: 11,
+      borderRadius: 17,
+      paddingHorizontal: 12,
       paddingVertical: 8,
       borderWidth: 1.5,
       borderColor: border,
-      elevation: isDark ? 1 : 5,
+      elevation: isDark ? 6 : 5,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.8 : 0.15,
+      shadowRadius: 6,
     },
 
     seeAllText: {
       color: theme.cyan,
-      fontSize: 11,
-      fontWeight: '900',
-    },
-
-    storiesScroll: {
-      marginBottom: 24,
-    },
-
-    storiesContent: {
-      paddingHorizontal: 3,
-      paddingBottom: 9,
-    },
-
-    storyCard: {
-      width: 116,
-      height: 174,
-      borderRadius: 21,
-      borderWidth: 3,
-      borderColor: border,
-      padding: 9,
-      justifyContent: 'space-between',
-      overflow: 'hidden',
-      elevation: isDark ? 2 : 9,
-      shadowColor: shadow,
-      shadowOpacity: isDark ? 0.18 : 0.28,
-      shadowRadius: 9,
-      shadowOffset: { width: 4, height: 6 },
-    },
-
-    yourStoryCard: {
-      backgroundColor: isDark ? '#243A52' : '#CDE7FF',
-    },
-
-    storyCardTop: {
-      alignItems: 'flex-start',
-    },
-
-    storyAvatar: {
-      width: 49,
-      height: 49,
-      borderRadius: 18,
-      backgroundColor: surface,
-      borderWidth: 2,
-      borderColor: border,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    storyStatus: {
-      position: 'absolute',
-      left: 35,
-      top: 34,
-      width: 25,
-      height: 25,
-      borderRadius: 13,
-      backgroundColor: theme.cyan,
-      borderWidth: 2,
-      borderColor: surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    storyCardBottom: {
-      backgroundColor: isDark
-        ? 'rgba(16,27,42,0.88)'
-        : 'rgba(255,255,255,0.72)',
-      borderRadius: 12,
-      paddingHorizontal: 7,
-      paddingVertical: 8,
-    },
-
-    storyCardTitle: {
-      color: theme.text,
       fontSize: 12,
       fontWeight: '900',
     },
 
-    storyCardSubtitle: {
-      color: softText,
-      fontSize: 9,
-      fontWeight: '700',
-      marginTop: 3,
+    // Small circular story icons
+    storiesScroll: {
+      marginBottom: 19,
+    },
+
+    storiesContent: {
+      paddingHorizontal: 4,
+      paddingTop: 3,
+      paddingBottom: 8,
+      alignItems: 'flex-start',
+    },
+
+    storyCircleItem: {
+      width: 76,
+      alignItems: 'center',
+      marginRight: 13,
+    },
+
+    storyCircleOuter: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      borderWidth: 2.5,
+      borderColor: isDark ? '#FFFFFF' : borderStrong,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: surface,
+      elevation: isDark ? 9 : 5,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.95 : 0.2,
+      shadowRadius: isDark ? 10 : 6,
+      shadowOffset: { width: 0, height: 0 },
+    },
+
+    storyCircleInner: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: border,
+    },
+
+    storyAddBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -1,
+      width: 23,
+      height: 23,
+      borderRadius: 12,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 2,
+      borderColor: isDark ? '#000000' : surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    storyCircleLabel: {
+      color: theme.text,
+      fontSize: 11,
+      fontWeight: '800',
+      marginTop: 7,
+      maxWidth: 76,
+      textAlign: 'center',
     },
 
     postCard: {
       width: '100%',
       minWidth: 0,
       backgroundColor: surface,
-      borderWidth: 2,
-      borderTopColor: border,
-      borderLeftColor: border,
-      borderRightColor: borderStrong,
-      borderBottomColor: borderStrong,
-      borderRadius: 24,
-      padding: 11,
-      marginBottom: 16,
-      elevation: isDark ? 2 : 12,
+      borderWidth: isDark ? 1.5 : 2,
+      borderColor: border,
+      borderRadius: 23,
+      padding: 12,
+      marginBottom: 18,
+      elevation: isDark ? 9 : 12,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.2 : 0.32,
-      shadowRadius: 13,
-      shadowOffset: { width: 7, height: 9 },
+      shadowOpacity: isDark ? 0.9 : 0.32,
+      shadowRadius: isDark ? 10 : 13,
+      shadowOffset: { width: 0, height: 0 },
     },
 
     postHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 11,
+      marginBottom: 12,
     },
 
     avatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 15,
+      width: 41,
+      height: 41,
+      borderRadius: 21,
       backgroundColor: raised,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: border,
       alignItems: 'center',
       justifyContent: 'center',
-      elevation: 3,
+      elevation: isDark ? 5 : 3,
     },
 
     postAuthor: {
       flex: 1,
-      marginLeft: 8,
+      marginLeft: 10,
     },
 
     authorName: {
       color: theme.text,
       fontWeight: '900',
-      fontSize: 11,
+      fontSize: 14,
     },
 
     postDate: {
       color: softText,
-      fontSize: 9,
-      marginTop: 3,
+      fontSize: 11,
+      marginTop: 4,
       fontWeight: '600',
     },
 
+    moreButton: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
     postCaptionWrap: {
-      marginBottom: 9,
+      marginBottom: 11,
     },
 
     postContent: {
       color: theme.text,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '500',
-      lineHeight: 21,
+      lineHeight: 24,
     },
 
     seeMoreText: {
       color: theme.cyan,
-      fontSize: 13,
-      fontWeight: '800',
-      marginTop: 4,
+      fontSize: 14,
+      fontWeight: '900',
+      marginTop: 6,
     },
 
     imageScroller: {
-      marginHorizontal: -4,
-      marginBottom: 8,
+      marginHorizontal: -12,
+      marginBottom: 9,
     },
 
-    // FIX: mediaGallery is defined here and used by the image ScrollView.
     mediaGallery: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      paddingHorizontal: 2,
+      paddingHorizontal: 0,
     },
 
     postImage: {
-      width: 155,
-      height: 170,
-      borderRadius: 17,
-      marginHorizontal: 3,
+      height: 330,
+      borderRadius: 0,
+      marginHorizontal: 0,
       backgroundColor: raised,
-      borderWidth: 2,
+    },
+
+    videoMediaWrap: {
+      width: '100%',
+      marginBottom: 9,
+      borderRadius: 15,
+      overflow: 'hidden',
+      borderWidth: isDark ? 1 : 0,
       borderColor: border,
+      elevation: isDark ? 7 : 0,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.75 : 0,
+      shadowRadius: 8,
+    },
+
+    videoPlayer: {
+      width: '100%',
+      height: 300,
+      backgroundColor: '#000000',
     },
 
     postActions: {
@@ -1284,7 +1270,7 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       justifyContent: 'space-between',
       borderTopWidth: 1,
       borderTopColor: borderStrong,
-      paddingTop: 11,
+      paddingTop: 12,
       marginTop: 7,
     },
 
@@ -1292,138 +1278,93 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 3,
-      minWidth: 27,
-      minHeight: 29,
-      borderRadius: 12,
+      gap: 6,
+      minWidth: 48,
+      minHeight: 42,
+      borderRadius: 15,
       backgroundColor: raised,
-      paddingHorizontal: 5,
-      elevation: isDark ? 1 : 3,
+      paddingHorizontal: 9,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: isDark ? border : 'transparent',
+      elevation: isDark ? 5 : 3,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.12 : 0.18,
-      shadowRadius: 4,
-      shadowOffset: { width: 2, height: 3 },
+      shadowOpacity: isDark ? 0.65 : 0.18,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 0 },
     },
 
     actionCount: {
-      fontSize: 9,
+      fontSize: 12,
       color: theme.text,
       fontWeight: '900',
-    },
-
-    mediaSection: {
-      marginTop: 23,
-    },
-
-    videoGrid: {
-      flexDirection: 'column',
-    },
-
-    videoPostCard: {
-      width: '100%',
-      backgroundColor: surface,
-      borderRadius: 21,
-      borderWidth: 2,
-      borderColor: border,
-      padding: 8,
-      marginBottom: 12,
-      elevation: isDark ? 2 : 9,
-      shadowColor: shadow,
-      shadowOpacity: isDark ? 0.18 : 0.25,
-      shadowRadius: 9,
-      shadowOffset: { width: 4, height: 6 },
-    },
-
-    videoPostHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 9,
-      gap: 7,
-    },
-
-    videoAuthor: {
-      flex: 1,
-      minWidth: 0,
-    },
-
-    videoPlayer: {
-      width: '100%',
-      height: 230,
-      backgroundColor: theme.text,
-      borderRadius: 14,
-      overflow: 'hidden',
-    },
-
-    videoCaption: {
-      color: theme.text,
-      fontSize: 11,
-      fontWeight: '700',
-      lineHeight: 16,
-      marginTop: 9,
     },
 
     emptyBox: {
       backgroundColor: surface,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: border,
-      borderRadius: 26,
-      padding: 25,
+      borderRadius: 25,
+      padding: 27,
       alignItems: 'center',
-      marginBottom: 15,
-      elevation: isDark ? 2 : 10,
+      marginBottom: 17,
+      elevation: isDark ? 8 : 10,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.18 : 0.3,
+      shadowOpacity: isDark ? 0.85 : 0.3,
       shadowRadius: 12,
-      shadowOffset: { width: 6, height: 8 },
+      shadowOffset: { width: 0, height: 0 },
     },
 
     emptyTitle: {
       color: theme.text,
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '900',
-      marginTop: 12,
+      marginTop: 13,
+      textAlign: 'center',
     },
 
     emptyText: {
       color: softText,
       textAlign: 'center',
-      lineHeight: 20,
-      marginTop: 7,
+      lineHeight: 22,
+      marginTop: 8,
+      fontSize: 14,
     },
 
     errorBox: {
-      backgroundColor: isDark ? '#402633' : '#FFF0F0',
+      backgroundColor: isDark ? '#160000' : '#FFF0F0',
       borderWidth: 1.5,
-      borderColor: isDark ? '#744050' : '#FFD0D0',
-      padding: 14,
+      borderColor: isDark ? '#FFFFFF' : '#FFD0D0',
+      padding: 15,
       borderRadius: 18,
-      marginBottom: 13,
-      elevation: 3,
+      marginBottom: 14,
+      elevation: isDark ? 5 : 3,
     },
 
     errorText: {
-      color: isDark ? '#FFB9C5' : '#C52E45',
-      marginBottom: 6,
+      color: isDark ? '#FFFFFF' : '#C52E45',
+      marginBottom: 7,
       fontWeight: '700',
+      fontSize: 14,
     },
 
     retryText: {
       color: theme.cyan,
       fontWeight: '900',
+      fontSize: 14,
     },
 
     modalBackground: {
       flex: 1,
       justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0,0,0,0.55)',
+      backgroundColor: 'rgba(0,0,0,0.78)',
     },
 
     commentsPanel: {
-      height: '70%',
-      backgroundColor: theme.bg,
-      borderTopLeftRadius: 30,
-      borderTopRightRadius: 30,
-      borderTopWidth: 3,
+      height: '72%',
+      backgroundColor: isDark ? '#000000' : theme.bg,
+      borderTopLeftRadius: 29,
+      borderTopRightRadius: 29,
+      borderTopWidth: 2,
       borderColor: border,
       padding: 17,
       elevation: 18,
@@ -1440,13 +1381,13 @@ function createStyles(theme: AppTheme, isDark: boolean) {
 
     modalTitle: {
       color: theme.text,
-      fontSize: 20,
+      fontSize: 21,
       fontWeight: '900',
     },
 
     commentsList: {
       flex: 1,
-      paddingVertical: 13,
+      paddingVertical: 14,
     },
 
     noComments: {
@@ -1454,36 +1395,36 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       textAlign: 'center',
       marginTop: 30,
       fontWeight: '700',
+      fontSize: 14,
     },
 
     commentCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 10,
+      gap: 11,
       backgroundColor: surface,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: border,
-      padding: 12,
-      borderRadius: 18,
+      padding: 13,
+      borderRadius: 17,
       marginBottom: 11,
-      elevation: isDark ? 1 : 5,
+      elevation: isDark ? 4 : 5,
       shadowColor: shadow,
-      shadowOpacity: isDark ? 0.12 : 0.18,
+      shadowOpacity: isDark ? 0.6 : 0.18,
       shadowRadius: 6,
-      shadowOffset: { width: 3, height: 4 },
     },
 
     commentAuthor: {
       color: theme.text,
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '900',
     },
 
     commentContent: {
       color: softText,
-      fontSize: 13,
+      fontSize: 14,
       marginTop: 5,
-      lineHeight: 19,
+      lineHeight: 21,
     },
 
     commentInputRow: {
@@ -1497,33 +1438,34 @@ function createStyles(theme: AppTheme, isDark: boolean) {
 
     commentInput: {
       flex: 1,
-      minHeight: 45,
-      maxHeight: 90,
+      minHeight: 47,
+      maxHeight: 95,
       backgroundColor: surface,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: border,
       borderRadius: 21,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: 15,
+      paddingVertical: 11,
       color: theme.text,
       fontWeight: '600',
-      elevation: 3,
+      fontSize: 14,
+      elevation: isDark ? 4 : 3,
     },
 
     sendButton: {
-      width: 47,
-      height: 47,
+      width: 49,
+      height: 49,
       borderRadius: 18,
-      backgroundColor: theme.cyan,
-      borderWidth: 2,
-      borderColor: border,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#FFFFFF' : border,
       alignItems: 'center',
       justifyContent: 'center',
-      elevation: 5,
-      shadowColor: theme.blueDark ?? '#0756B5',
-      shadowOpacity: isDark ? 0.2 : 0.35,
+      elevation: isDark ? 8 : 5,
+      shadowColor: '#FFFFFF',
+      shadowOpacity: isDark ? 0.8 : 0.2,
       shadowRadius: 8,
-      shadowOffset: { width: 4, height: 5 },
+      shadowOffset: { width: 0, height: 0 },
     },
   });
 }
