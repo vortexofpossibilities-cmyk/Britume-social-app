@@ -50,6 +50,12 @@ const items: TabItem[] = [
     key: 'rewards',
   },
   {
+    icon: 'game-controller-outline',
+    route: '/(tabs)/games',
+    activePath: '/games',
+    key: 'games',
+  },
+  {
     icon: 'wallet-outline',
     route: '/(tabs)/wallet',
     activePath: '/wallet',
@@ -88,7 +94,9 @@ function IconBar() {
               ? 'Wallet'
               : item.key === 'rewards'
                 ? 'Rewards'
-                : t(item.key);
+                : item.key === 'games'
+                  ? 'Games'
+                  : t(item.key);
 
           const active =
             item.key === 'home'
@@ -159,6 +167,11 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="create" />
+
+      <Tabs.Screen
+        name="games"
+        options={{ href: null }}
+      />
 
       <Tabs.Screen
         name="wallet"
@@ -269,4 +282,4 @@ function createStyles(
       elevation: 3,
     },
   });
-                }
+}
