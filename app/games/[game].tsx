@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -6,375 +7,389 @@ import {
   Pressable,
   StyleSheet,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 
-type GameInfo = {
-  name: string;
-  category: string;
-  entry: string;
-  rake: string;
-  contribution: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  description: string;
-  instructions: string[];
-  rules: string;
-};
+import {
+  getGame,
+  createGameSession,
+  finishGameSession,
+  checkNumberGuess,
+  generatePracticeNumber,
+  calculateTriviaScore,
+  calculateDailyChallengeScore,
+  evaluateGreedySplit,
+  type GameSession,
+} from '../../src/games';
 
-const gameData: Record<string, GameInfo> = {
-  'spin-wheel': {
-    name: 'Spin Wheel',
-    category: 'INSTANT LUCK',
-    entry: '20 Points',
-    rake: '12%',
-    contribution: '17.60 Points',
-    icon: 'disc-outline',
-    color: '#8B5CF6',
-    description: 'Spin the wheel and see which outcome you receive.',
-    instructions: [
-      'Open the Spin Wheel game.',
-      'Review the available wheel outcomes.',
-      'Start a spin when the game is enabled.',
-      'Your result will be displayed after the spin.',
-    ],
-    rules: 'The planned wheel has five possible outcomes: Lose, Small, Medium, Big and Jackpot. Final probabilities and payouts will be controlled and verified by the game backend.',
-  },
-
-  'crash-rocket': {
-    name: 'Crash / Rocket',
-    category: 'TIMING GAME',
-    entry: '5 Points',
-    rake: '10%',
-    contribution: '4.50 Points',
-    icon: 'rocket-outline',
-    color: '#F97316',
-    description: 'Watch the rocket multiplier and decide when to cash out.',
-    instructions: [
-      'Join a rocket round.',
-      'Watch the multiplier increase.',
-      'Choose when to cash out.',
-      'The round ends when the rocket crashes.',
-    ],
-    rules: 'The final multiplier, crash result and eligible payouts must be calculated by the server. The screen must never decide the outcome locally.',
-  },
-
-  'prediction-pot': {
-    name: 'Prediction Pot',
-    category: 'PREDICTION',
-    entry: '20 Points',
-    rake: '15%',
-    contribution: '17.00 Points',
-    icon: 'trophy-outline',
-    color: '#EAB308',
-    description: 'Make predictions and compete with other players.',
-    instructions: [
-      'Choose an available prediction event.',
-      'Read the event details and closing time.',
-      'Submit your prediction before entries close.',
-      'Correct predictions share the eligible prize pot.',
-    ],
-    rules: 'Only verified event results can settle a prediction round. Tied correct predictions share the eligible prize according to the published rules.',
-  },
-
-  trivia: {
-    name: 'Trivia Tournament',
-    category: 'KNOWLEDGE',
-    entry: '10 Points',
-    rake: '15%',
-    contribution: '8.50 Points',
-    icon: 'help-circle-outline',
-    color: '#0EA5E9',
-    description: 'Answer questions and compete on the leaderboard.',
-    instructions: [
-      'Join an available trivia round.',
-      'Read each question carefully.',
-      'Select your answer before time runs out.',
-      'Your score determines your leaderboard position.',
-    ],
-    rules: 'The planned prize split is 70% for first place and 30% for second place. Ties, disconnections and incomplete rounds need defined settlement rules.',
-  },
-
-  'daily-challenge': {
-    name: 'Daily Challenge',
-    category: 'DAILY GAME',
-    entry: '10 Points',
-    rake: '15%',
-    contribution: '8.50 Points',
-    icon: 'calendar-outline',
-    color: '#10B981',
-    description: 'Complete a new challenge every day.',
-    instructions: [
-      'Open the daily challenge.',
-      'Read the task instructions.',
-      'Complete the challenge before the deadline.',
-      'Check the results after the challenge closes.',
-    ],
-    rules: 'The planned prize pool is shared among eligible finishers. The backend will validate completions and calculate each eligible share.',
-  },
-
-  'mystery-box': {
-    name: 'Mystery Box',
-    category: 'SURPRISE',
-    entry: '15 Points',
-    rake: '15%',
-    contribution: '12.75 Points',
-    icon: 'gift-outline',
-    color: '#EC4899',
-    description: 'Open a mystery box to discover its contents.',
-    instructions: [
-      'View the available mystery boxes.',
-      'Check the possible rewards.',
-      'Open a box when the game is enabled.',
-      'View your confirmed reward.',
-    ],
-    rules: 'Physical and airtime rewards can only be offered when actual stock is available. The backend must reserve stock before confirming a physical prize.',
-  },
-
-  'greedy-split': {
-    name: 'The Greedy Split',
-    category: 'STRATEGY',
-    entry: '20 Points',
-    rake: '20%',
-    contribution: '16.00 Points',
-    icon: 'people-outline',
-    color: '#6366F1',
-    description: 'Choose whether to split or steal in a strategy duel.',
-    instructions: [
-      'Join an available duel.',
-      'Wait for your opponent.',
-      'Choose Split or Steal privately.',
-      'Both choices are revealed when the timer ends.',
-    ],
-    rules: 'The outcome depends on both players’ choices. The exact split, steal and disconnect rules must be published before competitive rounds begin.',
-  },
-
-  'last-one-standing': {
-    name: 'Last One Standing',
-    category: 'ELIMINATION',
-    entry: '10 Points',
-    rake: '20%',
-    contribution: '8.00 Points',
-    icon: 'shield-outline',
-    color: '#EF4444',
-    description: 'Survive the elimination rounds and remain in the game.',
-    instructions: [
-      'Join an available room.',
-      'Wait for the round to begin.',
-      'Complete each elimination challenge.',
-      'Try to remain until the final round.',
-    ],
-    rules: 'The game server controls the round timer, player elimination and final winner. Disconnection and tie rules must be handled by the backend.',
-  },
-
-  'lowest-unique-bid': {
-    name: 'Lowest Unique Bid',
-    category: 'STRATEGY',
-    entry: '5 Points',
-    rake: '20%',
-    contribution: '4.00 Points',
-    icon: 'calculator-outline',
-    color: '#14B8A6',
-    description: 'Choose a number that is the lowest number selected by only one player.',
-    instructions: [
-      'Join a bidding round.',
-      'Choose a secret number from 1 to 50.',
-      'Submit before the round closes.',
-      'The lowest number chosen by only one player wins.',
-    ],
-    rules: 'All bids remain secret until the round closes. The server checks duplicate numbers and calculates the lowest unique bid.',
-  },
-
-  minefield: {
-    name: 'Minefield Battle',
-    category: 'RISK & SKILL',
-    entry: '10 Points',
-    rake: '20%',
-    contribution: '8.00 Points',
-    icon: 'grid-outline',
-    color: '#F43F5E',
-    description: 'Search the grid for gems while avoiding hidden bombs.',
-    instructions: [
-      'Enter the minefield round.',
-      'Explore the 5 × 5 grid.',
-      'Collect gems and avoid bombs.',
-      'The top eligible scores qualify for the planned prize split.',
-    ],
-    rules: 'The server must generate and validate the grid. The planned grid has 20 gems and 5 bombs, with the top three eligible scores sharing the prize.',
-  },
-
-  'number-guess': {
-    name: 'Number Guess',
-    category: 'QUICK GAME',
-    entry: '5 Points',
-    rake: '20%',
-    contribution: '4.00 Points',
-    icon: 'dice-outline',
-    color: '#A855F7',
-    description: 'Guess the secret number between 1 and 100.',
-    instructions: [
-      'Join a number-guess round.',
-      'Submit a number between 1 and 100.',
-      'Wait for the round to close.',
-      'The closest eligible guess wins. Ties share the prize.',
-    ],
-    rules: 'The secret number is generated on the server and remains hidden until the round closes. The server validates guesses and calculates the result.',
-  },
-};
-
-export default function GameDetailsScreen() {
-  const params = useLocalSearchParams<{ game?: string }>();
-  const gameSlug = Array.isArray(params.game)
+export default function IndividualGameScreen() {
+  const params = useLocalSearchParams<{ game: string }>();
+  const slug = Array.isArray(params.game)
     ? params.game[0]
     : params.game;
 
-  const game = gameSlug ? gameData[gameSlug] : undefined;
+  const game = Object.entries({
+    'spin-wheel': 'pooled-spin',
+    'crash-rocket': 'rocket',
+    'prediction-pot': 'prediction-pot',
+    trivia: 'trivia',
+    'daily-challenge': 'daily-challenge',
+    'mystery-box': 'mystery-box',
+    'greedy-split': 'greedy-split',
+    'last-one-standing': 'last-standing',
+    'lowest-unique-bid': 'lowest-bid',
+    minefield: 'minefield',
+    'number-guess': 'number-guess',
+  }).find(([, id]) => id === slug);
 
-  const [showPreview, setShowPreview] = useState(false);
+  const gameId = game?.[1] ?? slug;
+  const definition = getGame(gameId ?? '');
 
-  if (!game) {
+  const [session, setSession] = useState<GameSession | null>(null);
+  const [score, setScore] = useState(0);
+  const [guess, setGuess] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [secretNumber, setSecretNumber] = useState<number | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
+  const [triviaAnswers, setTriviaAnswers] = useState(0);
+  const [splitOffer, setSplitOffer] = useState('50');
+
+  if (!definition) {
     return (
-      <View style={styles.notFound}>
-        <Ionicons name="game-controller-outline" size={55} color="#34D399" />
-        <Text style={styles.notFoundTitle}>Game not found</Text>
-        <Text style={styles.notFoundText}>
-          This game is not available in the BRITUME Games list.
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Game not found' }} />
+        <Text style={styles.title}>Game not found</Text>
+        <Text style={styles.description}>
+          This game could not be found in the BRITUME catalogue.
         </Text>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
+        <Pressable style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go back</Text>
         </Pressable>
       </View>
     );
   }
 
+  const startGame = () => {
+    setSession(createGameSession(definition.id));
+    setScore(0);
+    setGuess('');
+    setFeedback('');
+    setAttempts(0);
+    setCompletedTasks(0);
+    setTriviaAnswers(0);
+    setSecretNumber(
+      definition.id === 'number-guess'
+        ? generatePracticeNumber()
+        : null
+    );
+  };
+
+  const endGame = (finalScore: number) => {
+    if (!session) return;
+
+    setScore(finalScore);
+    setSession(finishGameSession(session, finalScore));
+  };
+
+  const submitGuess = () => {
+    if (secretNumber === null) return;
+
+    const value = Number(guess);
+    const result = checkNumberGuess(value, secretNumber);
+
+    setAttempts((previous) => previous + 1);
+
+    if (result === 'correct') {
+      setFeedback('Correct! You discovered the number.');
+      endGame(Math.max(10, 100 - attempts * 10));
+    } else if (result === 'too-low') {
+      setFeedback('Too low! Try a higher number.');
+    } else if (result === 'too-high') {
+      setFeedback('Too high! Try a lower number.');
+    } else {
+      setFeedback('Enter a whole number from 1 to 100.');
+    }
+
+    setGuess('');
+  };
+
+  const renderGameContent = () => {
+    if (!session) {
+      return (
+        <View style={styles.panel}>
+          <View
+            style={[
+              styles.largeIcon,
+              { backgroundColor: `${definition.accent}22` },
+            ]}
+          >
+            <Ionicons
+              name={definition.icon as keyof typeof Ionicons.glyphMap}
+              size={45}
+              color={definition.accent}
+            />
+          </View>
+
+          <Text style={styles.panelTitle}>
+            Ready to play?
+          </Text>
+
+          <Text style={styles.description}>
+            Start a free practice session. Your practice score
+            is not a cash balance or redeemable reward.
+          </Text>
+
+          <Pressable style={styles.button} onPress={startGame}>
+            <Text style={styles.buttonText}>START PRACTICE</Text>
+            <Ionicons name="arrow-forward" size={17} color="#071B17" />
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (session.status === 'completed') {
+      return (
+        <View style={styles.panel}>
+          <Ionicons
+            name="trophy-outline"
+            size={54}
+            color="#34D399"
+          />
+          <Text style={styles.panelTitle}>Practice complete!</Text>
+          <Text style={styles.score}>{score}</Text>
+          <Text style={styles.description}>Practice score</Text>
+
+          <Pressable style={styles.button} onPress={startGame}>
+            <Text style={styles.buttonText}>PLAY AGAIN</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    switch (definition.id) {
+      case 'number-guess':
+        return (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>
+              Guess the number
+            </Text>
+            <Text style={styles.description}>
+              Find the secret number between 1 and 100.
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              value={guess}
+              onChangeText={setGuess}
+              keyboardType="number-pad"
+              placeholder="Enter your guess"
+              placeholderTextColor="#78918A"
+              maxLength={3}
+            />
+
+            <Pressable style={styles.button} onPress={submitGuess}>
+              <Text style={styles.buttonText}>SUBMIT GUESS</Text>
+            </Pressable>
+
+            {!!feedback && (
+              <Text style={styles.feedback}>{feedback}</Text>
+            )}
+
+            <Text style={styles.description}>
+              Attempts: {attempts}
+            </Text>
+          </View>
+        );
+
+      case 'trivia':
+        return (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Trivia practice</Text>
+            <Text style={styles.description}>
+              How many sides does a hexagon have?
+            </Text>
+
+            {[5, 6, 7, 8].map((answer) => (
+              <Pressable
+                key={answer}
+                style={styles.answerButton}
+                onPress={() => {
+                  const correct = answer === 6;
+                  const next = triviaAnswers + (correct ? 1 : 0);
+                  setTriviaAnswers(next);
+                  endGame(calculateTriviaScore(next, 1));
+                  setFeedback(
+                    correct ? 'Correct answer!' : 'Not quite. The answer is 6.'
+                  );
+                }}
+              >
+                <Text style={styles.answerText}>{answer}</Text>
+              </Pressable>
+            ))}
+          </View>
+        );
+
+      case 'daily-challenge':
+        return (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Daily practice</Text>
+            <Text style={styles.description}>
+              Complete this simple challenge.
+            </Text>
+
+            <Text style={styles.score}>
+              {completedTasks}/3
+            </Text>
+
+            <Pressable
+              style={styles.button}
+              onPress={() => {
+                const next = Math.min(completedTasks + 1, 3);
+                setCompletedTasks(next);
+
+                if (next === 3) {
+                  endGame(calculateDailyChallengeScore(next, 3));
+                }
+              }}
+            >
+              <Text style={styles.buttonText}>
+                COMPLETE TASK
+              </Text>
+            </Pressable>
+          </View>
+        );
+
+      case 'greedy-split':
+        return (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>The Greedy Split</Text>
+            <Text style={styles.description}>
+              A practice puzzle: divide 100 imaginary tokens.
+              How many would you offer the other player?
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              value={splitOffer}
+              onChangeText={setSplitOffer}
+              keyboardType="number-pad"
+              placeholder="Your offer"
+              placeholderTextColor="#78918A"
+            />
+
+            <Pressable
+              style={styles.button}
+              onPress={() => {
+                const result = evaluateGreedySplit(
+                  100,
+                  Number(splitOffer),
+                  40
+                );
+
+                setFeedback(
+                  result.accepted
+                    ? `Offer accepted! You keep ${result.remaining} imaginary tokens.`
+                    : 'Offer rejected. Try a more generous split.'
+                );
+
+                endGame(result.accepted ? result.remaining : 0);
+              }}
+            >
+              <Text style={styles.buttonText}>SUBMIT OFFER</Text>
+            </Pressable>
+
+            {!!feedback && (
+              <Text style={styles.feedback}>{feedback}</Text>
+            )}
+          </View>
+        );
+
+      default:
+        return (
+          <View style={styles.panel}>
+            <Ionicons
+              name="construct-outline"
+              size={48}
+              color="#34D399"
+            />
+            <Text style={styles.panelTitle}>
+              Practice mode is coming
+            </Text>
+            <Text style={styles.description}>
+              This game's individual mechanics are still being
+              developed. Your game card is connected to the
+              BRITUME game catalogue.
+            </Text>
+          </View>
+        );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#071B17" />
 
+      <Stack.Screen
+        options={{
+          title: definition.name,
+          headerStyle: { backgroundColor: '#071B17' },
+          headerTintColor: '#FFFFFF',
+          headerShadowVisible: false,
+        }}
+      />
+
       <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
       >
-        <Pressable style={styles.backRow} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-          <Text style={styles.backText}>All Games</Text>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={20} color="#34D399" />
+          <Text style={styles.backText}>Games Arena</Text>
         </Pressable>
 
-        <View style={styles.hero}>
+        <View style={styles.header}>
           <View
             style={[
-              styles.heroIcon,
-              { backgroundColor: `${game.color}22` },
+              styles.gameIcon,
+              { backgroundColor: `${definition.accent}22` },
             ]}
           >
-            <Ionicons name={game.icon} size={52} color={game.color} />
+            <Ionicons
+              name={definition.icon as keyof typeof Ionicons.glyphMap}
+              size={34}
+              color={definition.accent}
+            />
           </View>
 
-          <Text style={styles.category}>{game.category}</Text>
-          <Text style={styles.title}>{game.name}</Text>
-          <Text style={styles.description}>{game.description}</Text>
+          <Text style={styles.title}>{definition.name}</Text>
 
-          <View style={styles.previewBadge}>
-            <Ionicons name="eye-outline" size={15} color="#A7F3D0" />
-            <Text style={styles.previewBadgeText}>FREE PLAY PREVIEW</Text>
-          </View>
-        </View>
+          <Text style={styles.description}>
+            {definition.description}
+          </Text>
 
-        <Text style={styles.sectionTitle}>Game information</Text>
-
-        <View style={styles.infoGrid}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>PLANNED ENTRY</Text>
-            <Text style={styles.infoValue}>{game.entry}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>HOUSE RAKE</Text>
-            <Text style={styles.infoValue}>{game.rake}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>POT CONTRIBUTION</Text>
-            <Text style={styles.infoValue}>{game.contribution}</Text>
+          <View style={styles.freeBadge}>
+            <Text style={styles.freeBadgeText}>
+              FREE PRACTICE
+            </Text>
           </View>
         </View>
+
+        {renderGameContent()}
 
         <View style={styles.notice}>
-          <Ionicons name="lock-closed-outline" size={20} color="#FBBF24" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.noticeTitle}>Game entry is not active yet</Text>
-            <Text style={styles.noticeText}>
-              These are planned entry and rake settings. No points will be
-              deducted and no prizes will be paid from this preview screen.
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>How to play</Text>
-
-        <View style={styles.instructionsCard}>
-          {game.instructions.map((instruction, index) => (
-            <View key={index} style={styles.instructionRow}>
-              <View style={styles.numberCircle}>
-                <Text style={styles.numberText}>{index + 1}</Text>
-              </View>
-              <Text style={styles.instructionText}>{instruction}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>Game rules</Text>
-
-        <View style={styles.rulesCard}>
           <Ionicons
-            name="information-circle-outline"
-            size={21}
+            name="shield-checkmark-outline"
+            size={18}
             color="#34D399"
           />
-          <Text style={styles.rulesText}>{game.rules}</Text>
-        </View>
-
-        <Pressable
-          style={styles.previewButton}
-          onPress={() => setShowPreview((current) => !current)}
-        >
-          <Ionicons
-            name={showPreview ? 'eye-off-outline' : 'eye-outline'}
-            size={20}
-            color="#071B17"
-          />
-          <Text style={styles.previewButtonText}>
-            {showPreview ? 'Hide preview information' : 'View game preview'}
-          </Text>
-        </Pressable>
-
-        {showPreview && (
-          <View style={styles.previewPanel}>
-            <Ionicons
-              name="construct-outline"
-              size={30}
-              color="#34D399"
-            />
-            <Text style={styles.previewTitle}>Game screen preparation</Text>
-            <Text style={styles.previewDescription}>
-              This game has its own information screen. The interactive game
-              board, timer, player matching, scoring and results will be built
-              in the next development stage.
-            </Text>
-            <Text style={styles.previewDescription}>
-              Supabase will later handle wallet checks, entries, round
-              management, outcomes and payouts.
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.bottomNotice}>
-          <Ionicons name="shield-checkmark-outline" size={18} color="#34D399" />
-          <Text style={styles.bottomNoticeText}>
-            Real-money gaming will remain disabled until the backend,
-            payment controls, security and regulatory requirements are
-            verified.
+          <Text style={styles.noticeText}>
+            Practice only. No paid entry, wagering or cash prizes.
           </Text>
         </View>
       </ScrollView>
@@ -387,251 +402,151 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#071B17',
   },
-  content: {
+  scrollContent: {
     padding: 18,
     paddingBottom: 45,
   },
-  backRow: {
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
+    gap: 8,
     marginBottom: 25,
   },
   backText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  hero: {
-    alignItems: 'center',
-    backgroundColor: '#102B24',
-    borderRadius: 22,
-    padding: 23,
-    borderWidth: 1,
-    borderColor: '#204438',
-    marginBottom: 27,
-  },
-  heroIcon: {
-    width: 105,
-    height: 105,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 17,
-  },
-  category: {
     color: '#34D399',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 2,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  gameIcon: {
+    width: 75,
+    height: 75,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 25,
     fontWeight: '900',
     textAlign: 'center',
-    marginTop: 8,
   },
   description: {
-    color: '#A8BEB4',
+    color: '#A3B8B0',
     fontSize: 13,
-    textAlign: 'center',
     lineHeight: 20,
+    textAlign: 'center',
     marginTop: 9,
   },
-  previewBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#164C3A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  freeBadge: {
+    backgroundColor: '#065F46',
     borderRadius: 20,
-    marginTop: 18,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    marginTop: 13,
   },
-  previewBadgeText: {
+  freeBadgeText: {
     color: '#A7F3D0',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
   },
-  sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '900',
-    marginBottom: 13,
-  },
-  infoGrid: {
-    gap: 10,
-    marginBottom: 22,
-  },
-  infoCard: {
+  panel: {
     backgroundColor: '#102B24',
-    borderRadius: 13,
-    padding: 15,
     borderWidth: 1,
     borderColor: '#204438',
+    borderRadius: 20,
+    padding: 22,
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  largeIcon: {
+    width: 85,
+    height: 85,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  panelTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  button: {
+    minHeight: 49,
+    backgroundColor: '#34D399',
+    borderRadius: 13,
+    paddingHorizontal: 20,
+    marginTop: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'stretch',
+  },
+  buttonText: {
+    color: '#071B17',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  score: {
+    color: '#34D399',
+    fontSize: 45,
+    fontWeight: '900',
+    marginVertical: 12,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#071B17',
+    borderWidth: 1,
+    borderColor: '#28614F',
+    borderRadius: 12,
+    padding: 15,
+    color: '#FFFFFF',
+    fontSize: 17,
+    textAlign: 'center',
+    marginTop: 18,
+  },
+  feedback: {
+    color: '#A7F3D0',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 15,
+    lineHeight: 20,
+  },
+  answerButton: {
+    width: '100%',
+    backgroundColor: '#174536',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 10,
     alignItems: 'center',
   },
-  infoLabel: {
-    color: '#91AAA1',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  infoValue: {
+  answerText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
   },
   notice: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 11,
-    backgroundColor: '#3B2E12',
-    borderColor: '#70551C',
-    borderWidth: 1,
-    borderRadius: 14,
+    gap: 9,
+    backgroundColor: '#102B24',
+    borderRadius: 13,
     padding: 14,
-    marginBottom: 25,
-  },
-  noticeTitle: {
-    color: '#FDE68A',
-    fontSize: 13,
-    fontWeight: '900',
-    marginBottom: 5,
+    marginTop: 22,
+    alignItems: 'center',
   },
   noticeText: {
-    color: '#E9D9A8',
+    color: '#A7C0B6',
     fontSize: 11,
+    flex: 1,
     lineHeight: 17,
-  },
-  instructionsCard: {
-    backgroundColor: '#102B24',
-    borderRadius: 15,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#204438',
-    gap: 17,
-    marginBottom: 24,
-  },
-  instructionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  numberCircle: {
-    width: 29,
-    height: 29,
-    borderRadius: 15,
-    backgroundColor: '#164C3A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  numberText: {
-    color: '#34D399',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  instructionText: {
-    flex: 1,
-    color: '#D5E5DD',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  rulesCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 11,
-    backgroundColor: '#102B24',
-    borderRadius: 14,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#204438',
-    marginBottom: 22,
-  },
-  rulesText: {
-    flex: 1,
-    color: '#AFC4BA',
-    fontSize: 12,
-    lineHeight: 19,
-  },
-  previewButton: {
-    backgroundColor: '#34D399',
-    borderRadius: 13,
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-  },
-  previewButtonText: {
-    color: '#071B17',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  previewPanel: {
-    backgroundColor: '#102B24',
-    borderWidth: 1,
-    borderColor: '#28614F',
-    borderRadius: 15,
-    padding: 17,
-    marginTop: 13,
-    gap: 10,
-  },
-  previewTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  previewDescription: {
-    color: '#AFC4BA',
-    fontSize: 12,
-    lineHeight: 19,
-  },
-  bottomNotice: {
-    flexDirection: 'row',
-    gap: 9,
-    alignItems: 'flex-start',
-    marginTop: 23,
-    paddingHorizontal: 3,
-  },
-  bottomNoticeText: {
-    flex: 1,
-    color: '#8FA99E',
-    fontSize: 11,
-    lineHeight: 17,
-  },
-  notFound: {
-    flex: 1,
-    backgroundColor: '#071B17',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 25,
-  },
-  notFoundTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: 15,
-  },
-  notFoundText: {
-    color: '#A8BEB4',
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  backButton: {
-    backgroundColor: '#34D399',
-    paddingHorizontal: 25,
-    paddingVertical: 13,
-    borderRadius: 12,
-    marginTop: 22,
-  },
-  backButtonText: {
-    color: '#071B17',
-    fontWeight: '900',
   },
 });
