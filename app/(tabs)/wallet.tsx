@@ -1,4 +1,3 @@
-
 import React, {
   useCallback,
   useEffect,
@@ -26,6 +25,7 @@ import {
   fetchWalletData,
   type WalletData,
 } from '../../src/lib/wallet';
+import { getMyBritumeCoins } from '../../src/games/gameReserve';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 import WalletPinScreen from '../../src/components/wallet/WalletPinScreen';
@@ -105,7 +105,7 @@ export default function WalletScreen() {
   const userId = session?.user?.id;
 
   const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
-  const [gameCoins] = useState(0);
+  const [gameCoins, setGameCoins] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -117,10 +117,15 @@ export default function WalletScreen() {
 
   const styles = createStyles(theme);
 
+  const clearWalletData = useCallback(() => {
+    setWallet(EMPTY_WALLET);
+    setGameCoins(0);
+  }, []);
+
   const loadWallet = useCallback(async () => {
     if (!userId) {
       if (mounted.current) {
-        setWallet(EMPTY_WALLET);
+        clearWalletData();
         setError('Please sign in to view your wallet.');
         setLoading(false);
         setRefreshing(false);
@@ -134,10 +139,14 @@ export default function WalletScreen() {
       setError('');
       setLoading(true);
 
-      const data = await fetchWalletData(userId);
+      const [walletData, coinsBalance] = await Promise.all([
+        fetchWalletData(userId),
+        getMyBritumeCoins(),
+      ]);
 
       if (mounted.current && unlocked.current) {
-        setWallet(data);
+        setWallet(walletData);
+        setGameCoins(coinsBalance);
       }
     } catch (err) {
       console.error('Wallet loading error:', err);
@@ -155,7 +164,7 @@ export default function WalletScreen() {
         setRefreshing(false);
       }
     }
-  }, [userId]);
+  }, [userId, clearWalletData]);
 
   const checkPinStatus = useCallback(async () => {
     try {
@@ -170,26 +179,26 @@ export default function WalletScreen() {
       );
 
       unlocked.current = false;
-      setWallet(EMPTY_WALLET);
+      clearWalletData();
       setWalletView(result.configured ? 'locked' : 'setup');
     } catch (err) {
       console.error('PIN status error:', err);
 
       if (mounted.current) {
         unlocked.current = false;
-        setWallet(EMPTY_WALLET);
+        clearWalletData();
         setError('Could not check wallet security.');
         setWalletView('locked');
       }
     }
-  }, []);
+  }, [clearWalletData]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
       unlocked.current = false;
-      setWallet(EMPTY_WALLET);
+      clearWalletData();
       setError('');
       setWalletView('checking');
 
@@ -199,6 +208,7 @@ export default function WalletScreen() {
           if (!active || !mounted.current) return;
 
           unlocked.current = false;
+
           setError(
             result.message && !result.configured
               ? result.message
@@ -219,10 +229,10 @@ export default function WalletScreen() {
       return () => {
         active = false;
         unlocked.current = false;
-        setWallet(EMPTY_WALLET);
+        clearWalletData();
         setWalletView('locked');
       };
-    }, []),
+    }, [clearWalletData]),
   );
 
   useEffect(() => {
@@ -242,7 +252,7 @@ export default function WalletScreen() {
 
         if (previousState === 'active' && nextState !== 'active') {
           unlocked.current = false;
-          setWallet(EMPTY_WALLET);
+          clearWalletData();
           setRefreshing(false);
           setLoading(false);
           setWalletView('locked');
@@ -257,7 +267,7 @@ export default function WalletScreen() {
     );
 
     return () => subscription.remove();
-  }, [checkPinStatus]);
+  }, [checkPinStatus, clearWalletData]);
 
   const onRefresh = useCallback(() => {
     if (!unlocked.current) return;
@@ -277,6 +287,7 @@ export default function WalletScreen() {
         }
 
         unlocked.current = false;
+        clearWalletData();
         setError('');
         setWalletView('locked');
         return true;
@@ -289,7 +300,7 @@ export default function WalletScreen() {
         return false;
       }
     },
-    [],
+    [clearWalletData],
   );
 
   const handleVerifyPin = useCallback(
@@ -310,6 +321,8 @@ export default function WalletScreen() {
         return true;
       } catch (err) {
         unlocked.current = false;
+        clearWalletData();
+
         setError(
           err instanceof Error
             ? err.message
@@ -318,7 +331,7 @@ export default function WalletScreen() {
         return false;
       }
     },
-    [loadWallet],
+    [loadWallet, clearWalletData],
   );
 
   const handleRecoveryRequest = useCallback(
@@ -351,10 +364,10 @@ export default function WalletScreen() {
 
   const handleLockWallet = useCallback(() => {
     unlocked.current = false;
-    setWallet(EMPTY_WALLET);
+    clearWalletData();
     setError('');
     setWalletView('locked');
-  }, []);
+  }, [clearWalletData]);
 
   const total =
     wallet.balances.purchased +
@@ -482,13 +495,27 @@ export default function WalletScreen() {
 
             <View style={styles.coinsCard}>
               <View style={styles.cardHeading}>
-                <Ionicons name="game-controller-outline" size={23} color={theme.cyan} />
-                <Text style={styles.coinsTitle}>BRITUME Game Coins</Text>
+                <Ionicons
+                  name="game-controller-outline"
+                  size={23}
+                  color={theme.cyan}
+                />
+                <Text style={styles.coinsTitle}>
+                  BRITUME Game Coins
+                </Text>
               </View>
 
-              <Text style={styles.coinsAmount}>
-                {gameCoins.toLocaleString()} B
-              </Text>
+              {loading ? (
+                <ActivityIndicator
+                  color={theme.cyan}
+                  size="large"
+                  style={styles.coinsLoader}
+                />
+              ) : (
+                <Text style={styles.coinsAmount}>
+                  {gameCoins.toLocaleString()} B
+                </Text>
+              )}
 
               <Text style={styles.coinsNote}>
                 Virtual coins for free games. Separate from wallet points and USD.
@@ -524,7 +551,11 @@ export default function WalletScreen() {
 
             <View style={styles.actions}>
               <View style={styles.disabledButton}>
-                <Ionicons name="send-outline" size={19} color={theme.muted} />
+                <Ionicons
+                  name="send-outline"
+                  size={19}
+                  color={theme.muted}
+                />
                 <Text style={styles.disabledText}>Send points</Text>
               </View>
             </View>
@@ -766,6 +797,10 @@ function createStyles(theme: any) {
       fontSize: 31,
       fontWeight: '900',
       marginTop: 13,
+    },
+    coinsLoader: {
+      marginTop: 15,
+      alignSelf: 'flex-start',
     },
     coinsNote: {
       color: theme.muted,
