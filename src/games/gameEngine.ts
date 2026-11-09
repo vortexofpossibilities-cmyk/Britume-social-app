@@ -1,7 +1,7 @@
 
-import type {
-  GameDefinition,
+import {
   BRITUME_GAMES,
+  type GameDefinition,
 } from './gameCatalog';
 
 import type {
@@ -15,13 +15,21 @@ import type {
 // Shared practice-game logic for all 11 games.
 // --------------------------------------------------
 
-export function getGame(gameId: string): GameDefinition | undefined {
-  return BRITUME_GAMES.find((game) => game.id === gameId);
+export function getGame(
+  gameId: string
+): GameDefinition | undefined {
+  return BRITUME_GAMES.find(
+    (game) => game.id === gameId
+  );
 }
 
-export function createGameSession(gameId: string): GameSession {
+export function createGameSession(
+  gameId: string
+): GameSession {
   return {
-    id: `practice-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+    id: `practice-${Date.now()}-${Math.floor(
+      Math.random() * 100000
+    )}`,
     gameId: gameId as GameDefinition['id'],
     status: 'playing',
     score: 0,
@@ -67,10 +75,16 @@ export function calculateTriviaScore(
 ): number {
   const correct = Math.max(
     0,
-    Math.min(correctAnswers, totalQuestions)
+    Math.min(
+      Math.floor(correctAnswers),
+      Math.floor(totalQuestions)
+    )
   );
 
-  return correct * pointsPerCorrectAnswer;
+  return correct * Math.max(
+    0,
+    pointsPerCorrectAnswer
+  );
 }
 
 // --------------------------------------------------
@@ -90,19 +104,28 @@ export function checkNumberGuess(
   if (
     !Number.isInteger(guess) ||
     guess < 1 ||
-    guess > 100
+    guess > 100 ||
+    !Number.isInteger(secretNumber) ||
+    secretNumber < 1 ||
+    secretNumber > 100
   ) {
     return 'invalid';
   }
 
-  if (guess < secretNumber) return 'too-low';
-  if (guess > secretNumber) return 'too-high';
+  if (guess < secretNumber) {
+    return 'too-low';
+  }
+
+  if (guess > secretNumber) {
+    return 'too-high';
+  }
 
   return 'correct';
 }
 
-// Practice puzzle only; Math.random is not a secure
+// Practice puzzle only. Math.random is not a secure
 // random source and must never determine financial outcomes.
+
 export function generatePracticeNumber(): number {
   return Math.floor(Math.random() * 100) + 1;
 }
@@ -117,16 +140,29 @@ export function findLowestUniqueNumber(
   const counts = new Map<number, number>();
 
   for (const entry of entries) {
-    if (!Number.isInteger(entry) || entry < 1) continue;
+    if (
+      !Number.isInteger(entry) ||
+      entry < 1
+    ) {
+      continue;
+    }
 
-    counts.set(entry, (counts.get(entry) ?? 0) + 1);
+    counts.set(
+      entry,
+      (counts.get(entry) ?? 0) + 1
+    );
   }
 
   const uniqueNumbers = entries.filter(
-    (entry) => counts.get(entry) === 1
+    (entry) =>
+      Number.isInteger(entry) &&
+      entry >= 1 &&
+      counts.get(entry) === 1
   );
 
-  if (uniqueNumbers.length === 0) return null;
+  if (uniqueNumbers.length === 0) {
+    return null;
+  }
 
   return Math.min(...uniqueNumbers);
 }
@@ -148,17 +184,21 @@ export function evaluateGreedySplit(
   minimumAcceptable: number
 ): SplitDecision {
   const safeTotal = Math.max(0, total);
+
   const validOffer = Math.max(
     0,
     Math.min(offered, safeTotal)
   );
 
-  const accepted = validOffer >= minimumAcceptable;
+  const accepted =
+    validOffer >= minimumAcceptable;
 
   return {
     offered: validOffer,
     accepted,
-    remaining: accepted ? safeTotal - validOffer : safeTotal,
+    remaining: accepted
+      ? safeTotal - validOffer
+      : safeTotal,
   };
 }
 
@@ -170,14 +210,21 @@ export function calculateDailyChallengeScore(
   completedTasks: number,
   totalTasks: number
 ): number {
-  if (totalTasks <= 0) return 0;
+  if (
+    !Number.isFinite(totalTasks) ||
+    totalTasks <= 0
+  ) {
+    return 0;
+  }
 
   const completed = Math.max(
     0,
     Math.min(completedTasks, totalTasks)
   );
 
-  return Math.round((completed / totalTasks) * 100);
+  return Math.round(
+    (completed / totalTasks) * 100
+  );
 }
 
 // --------------------------------------------------
@@ -193,7 +240,10 @@ export type GridCell = {
 export function createPracticeGrid(
   size = 5
 ): GridCell[] {
-  const safeSize = Math.max(2, Math.min(size, 10));
+  const safeSize = Math.max(
+    2,
+    Math.min(Math.floor(size), 10)
+  );
 
   return Array.from(
     { length: safeSize * safeSize },
@@ -211,7 +261,10 @@ export function revealGridCell(
 ): GridCell[] {
   return grid.map((cell) =>
     cell.id === cellId
-      ? { ...cell, isRevealed: true }
+      ? {
+          ...cell,
+          isRevealed: true,
+        }
       : cell
   );
 }
