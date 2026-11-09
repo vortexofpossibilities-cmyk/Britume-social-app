@@ -1,3 +1,4 @@
+
 import React, {
   useCallback,
   useEffect,
@@ -21,12 +22,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../../src/auth/AuthProvider';
-
 import {
   fetchWalletData,
   type WalletData,
 } from '../../src/lib/wallet';
-
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 import WalletPinScreen from '../../src/components/wallet/WalletPinScreen';
@@ -88,10 +87,7 @@ function transactionIcon(
     return 'arrow-down-circle-outline';
   }
 
-  if (
-    type.includes('fee') ||
-    type.includes('sent')
-  ) {
+  if (type.includes('fee') || type.includes('sent')) {
     return 'arrow-up-circle-outline';
   }
 
@@ -109,23 +105,18 @@ export default function WalletScreen() {
   const userId = session?.user?.id;
 
   const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
+  const [gameCoins] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [walletView, setWalletView] = useState<WalletView>('checking');
 
-  const [walletView, setWalletView] =
-    useState<WalletView>('checking');
-
-  const appState = useRef<AppStateStatus>(
-    AppState.currentState,
-  );
-
+  const appState = useRef<AppStateStatus>(AppState.currentState);
   const mounted = useRef(true);
   const unlocked = useRef(false);
 
   const styles = createStyles(theme);
 
-  // Load wallet information only after PIN verification.
   const loadWallet = useCallback(async () => {
     if (!userId) {
       if (mounted.current) {
@@ -137,9 +128,7 @@ export default function WalletScreen() {
       return;
     }
 
-    if (!unlocked.current) {
-      return;
-    }
+    if (!unlocked.current) return;
 
     try {
       setError('');
@@ -168,26 +157,21 @@ export default function WalletScreen() {
     }
   }, [userId]);
 
-  // Check whether the user has already created a wallet PIN.
   const checkPinStatus = useCallback(async () => {
     try {
-      const result =
-        await walletSecurityService.checkPinStatus();
+      const result = await walletSecurityService.checkPinStatus();
 
       if (!mounted.current) return;
 
-      if (result.message && !result.configured) {
-        setError(result.message);
-      } else {
-        setError('');
-      }
+      setError(
+        result.message && !result.configured
+          ? result.message
+          : '',
+      );
 
       unlocked.current = false;
       setWallet(EMPTY_WALLET);
-
-      setWalletView(
-        result.configured ? 'locked' : 'setup',
-      );
+      setWalletView(result.configured ? 'locked' : 'setup');
     } catch (err) {
       console.error('PIN status error:', err);
 
@@ -200,7 +184,6 @@ export default function WalletScreen() {
     }
   }, []);
 
-  // Check security whenever the wallet screen receives focus.
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -216,22 +199,18 @@ export default function WalletScreen() {
           if (!active || !mounted.current) return;
 
           unlocked.current = false;
-
-          if (result.message && !result.configured) {
-            setError(result.message);
-          } else {
-            setError('');
-          }
-
-          setWalletView(
-            result.configured ? 'locked' : 'setup',
+          setError(
+            result.message && !result.configured
+              ? result.message
+              : '',
           );
+
+          setWalletView(result.configured ? 'locked' : 'setup');
         })
         .catch(err => {
           if (!active || !mounted.current) return;
 
           console.error('PIN status error:', err);
-
           unlocked.current = false;
           setError('Could not check wallet security.');
           setWalletView('locked');
@@ -239,7 +218,6 @@ export default function WalletScreen() {
 
       return () => {
         active = false;
-
         unlocked.current = false;
         setWallet(EMPTY_WALLET);
         setWalletView('locked');
@@ -247,7 +225,6 @@ export default function WalletScreen() {
     }, []),
   );
 
-  // Track whether the component is mounted.
   useEffect(() => {
     mounted.current = true;
 
@@ -257,17 +234,13 @@ export default function WalletScreen() {
     };
   }, []);
 
-  // Lock the wallet whenever the app leaves the foreground.
   useEffect(() => {
     const subscription = AppState.addEventListener(
       'change',
       (nextState: AppStateStatus) => {
         const previousState = appState.current;
 
-        if (
-          previousState === 'active' &&
-          nextState !== 'active'
-        ) {
+        if (previousState === 'active' && nextState !== 'active') {
           unlocked.current = false;
           setWallet(EMPTY_WALLET);
           setRefreshing(false);
@@ -275,10 +248,7 @@ export default function WalletScreen() {
           setWalletView('locked');
         }
 
-        if (
-          previousState !== 'active' &&
-          nextState === 'active'
-        ) {
+        if (previousState !== 'active' && nextState === 'active') {
           void checkPinStatus();
         }
 
@@ -296,25 +266,19 @@ export default function WalletScreen() {
     void loadWallet();
   }, [loadWallet]);
 
-  // Create a new wallet PIN.
   const handleCreatePin = useCallback(
     async (pin: string): Promise<boolean> => {
       try {
-        const result =
-          await walletSecurityService.createPin(pin);
+        const result = await walletSecurityService.createPin(pin);
 
         if (!result.success) {
-          setError(
-            result.message ??
-              'Could not create your wallet PIN.',
-          );
+          setError(result.message ?? 'Could not create your wallet PIN.');
           return false;
         }
 
         unlocked.current = false;
         setError('');
         setWalletView('locked');
-
         return true;
       } catch (err) {
         setError(
@@ -322,24 +286,19 @@ export default function WalletScreen() {
             ? err.message
             : 'Could not create your wallet PIN.',
         );
-
         return false;
       }
     },
     [],
   );
 
-  // Verify the wallet PIN before showing wallet information.
   const handleVerifyPin = useCallback(
     async (pin: string): Promise<boolean> => {
       try {
-        const result =
-          await walletSecurityService.verifyPin(pin);
+        const result = await walletSecurityService.verifyPin(pin);
 
         if (!result.success) {
-          setError(
-            result.message ?? 'Incorrect wallet PIN.',
-          );
+          setError(result.message ?? 'Incorrect wallet PIN.');
           return false;
         }
 
@@ -348,38 +307,31 @@ export default function WalletScreen() {
         setWalletView('wallet');
 
         await loadWallet();
-
         return true;
       } catch (err) {
         unlocked.current = false;
-
         setError(
           err instanceof Error
             ? err.message
             : 'Could not verify your wallet PIN.',
         );
-
         return false;
       }
     },
     [loadWallet],
   );
 
-  // Submit a forgotten PIN recovery request.
   const handleRecoveryRequest = useCallback(
     async (reason: string): Promise<boolean> => {
       try {
-        const result =
-          await walletSecurityService.requestPinReset({
-            reason,
-          });
+        const result = await walletSecurityService.requestPinReset({
+          reason,
+        });
 
         if (!result.success) {
           setError(
-            result.message ??
-              'Could not submit your recovery request.',
+            result.message ?? 'Could not submit your recovery request.',
           );
-
           return false;
         }
 
@@ -391,7 +343,6 @@ export default function WalletScreen() {
             ? err.message
             : 'Could not submit your recovery request.',
         );
-
         return false;
       }
     },
@@ -410,15 +361,10 @@ export default function WalletScreen() {
     wallet.balances.earned +
     wallet.balances.promotional;
 
-  // Security check in progress.
   if (walletView === 'checking') {
     return (
       <View style={styles.center}>
-        <ActivityIndicator
-          size="large"
-          color={theme.cyan}
-        />
-
+        <ActivityIndicator size="large" color={theme.cyan} />
         <Text style={styles.loadingText}>
           Checking wallet security...
         </Text>
@@ -426,7 +372,6 @@ export default function WalletScreen() {
     );
   }
 
-  // First-time wallet PIN setup.
   if (walletView === 'setup') {
     return (
       <WalletPinSetupScreen
@@ -436,7 +381,6 @@ export default function WalletScreen() {
     );
   }
 
-  // Locked wallet.
   if (walletView === 'locked') {
     return (
       <WalletPinScreen
@@ -449,7 +393,6 @@ export default function WalletScreen() {
     );
   }
 
-  // PIN recovery.
   if (walletView === 'recovery') {
     return (
       <WalletRecoveryScreen
@@ -459,15 +402,10 @@ export default function WalletScreen() {
     );
   }
 
-  // Do not render wallet data unless PIN verification succeeded.
   if (!unlocked.current) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator
-          size="large"
-          color={theme.cyan}
-        />
-
+        <ActivityIndicator size="large" color={theme.cyan} />
         <Text style={styles.loadingText}>
           Securing your wallet...
         </Text>
@@ -492,13 +430,8 @@ export default function WalletScreen() {
           <View>
             <View style={styles.header}>
               <View>
-                <Text style={styles.brand}>
-                  BRITUME
-                </Text>
-
-                <Text style={styles.heading}>
-                  My Wallet
-                </Text>
+                <Text style={styles.brand}>BRITUME</Text>
+                <Text style={styles.heading}>My Wallet</Text>
               </View>
 
               <Pressable
@@ -516,14 +449,11 @@ export default function WalletScreen() {
 
             <View style={styles.balanceCard}>
               <Text style={styles.balanceLabel}>
-                TOTAL POINTS
+                EXISTING WALLET POINTS
               </Text>
 
               {loading ? (
-                <ActivityIndicator
-                  color="#FFFFFF"
-                  size="large"
-                />
+                <ActivityIndicator color="#FFFFFF" size="large" />
               ) : (
                 <Text style={styles.total}>
                   {formatPoints(total)}
@@ -531,7 +461,37 @@ export default function WalletScreen() {
               )}
 
               <Text style={styles.balanceNote}>
-                Your BRITUME wallet balance
+                Existing wallet records. Currency has not yet been verified.
+              </Text>
+            </View>
+
+            <View style={styles.usdCard}>
+              <View style={styles.cardHeading}>
+                <Ionicons name="cash-outline" size={23} color="#FFFFFF" />
+                <Text style={styles.usdTitle}>USD Wallet</Text>
+                <View style={styles.demoBadge}>
+                  <Text style={styles.demoBadgeText}>DEMO</Text>
+                </View>
+              </View>
+
+              <Text style={styles.usdAmount}>$0.00</Text>
+              <Text style={styles.usdNote}>
+                USD display preview. No real funds are held here.
+              </Text>
+            </View>
+
+            <View style={styles.coinsCard}>
+              <View style={styles.cardHeading}>
+                <Ionicons name="game-controller-outline" size={23} color={theme.cyan} />
+                <Text style={styles.coinsTitle}>BRITUME Game Coins</Text>
+              </View>
+
+              <Text style={styles.coinsAmount}>
+                {gameCoins.toLocaleString()} B
+              </Text>
+
+              <Text style={styles.coinsNote}>
+                Virtual coins for free games. Separate from wallet points and USD.
               </Text>
             </View>
 
@@ -546,18 +506,14 @@ export default function WalletScreen() {
                 icon="cart-outline"
                 styles={styles}
               />
-
               <View style={styles.separator} />
-
               <BalanceRow
                 title="Earned points"
                 amount={wallet.balances.earned}
                 icon="trophy-outline"
                 styles={styles}
               />
-
               <View style={styles.separator} />
-
               <BalanceRow
                 title="Promotional points"
                 amount={wallet.balances.promotional}
@@ -568,15 +524,8 @@ export default function WalletScreen() {
 
             <View style={styles.actions}>
               <View style={styles.disabledButton}>
-                <Ionicons
-                  name="send-outline"
-                  size={19}
-                  color={theme.muted}
-                />
-
-                <Text style={styles.disabledText}>
-                  Send points
-                </Text>
+                <Ionicons name="send-outline" size={19} color={theme.muted} />
+                <Text style={styles.disabledText}>Send points</Text>
               </View>
             </View>
 
@@ -591,40 +540,28 @@ export default function WalletScreen() {
                   size={22}
                   color={theme.danger}
                 />
-
-                <Text style={styles.errorText}>
-                  {error}
-                </Text>
-
-                <Pressable
-                  onPress={() => void loadWallet()}
-                >
-                  <Text style={styles.retry}>
-                    Retry
-                  </Text>
+                <Text style={styles.errorText}>{error}</Text>
+                <Pressable onPress={() => void loadWallet()}>
+                  <Text style={styles.retry}>Retry</Text>
                 </Pressable>
               </View>
             )}
 
-            {!loading &&
-              !error &&
-              wallet.transactions.length === 0 && (
-                <View style={styles.messageCard}>
-                  <Ionicons
-                    name="receipt-outline"
-                    size={28}
-                    color={theme.muted}
-                  />
-
-                  <Text style={styles.emptyTitle}>
-                    No transactions yet
-                  </Text>
-
-                  <Text style={styles.emptyText}>
-                    Your wallet activity will appear here.
-                  </Text>
-                </View>
-              )}
+            {!loading && !error && wallet.transactions.length === 0 && (
+              <View style={styles.messageCard}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={28}
+                  color={theme.muted}
+                />
+                <Text style={styles.emptyTitle}>
+                  No transactions yet
+                </Text>
+                <Text style={styles.emptyText}>
+                  Your wallet activity will appear here.
+                </Text>
+              </View>
+            )}
           </View>
         }
         renderItem={({ item }) => {
@@ -648,7 +585,6 @@ export default function WalletScreen() {
                 <Text style={styles.transactionTitle}>
                   {transactionTitle(item.entry_type)}
                 </Text>
-
                 <Text style={styles.transactionDate}>
                   {new Date(item.created_at).toLocaleString()}
                 </Text>
@@ -666,9 +602,7 @@ export default function WalletScreen() {
             </View>
           );
         }}
-        ListFooterComponent={
-          <View style={{ height: 30 }} />
-        }
+        ListFooterComponent={<View style={{ height: 30 }} />}
       />
     </View>
   );
@@ -688,15 +622,8 @@ function BalanceRow({
   return (
     <View style={styles.balanceRow}>
       <View style={styles.categoryLeft}>
-        <Ionicons
-          name={icon}
-          size={21}
-          color="#16A6B5"
-        />
-
-        <Text style={styles.categoryTitle}>
-          {title}
-        </Text>
+        <Ionicons name={icon} size={21} color="#16A6B5" />
+        <Text style={styles.categoryTitle}>{title}</Text>
       </View>
 
       <Text style={styles.categoryAmount}>
@@ -712,7 +639,6 @@ function createStyles(theme: any) {
       flex: 1,
       backgroundColor: theme.bg,
     },
-
     center: {
       flex: 1,
       alignItems: 'center',
@@ -720,38 +646,32 @@ function createStyles(theme: any) {
       backgroundColor: theme.bg,
       gap: 12,
     },
-
     loadingText: {
       color: theme.text,
       fontSize: 14,
     },
-
     content: {
       padding: 18,
       paddingBottom: 30,
     },
-
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 20,
     },
-
     brand: {
       color: theme.cyan,
       fontSize: 13,
       fontWeight: '800',
       letterSpacing: 2,
     },
-
     heading: {
       color: theme.text,
       fontSize: 27,
       fontWeight: '800',
       marginTop: 3,
     },
-
     walletIcon: {
       width: 48,
       height: 48,
@@ -762,14 +682,12 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-
     balanceCard: {
       backgroundColor: theme.cyan,
       borderRadius: 22,
       padding: 23,
-      marginBottom: 25,
+      marginBottom: 16,
     },
-
     balanceLabel: {
       color: '#FFFFFF',
       opacity: 0.85,
@@ -777,21 +695,83 @@ function createStyles(theme: any) {
       fontWeight: '700',
       letterSpacing: 1.5,
     },
-
     total: {
       color: '#FFFFFF',
       fontSize: 32,
       fontWeight: '900',
       marginTop: 12,
     },
-
     balanceNote: {
       color: '#FFFFFF',
       opacity: 0.85,
       marginTop: 8,
       fontSize: 13,
     },
-
+    usdCard: {
+      backgroundColor: '#176B55',
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 15,
+    },
+    cardHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+    },
+    usdTitle: {
+      color: '#FFFFFF',
+      fontSize: 17,
+      fontWeight: '800',
+      flex: 1,
+    },
+    demoBadge: {
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 8,
+    },
+    demoBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '900',
+    },
+    usdAmount: {
+      color: '#FFFFFF',
+      fontSize: 32,
+      fontWeight: '900',
+      marginTop: 15,
+    },
+    usdNote: {
+      color: '#FFFFFF',
+      opacity: 0.85,
+      fontSize: 12,
+      marginTop: 5,
+    },
+    coinsCard: {
+      backgroundColor: theme.panel,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    coinsTitle: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '800',
+      flex: 1,
+    },
+    coinsAmount: {
+      color: theme.cyan,
+      fontSize: 31,
+      fontWeight: '900',
+      marginTop: 13,
+    },
+    coinsNote: {
+      color: theme.muted,
+      fontSize: 12,
+      marginTop: 5,
+    },
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
@@ -799,7 +779,6 @@ function createStyles(theme: any) {
       marginBottom: 12,
       marginTop: 8,
     },
-
     categoryCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -807,43 +786,36 @@ function createStyles(theme: any) {
       borderColor: theme.border,
       paddingHorizontal: 15,
     },
-
     balanceRow: {
       minHeight: 62,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-
     categoryLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       flex: 1,
     },
-
     categoryTitle: {
       color: theme.text,
       fontSize: 14,
       fontWeight: '600',
     },
-
     categoryAmount: {
       color: theme.text,
       fontSize: 14,
       fontWeight: '800',
     },
-
     separator: {
       height: 1,
       backgroundColor: theme.border,
     },
-
     actions: {
       flexDirection: 'row',
       marginVertical: 20,
     },
-
     disabledButton: {
       flex: 1,
       minHeight: 48,
@@ -856,12 +828,10 @@ function createStyles(theme: any) {
       borderWidth: 1,
       borderColor: theme.border,
     },
-
     disabledText: {
       color: theme.muted,
       fontWeight: '700',
     },
-
     messageCard: {
       backgroundColor: theme.panel,
       borderRadius: 18,
@@ -871,30 +841,25 @@ function createStyles(theme: any) {
       alignItems: 'center',
       gap: 9,
     },
-
     emptyTitle: {
       color: theme.text,
       fontWeight: '800',
       fontSize: 15,
     },
-
     emptyText: {
       color: theme.muted,
       textAlign: 'center',
       fontSize: 13,
     },
-
     errorText: {
       color: theme.danger,
       textAlign: 'center',
     },
-
     retry: {
       color: theme.cyan,
       fontWeight: '800',
       padding: 6,
     },
-
     transaction: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -906,7 +871,6 @@ function createStyles(theme: any) {
       marginBottom: 9,
       gap: 10,
     },
-
     transactionIcon: {
       width: 40,
       height: 40,
@@ -915,32 +879,26 @@ function createStyles(theme: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-
     transactionDetails: {
       flex: 1,
     },
-
     transactionTitle: {
       color: theme.text,
       fontWeight: '700',
       fontSize: 13,
     },
-
     transactionDate: {
       color: theme.muted,
       fontSize: 11,
       marginTop: 4,
     },
-
     transactionAmount: {
       fontSize: 13,
       fontWeight: '800',
     },
-
     credit: {
       color: '#168B65',
     },
-
     debit: {
       color: theme.danger,
     },
