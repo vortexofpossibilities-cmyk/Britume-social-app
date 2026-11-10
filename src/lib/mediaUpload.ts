@@ -14,6 +14,8 @@ export const MEDIA_LIMITS = {
   reel: 1024 * 1024 * 1024,
 };
 
+export const STORAGE_FILE_LIMIT = 50 * 1024 * 1024;
+
 export type UploadSource =
   | {
       uri: string;
@@ -47,52 +49,130 @@ function getProjectId(): string {
   return match[1];
 }
 
+function getImageType(uri: string, suppliedType?: string) {
+  if (suppliedType) {
+    return suppliedType.toLowerCase();
+  }
+
+  const cleanUri = uri.split('?')[0].split('#')[0];
+  const extension = cleanUri.split('.').pop()?.toLowerCase();
+
+  switch (extension) {
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'heic':
+      return 'image/heic';
+    case 'heif':
+      return 'image/heif';
+    default:
+      return 'image/jpeg';
+  }
+}
+
+async function getFileSize(uri: string): Promise<number> {
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+
+    if (!response.ok) {
+      throw new Error('Could not read the image file.');
+    }
+
+    const blob = await response.blob();
+    return blob.size;
+  }
+
+  const file = new ExpoFile(uri);
+
+  if (!file.exists) {
+    throw new Error('The image file could not be found.');
+  }
+
+  return file.size;
+}
+
 export async function compressImage(
   uri: string,
+  suppliedMimeType?: string,
 ): Promise<{
   uri: string;
   name: string;
   mimeType: string;
   size: number;
 }> {
-  const result = await ImageManipulator.manipulateAsync(
-    uri,
-    [{ resize: { width: 2560 } }],
-    {
-      compress: 0.82,
-      format: ImageManipulator.SaveFormat.JPEG,
-    },
-  );
-
-  let size = 0;
-
-  if (Platform.OS === 'web') {
-    const response = await fetch(result.uri);
-
-    if (!response.ok) {
-      throw new Error('Could not prepare the compressed image.');
-    }
-
-    const blob = await response.blob();
-    size = blob.size;
-  } else {
-    const file = new ExpoFile(result.uri);
-
-    if (!file.exists) {
-      throw new Error('The compressed image could not be found.');
-    }
-
-    size = file.size;
+  if (!uri) {
+    throw new Error('No image was selected.');
   }
+
+  const originalType = getImageType(uri, suppliedMimeType);
+
+  // Do not flatten animated GIFs into a single still image.
+  if (originalType === 'image/gif') {
+    const size = await getFileSize(uri);
+
+    if (!size) {
+      throw new Error('The GIF image is empty.');
+    }
+
+    if (size > MEDIA_LIMITS.image) {
+      throw new Error(
+        'This GIF is larger than the 15 MB image limit. Please choose a smaller GIF.',
+      );
+    }
+
+    return {
+      uri,
+      name: `britume-${Date.now()}.gif`,
+      mimeType: 'image/gif',
+      size,
+    };
+  }
+
+  // Preserve PNG format and transparency.
+  const preservePng = originalType === 'image/png';
+
+  let result;
+
+  try {
+    result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 2560 } }],
+      {
+        compress: preservePng ? 1 : 0.78,
+        format: preservePng
+          ? ImageManipulator.SaveFormat.PNG
+          : ImageManipulator.SaveFormat.JPEG,
+      },
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown error';
+
+    throw new Error(`Image compression failed: ${message}`);
+  }
+
+  const size = await getFileSize(result.uri);
 
   if (!size) {
     throw new Error('The compressed image is empty.');
   }
 
+  if (size > MEDIA_LIMITS.image) {
+    throw new Error(
+      'The image is still larger than 15 MB after compression. Please choose a smaller image.',
+    );
+  }
+
+  const mimeType = preservePng ? 'image/png' : 'image/jpeg';
+  const extension = preservePng ? 'png' : 'jpg';
+
   return {
     uri: result.uri,
-    name: `britume-${Date.now()}.jpg`,
-    mimeType: 'image/jpeg',
+    name: `britume-${Date.now()}.${extension}`,
+    mimeType,
     size,
   };
 }
@@ -156,9 +236,7 @@ export async function uploadMediaResumable(
       chunkSize: 6 * 1024 * 1024,
 
       onError(error: Error) {
-        reject(
-          new Error(`Upload failed: ${error.message}`),
-        );
+        reject(new Error(`Upload failed: ${error.message}`));
       },
 
       onProgress(
@@ -167,9 +245,7 @@ export async function uploadMediaResumable(
       ) {
         const percent =
           totalBytes > 0
-            ? Math.round(
-                (uploadedBytes / totalBytes) * 100,
-              )
+            ? Math.round((uploadedBytes / totalBytes) * 100)
             : 0;
 
         onProgress?.(
