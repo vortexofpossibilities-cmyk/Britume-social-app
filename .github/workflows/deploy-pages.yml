@@ -1,3 +1,4 @@
+
 name: Build and deploy BRITUME web app
 
 on:
@@ -10,6 +11,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: github-pages
@@ -20,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -34,10 +36,10 @@ jobs:
         run: npx expo export --platform web --output-dir dist
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c728a7444e81
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
 
       - name: Upload website
-        uses: actions/upload-pages-artifact@56afc609e742026c6e6e6e2b0f3f7e9b2f5c8f8a
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:
           path: dist
 
@@ -49,4 +51,4 @@ jobs:
     steps:
       - name: Deploy BRITUME
         id: deployment
-        uses: actions/deploy-pages@d3f6c1e5a4b7c8d9e0f123456789abcdef0123456
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
