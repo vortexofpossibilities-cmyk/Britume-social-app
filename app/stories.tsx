@@ -1,9 +1,15 @@
-
-import React, { useCallback, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -26,6 +32,8 @@ const BUCKET = 'britume-media';
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 const STORY_DURATION = 24 * 60 * 60 * 1000;
+const IMAGE_VIEW_DURATION = 6000;
+const VIDEO_VIEW_DURATION = 15000;
 
 type Story = {
   id: string;
@@ -63,7 +71,7 @@ function VideoStory({ uri }: { uri: string }) {
       player={player}
       style={stylesVideo.video}
       contentFit="contain"
-      nativeControls
+      nativeControls={false}
     />
   );
 }
@@ -86,10 +94,29 @@ export default function StoriesScreen() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState('');
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [viewerProgress, setViewerProgress] = useState(0);
   const [status, setStatus] = useState('');
 
   const userId = session?.user?.id;
+
+  const ownStories = useMemo(
+    () => stories.filter(story => story.user_id === userId),
+    [stories, userId],
+  );
+
+  const otherStories = useMemo(
+    () => stories.filter(story => story.user_id !== userId),
+    [stories, userId],
+  );
+
+  const viewerStories = useMemo(
+    () => [...ownStories, ...otherStories],
+    [ownStories, otherStories],
+  );
+
+  const selectedStory =
+    selectedIndex !== null ? viewerStories[selectedIndex] || null : null;
 
   const loadStories = useCallback(async () => {
     const client = supabase;
@@ -169,6 +196,167 @@ export default function StoriesScreen() {
     }, [loadStories]),
   );
 
+  const recordStoryView = useCallback(
+    async (story: Story) => {
+      const client = supabase;
+
+      if (!client || !userId || story.user_id === userId) return;
+
+      try {
+        const { data: existing, error: checkError } = await client
+          .from('story_views')
+          .select('story_id')
+          .eq('story_id', story.id)
+          .eq('viewer_id', userId)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (!existing) {
+          const { error } = await client.from('story_views').insert({
+            story_id: story.id,
+            viewer_id: userId,
+          });
+
+          if (error) {
+            console.warn('Could not record story view:', error.message);
+          }
+        }
+      } catch (error) {
+        console.warn('Story view recording failed:', errorMessage(error));
+      }
+    },
+    [userId],
+  );
+
+  const closeViewer = useCallback(() => {
+    setSelectedIndex(null);
+    setViewerProgress(0);
+  }, []);
+
+  const goToStory = useCallback(
+    (index: number) => {
+      if (index < 0) {
+        closeViewer();
+        return;
+      }
+
+      if (index >= viewerStories.length) {
+        closeViewer();
+        return;
+      }
+
+      const nextStory = viewerStories[index];
+
+      setSelectedIndex(index);
+      setViewerProgress(0);
+      void recordStoryView(nextStory);
+    },
+    [viewerStories, recordStoryView, closeViewer],
+  );
+
+  const openStory = useCallback(
+    (story: Story) => {
+      const index = viewerStories.findIndex(item => item.id === story.id);
+
+      if (index !== -1) {
+        goToStory(index);
+      }
+    },
+    [viewerStories, goToStory],
+  );
+
+  const nextStory = useCallback(() => {
+    if (selectedIndex === null) return;
+    goToStory(selectedIndex + 1);
+  }, [selectedIndex, goToStory]);
+
+  const previousStory = useCallback(() => {
+    if (selectedIndex === null) return;
+
+    if (viewerProgress > 0.15) {
+      setViewerProgress(0);
+      return;
+    }
+
+    goToStory(selectedIndex - 1);
+  }, [selectedIndex, viewerProgress, goToStory]);
+
+  useEffect(() => {
+    if (!selectedStory || selectedIndex === null) return;
+
+    setViewerProgress(0);
+
+    const duration =
+      selectedStory.media_type === 'video'
+        ? VIDEO_VIEW_DURATION
+        : IMAGE_VIEW_DURATION;
+
+    const step = 100;
+
+    const timer = setInterval(() => {
+      setViewerProgress(current => {
+        const next = current + (step / duration) * 100;
+
+        if (next >= 100) {
+          clearInterval(timer);
+
+          setTimeout(() => {
+            setSelectedIndex(currentIndex => {
+              if (currentIndex === null) return null;
+
+              const nextIndex = currentIndex + 1;
+
+              if (nextIndex >= viewerStories.length) {
+                return null;
+              }
+
+              const nextItem = viewerStories[nextIndex];
+
+              if (nextItem) {
+                void recordStoryView(nextItem);
+              }
+
+              return nextIndex;
+            });
+
+            setViewerProgress(0);
+          }, 0);
+
+          return 100;
+        }
+
+        return next;
+      });
+    }, step);
+
+    return () => clearInterval(timer);
+  }, [
+    selectedStory?.id,
+    selectedStory?.media_type,
+    selectedIndex,
+    viewerStories,
+    recordStoryView,
+  ]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 20 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy),
+
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx < -60) {
+            nextStory();
+          } else if (gesture.dx > 60) {
+            previousStory();
+          }
+        },
+      }),
+    [nextStory, previousStory],
+  );
+
   const pickStory = async (mediaType: 'image' | 'video') => {
     const client = supabase;
 
@@ -211,9 +399,11 @@ export default function StoriesScreen() {
           bytes = await asset.file.arrayBuffer();
         } else {
           const response = await fetch(asset.uri);
+
           if (!response.ok) {
             throw new Error('Could not read the selected browser file.');
           }
+
           bytes = await (await response.blob()).arrayBuffer();
         }
       } else {
@@ -298,38 +488,6 @@ export default function StoriesScreen() {
     }
   };
 
-  const openStory = async (story: Story) => {
-    setSelectedStory(story);
-
-    const client = supabase;
-
-    if (!client || !userId || story.user_id === userId) return;
-
-    try {
-      const { data: existing, error: checkError } = await client
-        .from('story_views')
-        .select('story_id')
-        .eq('story_id', story.id)
-        .eq('viewer_id', userId)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (!existing) {
-        const { error } = await client.from('story_views').insert({
-          story_id: story.id,
-          viewer_id: userId,
-        });
-
-        if (error) {
-          console.warn('Could not record story view:', error.message);
-        }
-      }
-    } catch (error) {
-      console.warn('Story view recording failed:', errorMessage(error));
-    }
-  };
-
   const deleteStory = (story: Story) => {
     const client = supabase;
 
@@ -357,7 +515,7 @@ export default function StoriesScreen() {
                 .from(BUCKET)
                 .remove([story.storage_path]);
 
-              setSelectedStory(null);
+              closeViewer();
               await loadStories();
             } catch (error) {
               Alert.alert('Delete failed', errorMessage(error));
@@ -367,9 +525,6 @@ export default function StoriesScreen() {
       ],
     );
   };
-
-  const ownStories = stories.filter(story => story.user_id === userId);
-  const otherStories = stories.filter(story => story.user_id !== userId);
 
   return (
     <View style={styles.screen}>
@@ -394,6 +549,7 @@ export default function StoriesScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.createCard}>
           <Text style={styles.sectionTitle}>Share a moment</Text>
+
           <Text style={styles.description}>
             Photos and videos disappear from Stories after 24 hours.
           </Text>
@@ -411,7 +567,10 @@ export default function StoriesScreen() {
           <View style={styles.uploadButtons}>
             <Pressable
               disabled={uploading}
-              style={styles.uploadButton}
+              style={[
+                styles.uploadButton,
+                uploading && styles.disabledButton,
+              ]}
               onPress={() => void pickStory('image')}
             >
               <Ionicons name="image-outline" size={21} color="#FFFFFF" />
@@ -420,7 +579,11 @@ export default function StoriesScreen() {
 
             <Pressable
               disabled={uploading}
-              style={[styles.uploadButton, styles.videoButton]}
+              style={[
+                styles.uploadButton,
+                styles.videoButton,
+                uploading && styles.disabledButton,
+              ]}
               onPress={() => void pickStory('video')}
             >
               <Ionicons name="videocam-outline" size={21} color="#FFFFFF" />
@@ -450,7 +613,7 @@ export default function StoriesScreen() {
               key={story.id}
               story={story}
               styles={styles}
-              onPress={() => void openStory(story)}
+              onPress={() => openStory(story)}
             />
           ))
         )}
@@ -473,19 +636,48 @@ export default function StoriesScreen() {
               key={story.id}
               story={story}
               styles={styles}
-              onPress={() => void openStory(story)}
+              onPress={() => openStory(story)}
             />
           ))
         )}
       </ScrollView>
 
-      {selectedStory && (
+      {selectedStory && selectedIndex !== null && (
         <View style={styles.viewer}>
+          <View style={styles.viewerProgressRow}>
+            {viewerStories.map((story, index) => (
+              <View key={story.id} style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width:
+                        index < selectedIndex
+                          ? '100%'
+                          : index === selectedIndex
+                            ? `${viewerProgress}%`
+                            : '0%',
+                    },
+                  ]}
+                />
+              </View>
+            ))}
+          </View>
+
           <View style={styles.viewerHeader}>
+            <View style={styles.viewerAvatar}>
+              <Ionicons
+                name="person"
+                size={18}
+                color="#FFFFFF"
+              />
+            </View>
+
             <View style={styles.viewerAuthor}>
               <Text style={styles.viewerName}>
                 {selectedStory.display_name}
               </Text>
+
               <Text style={styles.viewerTime}>
                 {new Date(selectedStory.created_at).toLocaleString()}
               </Text>
@@ -501,23 +693,40 @@ export default function StoriesScreen() {
             )}
 
             <Pressable
-              onPress={() => setSelectedStory(null)}
+              onPress={closeViewer}
               style={styles.viewerAction}
             >
               <Ionicons name="close" size={27} color="#FFFFFF" />
             </Pressable>
           </View>
 
-          <View style={styles.viewerMedia}>
+          <View
+            style={styles.viewerMedia}
+            {...panResponder.panHandlers}
+          >
             {selectedStory.media_type === 'image' ? (
               <Image
+                key={selectedStory.id}
                 source={{ uri: selectedStory.media_url }}
                 style={styles.storyImage}
                 resizeMode="contain"
               />
             ) : (
-              <VideoStory uri={selectedStory.media_url} />
+              <VideoStory
+                key={selectedStory.id}
+                uri={selectedStory.media_url}
+              />
             )}
+
+            <Pressable
+              style={styles.leftTapZone}
+              onPress={previousStory}
+            />
+
+            <Pressable
+              style={styles.rightTapZone}
+              onPress={nextStory}
+            />
           </View>
 
           {!!selectedStory.caption && (
@@ -525,6 +734,12 @@ export default function StoriesScreen() {
               {selectedStory.caption}
             </Text>
           )}
+
+          <View style={styles.viewerBottom}>
+            <Text style={styles.viewerHint}>
+              Tap left or right, or swipe to change stories
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -542,20 +757,35 @@ function StoryRow({
 }) {
   return (
     <Pressable style={styles.storyRow} onPress={onPress}>
-      <Image
-        source={{ uri: story.media_url }}
-        style={styles.storyThumbnail}
-      />
+      <View style={styles.thumbnailContainer}>
+        <Image
+          source={{ uri: story.media_url }}
+          style={styles.storyThumbnail}
+          resizeMode="cover"
+        />
+
+        {story.media_type === 'video' && (
+          <View style={styles.thumbnailPlay}>
+            <Ionicons name="play" size={18} color="#FFFFFF" />
+          </View>
+        )}
+      </View>
 
       <View style={styles.storyInfo}>
         <Text style={styles.storyAuthor}>{story.display_name}</Text>
+
         <Text style={styles.storyCaption} numberOfLines={2}>
           {story.caption || 'Shared a moment'}
         </Text>
+
         <Text style={styles.storyExpiry}>Expires after 24 hours</Text>
       </View>
 
-      <Ionicons name="play-circle-outline" size={27} color={styles.iconColor} />
+      <Ionicons
+        name="chevron-forward"
+        size={23}
+        color={styles.iconColor}
+      />
     </Pressable>
   );
 }
@@ -646,6 +876,9 @@ function createStyles(theme: any) {
     videoButton: {
       backgroundColor: theme.purple,
     },
+    disabledButton: {
+      opacity: 0.5,
+    },
     uploadButtonText: {
       color: '#FFFFFF',
       fontSize: 14,
@@ -683,11 +916,22 @@ function createStyles(theme: any) {
       borderColor: theme.border,
       borderRadius: 14,
     },
-    storyThumbnail: {
+    thumbnailContainer: {
       width: 62,
       height: 72,
       borderRadius: 10,
+      overflow: 'hidden',
       backgroundColor: theme.panel2,
+    },
+    storyThumbnail: {
+      width: '100%',
+      height: '100%',
+    },
+    thumbnailPlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.25)',
     },
     storyInfo: {
       flex: 1,
@@ -714,13 +958,41 @@ function createStyles(theme: any) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: '#000000',
       zIndex: 20,
+      elevation: 20,
+    },
+    viewerProgressRow: {
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingTop: Platform.OS === 'ios' ? 54 : 27,
+    },
+    progressTrack: {
+      flex: 1,
+      height: 3,
+      borderRadius: 5,
+      overflow: 'hidden',
+      backgroundColor: 'rgba(255,255,255,0.35)',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 5,
     },
     viewerHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingTop: Platform.OS === 'ios' ? 55 : 25,
-      paddingHorizontal: 16,
-      paddingBottom: 12,
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 10,
+    },
+    viewerAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#444444',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 9,
     },
     viewerAuthor: {
       flex: 1,
@@ -742,16 +1014,42 @@ function createStyles(theme: any) {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      position: 'relative',
     },
     storyImage: {
       width: '100%',
       height: '100%',
     },
+    leftTapZone: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: '35%',
+    },
+    rightTapZone: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: '65%',
+    },
     viewerCaption: {
       color: '#FFFFFF',
       fontSize: 15,
       textAlign: 'center',
-      padding: 18,
+      paddingHorizontal: 18,
+      paddingTop: 12,
+      paddingBottom: 8,
+    },
+    viewerBottom: {
+      paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+      paddingTop: 6,
+      alignItems: 'center',
+    },
+    viewerHint: {
+      color: '#AAAAAA',
+      fontSize: 11,
     },
     iconColor: theme.cyan,
   });
