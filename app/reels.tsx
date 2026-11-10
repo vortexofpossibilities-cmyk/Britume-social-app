@@ -28,6 +28,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
 import { useAuth } from '../src/auth/AuthProvider';
+
 import {
   fetchPublicPosts,
   fetchPostInteractions,
@@ -47,6 +48,13 @@ type Interaction = {
   saved: boolean;
   likesCount: number;
   commentsCount: number;
+};
+
+const EMPTY_INTERACTION: Interaction = {
+  liked: false,
+  saved: false,
+  likesCount: 0,
+  commentsCount: 0,
 };
 
 function Reel({
@@ -108,7 +116,9 @@ function Reel({
   }, [active, paused, player, uri]);
 
   useEffect(() => {
-    if (!active) setPaused(false);
+    if (!active) {
+      setPaused(false);
+    }
   }, [active]);
 
   const author =
@@ -149,6 +159,7 @@ function Reel({
             size={48}
             color="#FFFFFF"
           />
+
           <Text style={styles.noVideoText}>
             Video unavailable
           </Text>
@@ -181,6 +192,7 @@ function Reel({
           <Text style={styles.brand}>
             BRITUME REELS
           </Text>
+
           <Text style={styles.brandSubtitle}>
             Vortex of Possibilities
           </Text>
@@ -258,6 +270,7 @@ function Reel({
                   : '#FFFFFF'
               }
             />
+
             <Text style={styles.actionText}>
               {interaction.likesCount}
             </Text>
@@ -272,6 +285,7 @@ function Reel({
               size={28}
               color="#FFFFFF"
             />
+
             <Text style={styles.actionText}>
               {interaction.commentsCount}
             </Text>
@@ -286,6 +300,7 @@ function Reel({
               size={28}
               color="#FFFFFF"
             />
+
             <Text style={styles.actionText}>
               Share
             </Text>
@@ -308,6 +323,7 @@ function Reel({
                   : '#FFFFFF'
               }
             />
+
             <Text style={styles.actionText}>
               Save
             </Text>
@@ -322,6 +338,7 @@ function Reel({
               size={28}
               color="#FFFFFF"
             />
+
             <Text style={styles.actionText}>
               Download
             </Text>
@@ -346,7 +363,9 @@ export default function VideosScreen() {
   const [following, setFollowing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [activePostId, setActivePostId] = useState<string | null>(
+    null
+  );
 
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -412,6 +431,13 @@ export default function VideosScreen() {
       );
 
       setActiveIndex(0);
+
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      });
     } catch (error: any) {
       Alert.alert(
         'Videos could not load',
@@ -448,12 +474,7 @@ export default function VideosScreen() {
     setInteractions(previous => ({
       ...previous,
       [id]: {
-        ...(previous[id] || {
-          liked: false,
-          saved: false,
-          likesCount: 0,
-          commentsCount: 0,
-        }),
+        ...(previous[id] || EMPTY_INTERACTION),
         ...patch,
       },
     }));
@@ -470,12 +491,8 @@ export default function VideosScreen() {
 
     if (busyIds.includes(post.id)) return;
 
-    const current = interactions[post.id] || {
-      liked: false,
-      saved: false,
-      likesCount: 0,
-      commentsCount: 0,
-    };
+    const current =
+      interactions[post.id] || EMPTY_INTERACTION;
 
     markBusy(post.id, true);
 
@@ -515,12 +532,8 @@ export default function VideosScreen() {
 
     if (busyIds.includes(post.id)) return;
 
-    const current = interactions[post.id] || {
-      liked: false,
-      saved: false,
-      likesCount: 0,
-      commentsCount: 0,
-    };
+    const current =
+      interactions[post.id] || EMPTY_INTERACTION;
 
     markBusy(post.id, true);
 
@@ -774,12 +787,8 @@ export default function VideosScreen() {
       item: FeedPost;
       index: number;
     }) => {
-      const state = interactions[item.id] || {
-        liked: false,
-        saved: false,
-        likesCount: 0,
-        commentsCount: 0,
-      };
+      const state =
+        interactions[item.id] || EMPTY_INTERACTION;
 
       return (
         <Reel
@@ -824,6 +833,7 @@ export default function VideosScreen() {
             size="large"
             color="#FFFFFF"
           />
+
           <Text style={styles.loadingText}>
             Loading BRITUME Reels...
           </Text>
@@ -831,6 +841,7 @@ export default function VideosScreen() {
       ) : posts.length > 0 ? (
         <FlatList
           ref={listRef}
+          style={styles.reelsList}
           data={posts}
           keyExtractor={item => item.id}
           renderItem={renderItem}
@@ -896,6 +907,7 @@ export default function VideosScreen() {
               size={20}
               color="#FFFFFF"
             />
+
             <Text style={styles.uploadText}>
               Upload a video
             </Text>
@@ -1007,6 +1019,10 @@ function createStyles(theme: any) {
     screen: {
       flex: 1,
       backgroundColor: '#07111F',
+    },
+
+    reelsList: {
+      flex: 1,
     },
 
     reelPage: {
@@ -1316,4 +1332,4 @@ function createStyles(theme: any) {
       opacity: 0.55,
     },
   });
-}
+            }a
