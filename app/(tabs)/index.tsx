@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -188,13 +189,18 @@ export default function HomeScreen() {
 
       const freshPosts = await withTimeout(fetchPublicPosts());
 
-      setPosts(freshPosts);
-      setLoading(false);
+      // Keep Reels on their separate screen.
+      // Ordinary video posts remain visible in the home feed.
+      const homeFeedPosts = freshPosts.filter(
+        post => post.post_type !== 'reel',
+      );
+
+      setPosts(homeFeedPosts);
 
       try {
         const result = await withTimeout(
           fetchPostInteractions(
-            freshPosts.map(post => post.id),
+            homeFeedPosts.map(post => post.id),
             currentUserId ?? undefined,
           ),
         );
@@ -560,8 +566,7 @@ export default function HomeScreen() {
       media => media.media_type === 'video',
     );
 
-    const isVideoPost =
-      item.post_type === 'video' || item.post_type === 'reel';
+    const isVideoPost = item.post_type === 'video';
 
     return (
       <View style={styles.postCard}>
@@ -1448,7 +1453,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       shadowOffset: { width: 0, height: 0 },
     },
 
-    // FIX: Added missing style used by the like and comment counts.
     actionCount: {
       fontSize: 12,
       fontWeight: '800',
