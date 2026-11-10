@@ -1,8 +1,8 @@
+
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import {
@@ -27,10 +27,16 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAuth } from '../src/auth/AuthProvider';
 import { supabase } from '../src/lib/supabase';
 import { useAppTheme } from '../src/contexts/ThemeContext';
+import {
+  MEDIA_BUCKET,
+  compressImage,
+  uploadMediaResumable,
+  type UploadSource,
+} from '../src/lib/mediaUpload';
 
-const BUCKET = 'britume-media';
+const BUCKET = MEDIA_BUCKET;
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 48 * 1024 * 1024;
 const STORY_DURATION = 24 * 60 * 60 * 1000;
 const IMAGE_VIEW_DURATION = 6000;
 const VIDEO_VIEW_DURATION = 15000;
@@ -236,12 +242,7 @@ export default function StoriesScreen() {
 
   const goToStory = useCallback(
     (index: number) => {
-      if (index < 0) {
-        closeViewer();
-        return;
-      }
-
-      if (index >= viewerStories.length) {
+      if (index < 0 || index >= viewerStories.length) {
         closeViewer();
         return;
       }
@@ -382,82 +383,135 @@ export default function StoriesScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: mediaType === 'image' ? ['images'] : ['videos'],
         allowsMultipleSelection: false,
-        quality: 0.85,
+        quality: 1,
       });
 
       if (result.canceled || !result.assets?.[0]) return;
 
       const asset = result.assets[0];
-      const mimeType =
-        asset.mimeType ||
-        (mediaType === 'image' ? 'image/jpeg' : 'video/mp4');
 
-      let bytes: ArrayBuffer;
+      let uploadSource: UploadSource;
+      let mimeType: string;
+      let extension: string;
 
-      if (Platform.OS === 'web') {
-        if (asset.file) {
-          bytes = await asset.file.arrayBuffer();
-        } else {
-          const response = await fetch(asset.uri);
+      if (mediaType === 'image') {
+        setStatus('Compressing your photo...');
+
+        const originalMime =
+          asset.mimeType || 'image/jpeg';
+
+        const compressed = await compressImage(
+          asset.uri,
+          originalMime,
+        );
+
+        mimeType = compressed.mimeType;
+        extension = compressed.name.split('.').pop() || 'jpg';
+
+        if (Platform.OS === 'web') {
+          const response = await fetch(compressed.uri);
 
           if (!response.ok) {
-            throw new Error('Could not read the selected browser file.');
+            throw new Error('Could not prepare the compressed photo.');
           }
 
-          bytes = await (await response.blob()).arrayBuffer();
+          const blob = await response.blob();
+
+          if (!blob.size) {
+            throw new Error('The compressed photo is empty.');
+          }
+
+          if (blob.size > MAX_IMAGE_SIZE) {
+            throw new Error('Photos must be 15 MB or smaller after compression.');
+          }
+
+          uploadSource = new File(
+            [blob],
+            compressed.name,
+            { type: mimeType },
+          );
+        } else {
+          uploadSource = {
+            uri: compressed.uri,
+            name: compressed.name,
+            type: mimeType,
+            size: compressed.size,
+          };
         }
       } else {
-        const file = new ExpoFile(asset.uri);
+        mimeType =
+          asset.mimeType ||
+          (asset.uri.toLowerCase().endsWith('.mov')
+            ? 'video/quicktime'
+            : 'video/mp4');
 
-        if (!file.exists) {
-          throw new Error('The selected file could not be found.');
+        extension =
+          mimeType === 'video/quicktime' ? 'mov' : 'mp4';
+
+        let videoSize = 0;
+
+        if (Platform.OS === 'web') {
+          if (asset.file) {
+            videoSize = asset.file.size;
+            uploadSource = asset.file;
+          } else {
+            const response = await fetch(asset.uri);
+
+            if (!response.ok) {
+              throw new Error('Could not read the selected video.');
+            }
+
+            const blob = await response.blob();
+            videoSize = blob.size;
+
+            uploadSource = new File(
+              [blob],
+              `story-${Date.now()}.${extension}`,
+              { type: mimeType },
+            );
+          }
+        } else {
+          const file = new ExpoFile(asset.uri);
+
+          if (!file.exists) {
+            throw new Error('The selected video could not be found.');
+          }
+
+          videoSize = file.size;
+
+          uploadSource = {
+            uri: asset.uri,
+            name: `story-${Date.now()}.${extension}`,
+            type: mimeType,
+            size: videoSize,
+          };
         }
 
-        bytes = await file.arrayBuffer();
+        if (!videoSize) {
+          throw new Error('Could not determine the video file size.');
+        }
+
+        if (videoSize > MAX_VIDEO_SIZE) {
+          throw new Error('Videos must be 48 MB or smaller.');
+        }
       }
-
-      if (!bytes.byteLength) {
-        throw new Error('The selected file is empty.');
-      }
-
-      const sizeLimit =
-        mediaType === 'image' ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
-
-      if (bytes.byteLength > sizeLimit) {
-        throw new Error(
-          mediaType === 'image'
-            ? 'Photos must be 15 MB or smaller.'
-            : 'Videos must be 100 MB or smaller.',
-        );
-      }
-
-      const extension =
-        mimeType === 'image/png'
-          ? 'png'
-          : mimeType === 'image/webp'
-            ? 'webp'
-            : mimeType === 'video/quicktime'
-              ? 'mov'
-              : mediaType === 'image'
-                ? 'jpg'
-                : 'mp4';
 
       setUploading(true);
-      setStatus('Uploading your story...');
+      setStatus('Uploading your story... 0%');
 
       const path =
         `${userId}/stories/${Date.now()}-${Math.random()
           .toString(36)
           .slice(2)}.${extension}`;
 
-      const { error: uploadError } = await client.storage
-        .from(BUCKET)
-        .upload(path, bytes, {
-          contentType: mimeType,
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
+      await uploadMediaResumable(
+        uploadSource,
+        path,
+        mimeType,
+        percent => {
+          setStatus(`Uploading your story... ${percent}%`);
+        },
+      );
 
       const expiresAt = new Date(
         Date.now() + STORY_DURATION,
@@ -666,11 +720,7 @@ export default function StoriesScreen() {
 
           <View style={styles.viewerHeader}>
             <View style={styles.viewerAvatar}>
-              <Ionicons
-                name="person"
-                size={18}
-                color="#FFFFFF"
-              />
+              <Ionicons name="person" size={18} color="#FFFFFF" />
             </View>
 
             <View style={styles.viewerAuthor}>
