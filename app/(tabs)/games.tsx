@@ -36,7 +36,7 @@ const CATEGORY_LABELS: Record<GameCategory, string> = {
 };
 
 const GAME_ROUTES: Record<string, string> = {
-  'pooled-spin': 'spin-wheel',
+  'pooled-spin': 'pooled-spin',
   trivia: 'trivia',
   'last-standing': 'last-one-standing',
   'daily-challenge': 'daily-challenge',
@@ -65,6 +65,8 @@ export default function GamesScreen() {
   }, [activeFilter]);
 
   const openGame = (game: GameDefinition) => {
+    if (game.status !== 'ready') return;
+
     const route = GAME_ROUTES[game.id];
 
     if (!route) return;
@@ -83,8 +85,6 @@ export default function GamesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* HEADER */}
-
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>BRITUME</Text>
@@ -106,8 +106,6 @@ export default function GamesScreen() {
             />
           </View>
         </View>
-
-        {/* FREE PLAY INFORMATION */}
 
         <View style={styles.modeCard}>
           <View style={styles.modeTop}>
@@ -151,8 +149,6 @@ export default function GamesScreen() {
           </View>
         </View>
 
-        {/* GAME SECTION */}
-
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>
@@ -168,8 +164,6 @@ export default function GamesScreen() {
             {BRITUME_GAMES.length} GAMES
           </Text>
         </View>
-
-        {/* CATEGORY FILTERS */}
 
         <ScrollView
           horizontal
@@ -202,8 +196,6 @@ export default function GamesScreen() {
           })}
         </ScrollView>
 
-        {/* GAME GRID */}
-
         <View style={styles.gameGrid}>
           {filteredGames.map((game) => {
             const ready = game.status === 'ready';
@@ -211,10 +203,12 @@ export default function GamesScreen() {
             return (
               <Pressable
                 key={game.id}
+                disabled={!ready}
                 onPress={() => openGame(game)}
                 style={({ pressed }) => [
                   styles.gameCard,
                   pressed && styles.cardPressed,
+                  !ready && styles.cardUnavailable,
                 ]}
               >
                 <View style={styles.cardTop}>
@@ -298,8 +292,6 @@ export default function GamesScreen() {
             );
           })}
         </View>
-
-        {/* FOOTER */}
 
         <View style={styles.footer}>
           <Ionicons
@@ -515,6 +507,10 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.75,
     transform: [{ scale: 0.98 }],
+  },
+
+  cardUnavailable: {
+    opacity: 0.65,
   },
 
   cardTop: {
