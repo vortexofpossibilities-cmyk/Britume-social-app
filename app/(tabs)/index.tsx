@@ -35,6 +35,15 @@ import {
   type PostComment,
 } from '../../src/lib/posts';
 
+import {
+  fetchPostRestrictions,
+  hidePost,
+  reportPost,
+  blockUser,
+  proposePost,
+  deleteOwnPost,
+} from '../../src/lib/postModeration';
+
 import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
@@ -73,6 +82,12 @@ function withTimeout<T>(
         reject(error);
       });
   });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : 'Please try again.';
 }
 
 function MediaVideo({
@@ -139,6 +154,7 @@ export default function HomeScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
   const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
+  const [blurredPostIds, setBlurredPostIds] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -160,6 +176,7 @@ export default function HomeScreen() {
 
   const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
 
+  // Load public posts and apply each user's own hidden/blocked settings.
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
       setRefreshing(true);
@@ -189,10 +206,20 @@ export default function HomeScreen() {
 
       const freshPosts = await withTimeout(fetchPublicPosts());
 
-      // Keep Reels on their separate screen.
-      // Ordinary video posts remain visible in the home feed.
+      const restrictions = currentUserId
+        ? await withTimeout(
+            fetchPostRestrictions(currentUserId),
+          )
+        : {
+            hiddenPostIds: [],
+            blockedUserIds: [],
+          };
+
       const homeFeedPosts = freshPosts.filter(
-        post => post.post_type !== 'reel',
+        post =>
+          post.post_type !== 'reel' &&
+          !restrictions.hiddenPostIds.includes(post.id) &&
+          !restrictions.blockedUserIds.includes(post.user_id),
       );
 
       setPosts(homeFeedPosts);
@@ -213,11 +240,7 @@ export default function HomeScreen() {
     } catch (e) {
       console.error('BRITUME feed:', e);
 
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Could not load BRITUME posts.',
-      );
+      setError(errorMessage(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -261,6 +284,19 @@ export default function HomeScreen() {
     setInteractions(result);
   };
 
+  const requireSignedIn = () => {
+    if (!userId) {
+      Alert.alert(
+        t('signInRequired'),
+        'Please sign in to use this feature.',
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
   const handleLike = async (postId: string) => {
     if (!userId) {
       Alert.alert(t('signInRequired'), t('signInToLike'));
@@ -280,10 +316,7 @@ export default function HomeScreen() {
 
       await refreshInteractions();
     } catch (e) {
-      Alert.alert(
-        t('likeFailed'),
-        e instanceof Error ? e.message : t('pleaseTryAgain'),
-      );
+      Alert.alert(t('likeFailed'), errorMessage(e));
     } finally {
       setBusyPosts(items => items.filter(id => id !== postId));
     }
@@ -308,10 +341,7 @@ export default function HomeScreen() {
 
       await refreshInteractions();
     } catch (e) {
-      Alert.alert(
-        t('saveFailed'),
-        e instanceof Error ? e.message : t('pleaseTryAgain'),
-      );
+      Alert.alert(t('saveFailed'), errorMessage(e));
     } finally {
       setBusyPosts(items => items.filter(id => id !== postId));
     }
@@ -336,6 +366,206 @@ export default function HomeScreen() {
     }
   };
 
+  // Hide a post only for the signed-in user.
+  const handleHidePost = async (post: FeedPost) => {
+    if (!requireSignedIn()) return;
+
+    try {
+      await hidePost(userId!, post.id);
+
+      setPosts(current =>
+        current.filter(item => item.id !== post.id),
+      );
+
+      Alert.alert('Post hidden');
+    } catch (e) {
+      Alert.alert('Could not hide post', errorMessage(e));
+    }
+  };
+
+  // Report a post for administrator review.
+  const handleReportPost = (post: FeedPost) => {
+    if (!requireSignedIn()) return;
+
+    Alert.alert('Report post', 'Choose a reason for this report.', [
+      ...[
+        'spam',
+        'harassment',
+        'inappropriate',
+        'misinformation',
+        'other',
+      ].map(reason => ({
+        text: reason.charAt(0).toUpperCase() + reason.slice(1),
+        onPress: () => {
+          void reportPost(userId!, post.id, reason)
+            .then(() => {
+              Alert.alert(
+                'Report submitted',
+                'Thank you. Your report has been sent for review.',
+              );
+            })
+            .catch(e => {
+              Alert.alert('Report failed', errorMessage(e));
+            });
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
+
+  // Block another account and reload the feed.
+  const handleBlockAccount = async (post: FeedPost) => {
+    if (!requireSignedIn()) return;
+
+    if (post.user_id === userId) {
+      Alert.alert('You cannot block your own account.');
+      return;
+    }
+
+    try {
+      await blockUser(userId!, post.user_id);
+      await loadPosts(true);
+
+      Alert.alert(
+        'Account blocked',
+        'Posts from this account have been removed from your feed.',
+      );
+    } catch (e) {
+      Alert.alert('Block failed', errorMessage(e));
+    }
+  };
+
+  // Suggest a post to BRITUME administrators for featuring.
+  const handleProposePost = async (post: FeedPost) => {
+    if (!requireSignedIn()) return;
+
+    try {
+      await proposePost(userId!, post.id);
+
+      Alert.alert(
+        'Proposal submitted',
+        'Your suggestion has been sent to BRITUME administrators.',
+      );
+    } catch (e) {
+      Alert.alert('Proposal failed', errorMessage(e));
+    }
+  };
+
+  // Only the post owner can request deletion.
+  const handleDeletePost = (post: FeedPost) => {
+    if (!userId || post.user_id !== userId) {
+      Alert.alert('Only the post owner can delete this post.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete your post?',
+      'This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void deleteOwnPost(userId, post.id)
+              .then(() => {
+                setPosts(current =>
+                  current.filter(item => item.id !== post.id),
+                );
+
+                Alert.alert('Post deleted');
+              })
+              .catch(e => {
+                Alert.alert('Delete failed', errorMessage(e));
+              });
+          },
+        },
+      ],
+    );
+  };
+
+  // Blur is a local visual privacy effect, not a database change.
+  const togglePostBlur = (postId: string) => {
+    setBlurredPostIds(current =>
+      current.includes(postId)
+        ? current.filter(id => id !== postId)
+        : [...current, postId],
+    );
+  };
+
+  const openPostOptions = (post: FeedPost) => {
+    const isOwner = !!userId && post.user_id === userId;
+    const isBlurred = blurredPostIds.includes(post.id);
+
+    const options = [
+      {
+        text: 'Share',
+        onPress: () => void sharePost(post),
+      },
+      {
+        text: 'Hide post',
+        onPress: () => void handleHidePost(post),
+      },
+      {
+        text: isBlurred ? 'Remove blur' : 'Blur it',
+        onPress: () => togglePostBlur(post.id),
+      },
+      {
+        text: 'Report',
+        onPress: () => handleReportPost(post),
+      },
+      {
+        text: 'Propose for featuring',
+        onPress: () => void handleProposePost(post),
+      },
+      ...(isOwner
+        ? [
+            {
+              text: 'Delete my post',
+              style: 'destructive' as const,
+              onPress: () => handleDeletePost(post),
+            },
+          ]
+        : [
+            {
+              text: 'Block account',
+              style: 'destructive' as const,
+              onPress: () => {
+                Alert.alert(
+                  'Block this account?',
+                  'Posts from this account will disappear from your feed.',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Block',
+                      style: 'destructive',
+                      onPress: () =>
+                        void handleBlockAccount(post),
+                    },
+                  ],
+                );
+              },
+            },
+          ]),
+      {
+        text: 'Cancel',
+        style: 'cancel' as const,
+      },
+    ];
+
+    Alert.alert(
+      'Post options',
+      'Choose an action',
+      options,
+    );
+  };
+
   const openComments = async (postId: string) => {
     setActivePostId(postId);
     setCommentText('');
@@ -349,10 +579,7 @@ export default function HomeScreen() {
 
       setComments(result);
     } catch (e) {
-      Alert.alert(
-        t('comments'),
-        e instanceof Error ? e.message : t('couldNotLoadComments'),
-      );
+      Alert.alert(t('comments'), errorMessage(e));
     } finally {
       setCommentsLoading(false);
     }
@@ -384,10 +611,7 @@ export default function HomeScreen() {
       setComments(result);
       await refreshInteractions();
     } catch (e) {
-      Alert.alert(
-        t('commentFailed'),
-        e instanceof Error ? e.message : t('pleaseTryAgain'),
-      );
+      Alert.alert(t('commentFailed'), errorMessage(e));
     } finally {
       setSendingComment(false);
     }
@@ -552,6 +776,7 @@ export default function HomeScreen() {
     const liked = interaction?.liked ?? false;
     const saved = interaction?.saved ?? false;
     const expanded = expandedPostIds.includes(item.id);
+    const isPostBlurred = blurredPostIds.includes(item.id);
 
     const author =
       item.author?.display_name ||
@@ -591,19 +816,9 @@ export default function HomeScreen() {
           </View>
 
           <Pressable
-            onPress={() =>
-              Alert.alert(t('postOptions'), t('chooseAction'), [
-                {
-                  text: t('share'),
-                  onPress: () => void sharePost(item),
-                },
-                {
-                  text: t('cancel'),
-                  style: 'cancel',
-                },
-              ])
-            }
+            onPress={() => openPostOptions(item)}
             accessibilityLabel={t('postOptions')}
+            accessibilityRole="button"
             hitSlop={12}
             style={styles.moreButton}
           >
@@ -618,7 +833,10 @@ export default function HomeScreen() {
         {item.content ? (
           <View style={styles.postCaptionWrap}>
             <Text
-              style={styles.postContent}
+              style={[
+                styles.postContent,
+                isPostBlurred && styles.blurredContent,
+              ]}
               numberOfLines={expanded ? undefined : 5}
               ellipsizeMode="tail"
             >
@@ -650,11 +868,24 @@ export default function HomeScreen() {
           <View style={styles.videoMediaWrap}>
             <MediaVideo
               uri={video.url}
-              videoStyle={[
-                styles.videoPlayer,
-                { height: mediaHeight },
-              ]}
+              videoStyle={styles.videoPlayer}
             />
+
+            {isPostBlurred ? (
+              <View
+                pointerEvents="none"
+                style={styles.blurOverlay}
+              >
+                <Ionicons
+                  name="eye-off"
+                  size={32}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.blurOverlayText}>
+                  Media hidden
+                </Text>
+              </View>
+            ) : null}
 
             <Pressable
               style={styles.videoExpandButton}
@@ -686,12 +917,14 @@ export default function HomeScreen() {
             {images.map(media => (
               <Pressable
                 key={media.id}
-                onPress={() =>
-                  setActiveMedia({
-                    uri: media.url,
-                    type: 'image',
-                  })
-                }
+                onPress={() => {
+                  if (!isPostBlurred) {
+                    setActiveMedia({
+                      uri: media.url,
+                      type: 'image',
+                    });
+                  }
+                }}
                 style={[
                   styles.imageCard,
                   { width: mediaWidth },
@@ -710,13 +943,29 @@ export default function HomeScreen() {
                   resizeMode="contain"
                 />
 
-                <View style={styles.imageExpandHint}>
-                  <Ionicons
-                    name="expand-outline"
-                    size={17}
-                    color="#FFFFFF"
-                  />
-                </View>
+                {isPostBlurred ? (
+                  <View
+                    pointerEvents="none"
+                    style={styles.blurOverlay}
+                  >
+                    <Ionicons
+                      name="eye-off"
+                      size={32}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.blurOverlayText}>
+                      Media hidden
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.imageExpandHint}>
+                    <Ionicons
+                      name="expand-outline"
+                      size={17}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
               </Pressable>
             ))}
           </ScrollView>
@@ -979,7 +1228,7 @@ export default function HomeScreen() {
                 placeholderTextColor={theme.muted}
                 style={styles.commentInput}
                 multiline
-                maxLength={2000}
+                maxLength={500}
               />
 
               <Pressable
@@ -1318,6 +1567,10 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       lineHeight: 24,
     },
 
+    blurredContent: {
+      opacity: 0.12,
+    },
+
     seeMoreText: {
       color: theme.cyan,
       fontSize: 14,
@@ -1357,6 +1610,21 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       backgroundColor: 'rgba(0,0,0,0.7)',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    blurOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.88)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 4,
+    },
+
+    blurOverlayText: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+      fontSize: 13,
+      marginTop: 8,
     },
 
     videoMediaWrap: {
