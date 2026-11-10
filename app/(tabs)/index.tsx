@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -101,8 +100,7 @@ function MediaVideo({
 export default function HomeScreen() {
   const { theme: appTheme, isDark } = useAppTheme();
   const { t } = useLanguage();
-  const { width: windowWidth, height: windowHeight } =
-    useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
 
   const theme = useMemo(
     () =>
@@ -851,7 +849,6 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Full-screen image and video viewer */}
       <Modal
         visible={activeMedia !== null}
         transparent
@@ -891,7 +888,6 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Comments modal */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -1450,6 +1446,13 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       shadowOpacity: isDark ? 0.65 : 0.18,
       shadowRadius: 5,
       shadowOffset: { width: 0, height: 0 },
+    },
+
+    // FIX: Added missing style used by the like and comment counts.
+    actionCount: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: theme.text,
     },
 
     emptyBox: {
