@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+
 import {
   ActivityIndicator,
   Alert,
@@ -159,7 +160,6 @@ function Reel({
             size={48}
             color="#FFFFFF"
           />
-
           <Text style={styles.noVideoText}>
             Video unavailable
           </Text>
@@ -363,6 +363,7 @@ export default function VideosScreen() {
   const [following, setFollowing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
+
   const [activePostId, setActivePostId] = useState<string | null>(
     null
   );
@@ -1328,8 +1329,8 @@ function createStyles(theme: any) {
       justifyContent: 'center',
     },
 
-        sendButtonDisabled: {
+    sendButtonDisabled: {
       opacity: 0.55,
     },
   });
-            }
+}
