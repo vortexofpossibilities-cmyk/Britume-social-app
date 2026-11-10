@@ -1328,8 +1328,8 @@ function createStyles(theme: any) {
       justifyContent: 'center',
     },
 
-    sendButtonDisabled: {
+        sendButtonDisabled: {
       opacity: 0.55,
     },
   });
-            }a
+}
