@@ -14,16 +14,23 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { File as ExpoFile } from 'expo-file-system';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { supabase } from '../../src/lib/supabase';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
+import {
+  MEDIA_BUCKET,
+  compressImage,
+  uploadMediaResumable,
+  type UploadSource,
+} from '../../src/lib/mediaUpload';
 
-const BUCKET = 'britume-media';
+const BUCKET = MEDIA_BUCKET;
 const MAX_FILES = 10;
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+
+// Keep below Supabase's 50 MB per-file limit.
+const MAX_VIDEO_SIZE = 48 * 1024 * 1024;
 
 type MediaItem = {
   uri: string;
@@ -31,10 +38,7 @@ type MediaItem = {
   mimeType: string;
   mediaType: 'image' | 'video';
   size?: number;
-
-  // Keep a copy of the selected browser file's bytes.
-  // This prevents temporary browser file URLs from expiring.
-  webBytes?: ArrayBuffer;
+  webFile?: File;
 };
 
 type PostKind = 'text' | 'photo' | 'video' | 'reel';
@@ -52,14 +56,17 @@ function getErrorMessage(error: unknown): string {
   return String(error || 'An unknown error occurred.');
 }
 
-function getSafeExtension(item: MediaItem): string {
+function getSafeExtension(item: {
+  name: string;
+  mimeType: string;
+  mediaType: 'image' | 'video';
+}): string {
   const mimeExtensions: Record<string, string> = {
     'image/jpeg': 'jpg',
     'image/jpg': 'jpg',
     'image/png': 'png',
     'image/webp': 'webp',
-    'image/heic': 'heic',
-    'image/heif': 'heif',
+    'image/gif': 'gif',
     'video/mp4': 'mp4',
     'video/webm': 'webm',
     'video/quicktime': 'mov',
@@ -78,9 +85,6 @@ function getSafeExtension(item: MediaItem): string {
   return item.mediaType === 'image' ? 'jpg' : 'mp4';
 }
 
-// IMPORTANT:
-// Read browser files immediately after selection.
-// Do not wait until the Publish button is pressed.
 async function prepareMediaItem(
   asset: ImagePicker.ImagePickerAsset,
   mediaType: 'image' | 'video',
@@ -93,54 +97,60 @@ async function prepareMediaItem(
   const extension =
     mimeType === 'image/png'
       ? 'png'
-      : mimeType === 'image/webp'
-        ? 'webp'
-        : mimeType === 'video/quicktime'
-          ? 'mov'
-          : mediaType === 'image'
-            ? 'jpg'
-            : 'mp4';
+      : mimeType === 'image/gif'
+        ? 'gif'
+        : mimeType === 'image/webp'
+          ? 'webp'
+          : mimeType === 'video/quicktime'
+            ? 'mov'
+            : mediaType === 'image'
+              ? 'jpg'
+              : 'mp4';
+
+  const name =
+    asset.fileName ||
+    `${mediaType}-${Date.now()}-${index}.${extension}`;
 
   const item: MediaItem = {
     uri: asset.uri,
-    name:
-      asset.fileName ||
-      `${mediaType}-${Date.now()}-${index}.${extension}`,
+    name,
     mimeType,
     mediaType,
     size: asset.fileSize,
   };
 
+  // On web, preserve the original File object.
+  // Do not read the entire file into an ArrayBuffer.
   if (Platform.OS === 'web') {
     try {
-      let bytes: ArrayBuffer;
+      let webFile = asset.file;
 
-      // Preferred method: read the original browser File.
-      if (asset.file) {
-        bytes = await asset.file.arrayBuffer();
-      } else {
-        // Fallback: read the temporary URI immediately.
+      if (!webFile) {
         const response = await fetch(asset.uri);
 
         if (!response.ok) {
-          throw new Error('The browser could not access this selected file.');
+          throw new Error('The browser could not access this file.');
         }
 
         const blob = await response.blob();
-        bytes = await blob.arrayBuffer();
+
+        webFile = new File([blob], name, {
+          type: mimeType,
+        });
       }
 
-      if (!bytes || bytes.byteLength === 0) {
+      if (!webFile.size) {
         throw new Error('The selected file is empty.');
       }
 
       return {
         ...item,
-        webBytes: bytes,
+        webFile,
+        size: webFile.size,
       };
     } catch (error) {
       throw new Error(
-        `Could not read ${item.name}: ${getErrorMessage(error)}. Please select it again.`,
+        `Could not prepare ${name}: ${getErrorMessage(error)}. Please select it again.`,
       );
     }
   }
@@ -148,34 +158,26 @@ async function prepareMediaItem(
   return item;
 }
 
-async function readSelectedFile(item: MediaItem): Promise<ArrayBuffer> {
-  // Web: use the bytes captured during selection.
-  if (Platform.OS === 'web') {
-    if (item.webBytes && item.webBytes.byteLength > 0) {
-      return item.webBytes;
-    }
+async function createCompressedWebFile(
+  uri: string,
+  name: string,
+  mimeType: string,
+): Promise<File> {
+  const response = await fetch(uri);
 
-    throw new Error(
-      `The saved browser file data is unavailable for ${item.name}. Please select the file again.`,
-    );
+  if (!response.ok) {
+    throw new Error('Could not read the compressed image.');
   }
 
-  // Android and iOS: read the local Expo file.
-  const file = new ExpoFile(item.uri);
+  const blob = await response.blob();
 
-  if (!file.exists) {
-    throw new Error(
-      `The selected file could not be found: ${item.name}`,
-    );
+  if (!blob.size) {
+    throw new Error('The compressed image is empty.');
   }
 
-  const bytes = await file.arrayBuffer();
-
-  if (!bytes || bytes.byteLength === 0) {
-    throw new Error(`The selected file is empty: ${item.name}`);
-  }
-
-  return bytes;
+  return new File([blob], name, {
+    type: mimeType,
+  });
 }
 
 export default function Create() {
@@ -227,7 +229,7 @@ export default function Create() {
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: MAX_FILES,
-        quality: 0.85,
+        quality: 1,
       });
 
       if (result.canceled || !result.assets?.length) {
@@ -244,33 +246,17 @@ export default function Create() {
 
       showStatus('Preparing your photos...', 'info');
 
-      // Read every selected photo immediately.
       const selected = await Promise.all(
         result.assets.map((asset, index) =>
           prepareMediaItem(asset, 'image', index),
         ),
       );
 
-      const oversized = selected.find(
-        item =>
-          (item.size !== undefined && item.size > MAX_IMAGE_SIZE) ||
-          (item.webBytes !== undefined &&
-            item.webBytes.byteLength > MAX_IMAGE_SIZE),
-      );
-
-      if (oversized) {
-        showStatus(
-          `${oversized.name} is larger than 15 MB.`,
-          'error',
-        );
-        return;
-      }
-
       setMedia(selected);
       setPostKind('photo');
 
       showStatus(
-        `Success! ${selected.length} photo(s) selected and ready to upload.`,
+        `${selected.length} photo(s) selected. Images will be compressed automatically when you publish.`,
         'success',
       );
     } catch (error) {
@@ -312,22 +298,18 @@ export default function Create() {
 
       showStatus('Preparing your video...', 'info');
 
-      const asset = result.assets[0];
-
       const selected = await prepareMediaItem(
-        asset,
+        result.assets[0],
         'video',
         0,
       );
 
       if (
-        (selected.size !== undefined &&
-          selected.size > MAX_VIDEO_SIZE) ||
-        (selected.webBytes !== undefined &&
-          selected.webBytes.byteLength > MAX_VIDEO_SIZE)
+        selected.size !== undefined &&
+        selected.size > MAX_VIDEO_SIZE
       ) {
         showStatus(
-          'Your video must be 100 MB or smaller.',
+          'Your video must be 48 MB or smaller. Video compression is not enabled yet.',
           'error',
         );
         return;
@@ -337,7 +319,7 @@ export default function Create() {
       setPostKind(kind);
 
       showStatus(
-        'Video selected and ready to upload.',
+        'Video selected and ready for resumable upload.',
         'success',
       );
     } catch (error) {
@@ -429,6 +411,7 @@ export default function Create() {
         media.length === 0 ? 'text' : postKind;
 
       // STEP 1: Save the post.
+
       stage = 'Saving your post';
 
       const { data: post, error: postError } = await supabase
@@ -465,7 +448,8 @@ export default function Create() {
         position: number;
       }[] = [];
 
-      // STEP 2: Read and upload media.
+      // STEP 2: Compress images and upload media.
+
       for (
         let index = 0;
         index < media.length;
@@ -473,48 +457,108 @@ export default function Create() {
       ) {
         const item = media[index];
 
-        stage = `Reading ${item.name}`;
+        let uploadSource: UploadSource;
+        let uploadMimeType = item.mimeType;
+        let uploadName = item.name;
+        let uploadSize = item.size;
 
-        const bytes = await readSelectedFile(item);
+        if (item.mediaType === 'image') {
+          stage = `Compressing image ${index + 1} of ${media.length}`;
 
-        if (!bytes || bytes.byteLength === 0) {
-          throw new Error(
-            `The selected file is empty: ${item.name}`,
+          setStatus(stage);
+          setStatusType('info');
+
+          const compressed = await compressImage(
+            item.uri,
+            item.mimeType,
           );
+
+          uploadMimeType = compressed.mimeType;
+          uploadName = compressed.name;
+          uploadSize = compressed.size;
+
+          if (Platform.OS === 'web') {
+            uploadSource = await createCompressedWebFile(
+              compressed.uri,
+              compressed.name,
+              compressed.mimeType,
+            );
+
+            uploadSize = (uploadSource as File).size;
+          } else {
+            uploadSource = {
+              uri: compressed.uri,
+              name: compressed.name,
+              type: compressed.mimeType,
+              size: compressed.size,
+            };
+          }
+
+          if (
+            !uploadSize ||
+            uploadSize > MAX_IMAGE_SIZE
+          ) {
+            throw new Error(
+              `${item.name} is still larger than 15 MB after compression.`,
+            );
+          }
+        } else {
+          if (
+            !item.size ||
+            item.size > MAX_VIDEO_SIZE
+          ) {
+            throw new Error(
+              `${item.name} must be 48 MB or smaller. Video compression is not enabled yet.`,
+            );
+          }
+
+          stage = `Preparing video ${index + 1} of ${media.length}`;
+
+          if (Platform.OS === 'web') {
+            if (!item.webFile) {
+              throw new Error(
+                `The browser file is unavailable for ${item.name}. Please select it again.`,
+              );
+            }
+
+            uploadSource = item.webFile;
+          } else {
+            uploadSource = {
+              uri: item.uri,
+              name: item.name,
+              type: item.mimeType,
+              size: item.size,
+            };
+          }
         }
 
-        const sizeLimit =
-          item.mediaType === 'image'
-            ? MAX_IMAGE_SIZE
-            : MAX_VIDEO_SIZE;
+        const finalItem = {
+          name: uploadName,
+          mimeType: uploadMimeType,
+          mediaType: item.mediaType,
+        };
 
-        if (bytes.byteLength > sizeLimit) {
-          throw new Error(
-            item.mediaType === 'image'
-              ? `${item.name} is larger than 15 MB.`
-              : `${item.name} is larger than 100 MB.`,
-          );
-        }
-
-        stage = `Uploading file ${index + 1} of ${media.length}`;
-
-        const extension = getSafeExtension(item);
+        const extension = getSafeExtension(finalItem);
 
         const path =
           `${session.user.id}/${post.id}/${Date.now()}-${index}.${extension}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET)
-          .upload(path, bytes, {
-            contentType: item.mimeType,
-            upsert: false,
-          });
+        stage = `Uploading file ${index + 1} of ${media.length}`;
 
-        if (uploadError) {
-          throw new Error(
-            `Media upload failed: ${uploadError.message}`,
-          );
-        }
+        setStatus(`${stage}: 0%`);
+        setStatusType('info');
+
+        await uploadMediaResumable(
+          uploadSource,
+          path,
+          uploadMimeType,
+          percent => {
+            setStatus(
+              `Uploading file ${index + 1} of ${media.length}: ${percent}%`,
+            );
+            setStatusType('info');
+          },
+        );
 
         uploadedPaths.push(path);
 
@@ -523,12 +567,13 @@ export default function Create() {
           user_id: session.user.id,
           storage_path: path,
           media_type: item.mediaType,
-          mime_type: item.mimeType,
+          mime_type: uploadMimeType,
           position: index,
         });
       }
 
       // STEP 3: Save media information.
+
       if (mediaRows.length > 0) {
         stage = 'Saving media information';
 
@@ -544,6 +589,7 @@ export default function Create() {
       }
 
       // STEP 4: Clear the form after successful publishing.
+
       setContent('');
       setMedia([]);
       setPostKind('text');
@@ -556,7 +602,8 @@ export default function Create() {
       const originalMessage = getErrorMessage(error);
       let cleanupMessage = '';
 
-      // Remove uploaded files if the post fails.
+      // Remove uploaded files if publishing fails.
+
       if (uploadedPaths.length > 0) {
         const { error: removeError } = await supabase.storage
           .from(BUCKET)
@@ -569,6 +616,7 @@ export default function Create() {
       }
 
       // Remove the incomplete post.
+
       if (createdPostId) {
         const { error: deleteError } = await supabase
           .from('posts')
@@ -738,7 +786,9 @@ export default function Create() {
         )}
 
         <Text style={styles.info}>
-          Photos: up to 10 files, 15 MB each. Videos and Reels: up to 100 MB.
+          Photos: up to 10 files, 15 MB each after compression.
+          Videos and Reels: up to 48 MB each.
+          Video compression is not enabled yet.
         </Text>
 
         {status !== '' && (
