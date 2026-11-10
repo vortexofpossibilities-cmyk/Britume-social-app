@@ -12,13 +12,12 @@ import {
   RefreshControl,
   ScrollView,
   Share,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
   useWindowDimensions,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +49,11 @@ type Interaction = {
   commentsCount: number;
 };
 
+type ActiveMedia = {
+  uri: string;
+  type: 'image' | 'video';
+} | null;
+
 function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs = 15000,
@@ -76,7 +80,7 @@ function MediaVideo({
   videoStyle,
 }: {
   uri: string;
-  videoStyle: StyleProp<ViewStyle>;
+  videoStyle: any;
 }) {
   const player = useVideoPlayer(uri, instance => {
     instance.loop = false;
@@ -97,10 +101,9 @@ function MediaVideo({
 export default function HomeScreen() {
   const { theme: appTheme, isDark } = useAppTheme();
   const { t } = useLanguage();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } =
+    useWindowDimensions();
 
-  // Dark mode is customized on this screen only.
-  // The global ThemeContext and the rest of the app are not changed.
   const theme = useMemo(
     () =>
       isDark
@@ -129,6 +132,11 @@ export default function HomeScreen() {
 
   const mediaWidth = Math.max(240, windowWidth - 48);
 
+  const mediaHeight = Math.min(
+    520,
+    Math.max(320, windowWidth * 1.05),
+  );
+
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [search, setSearch] = useState('');
   const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
@@ -150,6 +158,8 @@ export default function HomeScreen() {
   const [commentText, setCommentText] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
+
+  const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
 
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -456,7 +466,6 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* Compact circular stories instead of large story cards */}
       <View style={styles.sectionHeading}>
         <View style={styles.headingWithIcon}>
           <Ionicons
@@ -638,8 +647,28 @@ export default function HomeScreen() {
           <View style={styles.videoMediaWrap}>
             <MediaVideo
               uri={video.url}
-              videoStyle={styles.videoPlayer}
+              videoStyle={[
+                styles.videoPlayer,
+                { height: mediaHeight },
+              ]}
             />
+
+            <Pressable
+              style={styles.videoExpandButton}
+              onPress={() =>
+                setActiveMedia({
+                  uri: video.url,
+                  type: 'video',
+                })
+              }
+              accessibilityLabel="Open video full screen"
+            >
+              <Ionicons
+                name="expand-outline"
+                size={22}
+                color="#FFFFFF"
+              />
+            </Pressable>
           </View>
         ) : null}
 
@@ -652,15 +681,40 @@ export default function HomeScreen() {
             contentContainerStyle={styles.mediaGallery}
           >
             {images.map(media => (
-              <Image
+              <Pressable
                 key={media.id}
-                source={{ uri: media.url }}
+                onPress={() =>
+                  setActiveMedia({
+                    uri: media.url,
+                    type: 'image',
+                  })
+                }
                 style={[
-                  styles.postImage,
+                  styles.imageCard,
                   { width: mediaWidth },
                 ]}
-                resizeMode="cover"
-              />
+                accessibilityLabel="Open full image"
+              >
+                <Image
+                  source={{ uri: media.url }}
+                  style={[
+                    styles.postImage,
+                    {
+                      width: mediaWidth,
+                      height: mediaHeight,
+                    },
+                  ]}
+                  resizeMode="contain"
+                />
+
+                <View style={styles.imageExpandHint}>
+                  <Ionicons
+                    name="expand-outline"
+                    size={17}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </Pressable>
             ))}
           </ScrollView>
         ) : null}
@@ -732,6 +786,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={isDark ? '#000000' : theme.bg}
+      />
+
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={theme.cyan} />
@@ -783,7 +842,6 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* White neon glass edge frame. It does not intercept taps. */}
       {isDark ? (
         <View
           pointerEvents="none"
@@ -793,6 +851,47 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
+      {/* Full-screen image and video viewer */}
+      <Modal
+        visible={activeMedia !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveMedia(null)}
+        statusBarTranslucent
+      >
+        <View style={styles.fullMediaBackground}>
+          <StatusBar hidden />
+
+          <Pressable
+            style={styles.closeMediaButton}
+            onPress={() => setActiveMedia(null)}
+            accessibilityLabel="Close media viewer"
+          >
+            <Ionicons
+              name="close"
+              size={29}
+              color="#FFFFFF"
+            />
+          </Pressable>
+
+          {activeMedia?.type === 'image' ? (
+            <Image
+              source={{ uri: activeMedia.uri }}
+              style={styles.fullMediaImage}
+              resizeMode="contain"
+            />
+          ) : null}
+
+          {activeMedia?.type === 'video' ? (
+            <MediaVideo
+              uri={activeMedia.uri}
+              videoStyle={styles.fullMediaVideo}
+            />
+          ) : null}
+        </View>
+      </Modal>
+
+      {/* Comments modal */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -938,7 +1037,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       fontSize: 15,
     },
 
-    // Screen-wide neon glass frame
     screenNeonFrame: {
       position: 'absolute',
       top: 4,
@@ -1082,7 +1180,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       fontWeight: '900',
     },
 
-    // Small circular story icons
     storiesScroll: {
       marginBottom: 19,
     },
@@ -1234,15 +1331,31 @@ function createStyles(theme: AppTheme, isDark: boolean) {
 
     mediaGallery: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      paddingHorizontal: 0,
+      alignItems: 'center',
+    },
+
+    imageCard: {
+      height: 420,
+      backgroundColor: '#000000',
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
     },
 
     postImage: {
-      height: 330,
-      borderRadius: 0,
-      marginHorizontal: 0,
-      backgroundColor: raised,
+      backgroundColor: '#000000',
+    },
+
+    imageExpandHint: {
+      position: 'absolute',
+      right: 12,
+      bottom: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     videoMediaWrap: {
@@ -1250,18 +1363,64 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       marginBottom: 9,
       borderRadius: 15,
       overflow: 'hidden',
+      backgroundColor: '#000000',
       borderWidth: isDark ? 1 : 0,
       borderColor: border,
       elevation: isDark ? 7 : 0,
       shadowColor: shadow,
       shadowOpacity: isDark ? 0.75 : 0,
       shadowRadius: 8,
+      position: 'relative',
     },
 
     videoPlayer: {
       width: '100%',
-      height: 300,
+      height: 420,
       backgroundColor: '#000000',
+    },
+
+    videoExpandButton: {
+      position: 'absolute',
+      right: 12,
+      bottom: 12,
+      width: 39,
+      height: 39,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5,
+    },
+
+    fullMediaBackground: {
+      flex: 1,
+      backgroundColor: '#000000',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    fullMediaImage: {
+      width: '100%',
+      height: '100%',
+    },
+
+    fullMediaVideo: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#000000',
+    },
+
+    closeMediaButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 55 : 38,
+      right: 18,
+      zIndex: 20,
+      width: 45,
+      height: 45,
+      borderRadius: 23,
+      backgroundColor: 'rgba(40,40,40,0.85)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
 
     postActions: {
@@ -1291,12 +1450,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       shadowOpacity: isDark ? 0.65 : 0.18,
       shadowRadius: 5,
       shadowOffset: { width: 0, height: 0 },
-    },
-
-    actionCount: {
-      fontSize: 12,
-      color: theme.text,
-      fontWeight: '900',
     },
 
     emptyBox: {
