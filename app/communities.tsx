@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -34,15 +33,25 @@ export default function CommunitiesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('error');
+
+  const showMessage = (
+    text: string,
+    type: 'success' | 'error' = 'error'
+  ) => {
+    setMessage(text);
+    setMessageType(type);
+  };
 
   const loadCommunities = useCallback(async () => {
     try {
       const result = await fetchCommunities();
       setCommunities(result);
     } catch (error: any) {
-      Alert.alert(
-        'Communities',
-        error?.message || 'Could not load communities.'
+      showMessage(
+        error?.message || 'Could not load communities.',
+        'error'
       );
     } finally {
       setLoading(false);
@@ -67,38 +76,54 @@ export default function CommunitiesScreen() {
   }, [communities, search]);
 
   const handleCreate = async () => {
-    if (name.trim().length < 3) {
-      Alert.alert('Community name', 'Enter at least 3 characters.');
+    setMessage('');
+
+    const communityName = name.trim();
+    const communityDescription = description.trim();
+
+    if (communityName.length < 3) {
+      showMessage('Enter a community name with at least 3 characters.');
       return;
     }
 
-    if (description.trim().length > 500) {
-      Alert.alert(
-        'Description too long',
-        'Keep the description under 500 characters.'
-      );
+    if (communityName.length > 60) {
+      showMessage('Community name must be 60 characters or fewer.');
+      return;
+    }
+
+    if (communityDescription.length > 500) {
+      showMessage('Description must be 500 characters or fewer.');
       return;
     }
 
     try {
       setCreating(true);
 
-      await createCommunity({
-        name: name.trim(),
-        description: description.trim() || undefined,
+      const created = await createCommunity({
+        name: communityName,
+        description: communityDescription || undefined,
       });
+
+      setCommunities((previous) => [
+        {
+          ...created,
+          member_count: 1,
+          is_member: true,
+        },
+        ...previous.filter((item) => item.id !== created.id),
+      ]);
 
       setName('');
       setDescription('');
       setShowCreate(false);
 
-      await loadCommunities();
+      showMessage('Your community was created successfully!', 'success');
 
-      Alert.alert('Success', 'Your community has been created.');
+      await loadCommunities();
     } catch (error: any) {
-      Alert.alert(
-        'Could not create community',
-        error?.message || 'Please try again.'
+      showMessage(
+        error?.message || 'Could not create community. Please try again.',
+        'error'
       );
     } finally {
       setCreating(false);
@@ -106,6 +131,8 @@ export default function CommunitiesScreen() {
   };
 
   const handleMembership = async (community: Community) => {
+    setMessage('');
+
     try {
       setJoiningId(community.id);
 
@@ -117,9 +144,9 @@ export default function CommunitiesScreen() {
 
       await loadCommunities();
     } catch (error: any) {
-      Alert.alert(
-        'Membership',
-        error?.message || 'Could not update your membership.'
+      showMessage(
+        error?.message || 'Could not update your membership.',
+        'error'
       );
     } finally {
       setJoiningId(null);
@@ -145,11 +172,7 @@ export default function CommunitiesScreen() {
         onPress={() => openCommunity(item)}
       >
         <View style={styles.communityIcon}>
-          <Ionicons
-            name="people"
-            size={27}
-            color="#6759D8"
-          />
+          <Ionicons name="people" size={27} color="#6759D8" />
         </View>
 
         <View style={styles.communityInfo}>
@@ -222,7 +245,10 @@ export default function CommunitiesScreen() {
 
         <Pressable
           style={styles.createIconButton}
-          onPress={() => setShowCreate((value) => !value)}
+          onPress={() => {
+            setShowCreate((value) => !value);
+            setMessage('');
+          }}
         >
           <Ionicons
             name={showCreate ? 'close' : 'add'}
@@ -288,6 +314,33 @@ export default function CommunitiesScreen() {
               </Text>
             )}
           </Pressable>
+        </View>
+      )}
+
+      {!!message && (
+        <View
+          style={[
+            styles.messageBox,
+            messageType === 'success'
+              ? styles.successMessage
+              : styles.errorMessage,
+          ]}
+        >
+          <Ionicons
+            name={messageType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+            size={20}
+            color={messageType === 'success' ? '#167A43' : '#B42318'}
+          />
+          <Text
+            style={[
+              styles.messageText,
+              messageType === 'success'
+                ? styles.successText
+                : styles.errorText,
+            ]}
+          >
+            {message}
+          </Text>
         </View>
       )}
 
@@ -440,6 +493,35 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  messageBox: {
+    marginHorizontal: 16,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 11,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+  },
+  successMessage: {
+    backgroundColor: '#EAF7EF',
+    borderColor: '#B7E2C5',
+  },
+  errorMessage: {
+    backgroundColor: '#FFF0EF',
+    borderColor: '#F2C2BE',
+  },
+  messageText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  successText: {
+    color: '#167A43',
+  },
+  errorText: {
+    color: '#B42318',
   },
   sectionHeader: {
     paddingHorizontal: 18,
