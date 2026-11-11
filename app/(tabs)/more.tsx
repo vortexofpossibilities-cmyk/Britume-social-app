@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import {
   Alert,
@@ -21,6 +22,10 @@ export default function MoreScreen() {
 
   const openSettings = () => {
     router.push('/settings' as never);
+  };
+
+  const openAdvertise = () => {
+    router.push('/advertise' as never);
   };
 
   const openInformation = () => {
@@ -76,6 +81,39 @@ export default function MoreScreen() {
           <Text style={styles.rowText}>
             {t('personalDetails')}
           </Text>
+
+          <Ionicons
+            name="chevron-forward"
+            size={19}
+            color={theme.muted}
+          />
+        </Pressable>
+
+        <Pressable
+          onPress={openAdvertise}
+          accessibilityRole="button"
+          accessibilityLabel="Advertise on BRITUME"
+          style={({ pressed }) => [
+            styles.row,
+            pressed && styles.rowPressed,
+          ]}
+        >
+          <View style={styles.iconTile}>
+            <Ionicons
+              name="megaphone-outline"
+              size={21}
+              color={theme.cyan}
+            />
+          </View>
+
+          <View style={styles.advertiseTextContainer}>
+            <Text style={styles.rowText}>
+              Advertise on BRITUME
+            </Text>
+            <Text style={styles.advertiseSubtitle}>
+              Create and manage advertising campaigns
+            </Text>
+          </View>
 
           <Ionicons
             name="chevron-forward"
@@ -277,11 +315,6 @@ function createStyles(
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 2, height: 3 },
-      shadowOpacity: 0.13,
-      shadowRadius: 4,
-      elevation: 2,
     },
 
     rowText: {
@@ -289,6 +322,16 @@ function createStyles(
       color: theme.text,
       fontSize: 14,
       fontWeight: '700',
+    },
+
+    advertiseTextContainer: {
+      flex: 1,
+    },
+
+    advertiseSubtitle: {
+      color: theme.muted,
+      fontSize: 11,
+      marginTop: 3,
     },
 
     helpBar: {
@@ -352,4 +395,4 @@ function createStyles(
       fontWeight: '800',
     },
   });
-      }
+}
