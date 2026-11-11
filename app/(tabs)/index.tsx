@@ -43,6 +43,13 @@ import {
   deleteOwnPost,
 } from '../../src/lib/postModeration';
 
+import {
+  fetchCommunities,
+  joinCommunity,
+  leaveCommunity,
+  type Community,
+} from '../../src/lib/communities';
+
 import { supabase } from '../../src/lib/supabase';
 import { ClayLogo } from '../../src/components/ClayUI';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
@@ -61,6 +68,10 @@ type ActiveMedia = {
   uri: string;
   type: 'image' | 'video';
 } | null;
+
+type FeedRow =
+  | { type: 'post'; id: string; post: FeedPost }
+  | { type: 'community'; id: string; community: Community };
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -87,6 +98,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
     : 'Please try again.';
+}
+
+function shuffleArray<T>(items: T[]): T[] {
+  const result = [...items];
+
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+
+  return result;
 }
 
 function MediaVideo({
@@ -150,6 +172,7 @@ export default function HomeScreen() {
   );
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
   const [search, setSearch] = useState('');
   const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
   const [blurredPostIds, setBlurredPostIds] = useState<string[]>([]);
@@ -165,6 +188,7 @@ export default function HomeScreen() {
   >({});
 
   const [busyPosts, setBusyPosts] = useState<string[]>([]);
+  const [busyCommunities, setBusyCommunities] = useState<string[]>([]);
 
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
@@ -173,8 +197,6 @@ export default function HomeScreen() {
   const [sendingComment, setSendingComment] = useState(false);
 
   const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
-
-  // New state for the working three-dot menu.
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
 
   const closePostOptions = () => {
@@ -186,7 +208,6 @@ export default function HomeScreen() {
     setTimeout(action, 200);
   };
 
-  // Load posts and apply the signed-in user's hidden and blocked settings.
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
       setRefreshing(true);
@@ -231,6 +252,14 @@ export default function HomeScreen() {
       );
 
       setPosts(homeFeedPosts);
+
+      try {
+        const freshCommunities = await withTimeout(fetchCommunities());
+        setCommunities(shuffleArray(freshCommunities));
+      } catch (communityError) {
+        console.error('BRITUME communities:', communityError);
+        setCommunities([]);
+      }
 
       try {
         const result = await withTimeout(
@@ -278,6 +307,59 @@ export default function HomeScreen() {
     });
   }, [posts, search]);
 
+  const filteredCommunities = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    if (!q) return communities;
+
+    return communities.filter(community =>
+      community.name.toLowerCase().includes(q) ||
+      (community.description ?? '').toLowerCase().includes(q),
+    );
+  }, [communities, search]);
+
+  // Mix community cards into the post list instead of showing
+  // all communities in a separate section.
+  const feedRows = useMemo<FeedRow[]>(() => {
+    const rows: FeedRow[] = [];
+    let communityIndex = 0;
+
+    filteredPosts.forEach((post, index) => {
+      rows.push({
+        type: 'post',
+        id: `post-${post.id}`,
+        post,
+      });
+
+      if (
+        (index + 1) % 4 === 0 &&
+        communityIndex < filteredCommunities.length
+      ) {
+        const community = filteredCommunities[communityIndex++];
+
+        rows.push({
+          type: 'community',
+          id: `community-${community.id}`,
+          community,
+        });
+      }
+    });
+
+    // Show community suggestions even when there are fewer than
+    // four posts or when the feed has no posts.
+    if (rows.length === 0 && filteredCommunities.length > 0) {
+      filteredCommunities.slice(0, 3).forEach(community => {
+        rows.push({
+          type: 'community',
+          id: `community-${community.id}`,
+          community,
+        });
+      });
+    }
+
+    return rows;
+  }, [filteredPosts, filteredCommunities]);
+
   const refreshInteractions = async () => {
     if (!posts.length) return;
 
@@ -302,6 +384,36 @@ export default function HomeScreen() {
     }
 
     return true;
+  };
+
+  const openAuthorProfile = (post: FeedPost) => {
+    const username = post.author?.username?.trim();
+
+    if (!username || post.author?.is_public === false) {
+      Alert.alert(
+        'Profile unavailable',
+        'This member does not have a public profile available.',
+      );
+      return;
+    }
+
+    router.push({
+      pathname: '/profile/[username]',
+      params: { username },
+    });
+  };
+
+  const openCommentAuthorProfile = (comment: PostComment) => {
+    const username = comment.author?.username?.trim();
+
+    if (!username || comment.author?.is_public === false) {
+      return;
+    }
+
+    router.push({
+      pathname: '/profile/[username]',
+      params: { username },
+    });
   };
 
   const handleLike = async (postId: string) => {
@@ -351,6 +463,67 @@ export default function HomeScreen() {
       Alert.alert(t('saveFailed'), errorMessage(e));
     } finally {
       setBusyPosts(items => items.filter(id => id !== postId));
+    }
+  };
+
+  const handleCommunityMembership = async (
+    community: Community,
+  ) => {
+    if (!requireSignedIn()) return;
+
+    if (busyCommunities.includes(community.id)) return;
+
+    setBusyCommunities(items => [...items, community.id]);
+
+    const wasMember = community.is_member === true;
+
+    // Update the interface immediately while the request is processed.
+    setCommunities(current =>
+      current.map(item =>
+        item.id === community.id
+          ? {
+              ...item,
+              is_member: !wasMember,
+              member_count: Math.max(
+                0,
+                (item.member_count ?? 0) + (wasMember ? -1 : 1),
+              ),
+            }
+          : item,
+      ),
+    );
+
+    try {
+      if (wasMember) {
+        await leaveCommunity(community.id);
+      } else {
+        await joinCommunity(community.id);
+      }
+    } catch (e) {
+      // Restore the original state if Supabase rejects the request.
+      setCommunities(current =>
+        current.map(item =>
+          item.id === community.id
+            ? {
+                ...item,
+                is_member: wasMember,
+                member_count: Math.max(
+                  0,
+                  (item.member_count ?? 0) + (wasMember ? 1 : -1),
+                ),
+              }
+            : item,
+        ),
+      );
+
+      Alert.alert(
+        wasMember ? 'Could not leave community' : 'Could not join community',
+        errorMessage(e),
+      );
+    } finally {
+      setBusyCommunities(items =>
+        items.filter(id => id !== community.id),
+      );
     }
   };
 
@@ -497,7 +670,6 @@ export default function HomeScreen() {
     );
   };
 
-  // The three-dot button now opens the React Native modal below.
   const openPostOptions = (post: FeedPost) => {
     setSelectedPost(post);
   };
@@ -551,6 +723,104 @@ export default function HomeScreen() {
     } finally {
       setSendingComment(false);
     }
+  };
+
+  const renderCommunity = (community: Community) => {
+    const isBusy = busyCommunities.includes(community.id);
+    const isMember = community.is_member === true;
+
+    return (
+      <View style={styles.communityCard}>
+        <View style={styles.communityTop}>
+          <View style={styles.communityIcon}>
+            {community.image_url ? (
+              <Image
+                source={{ uri: community.image_url }}
+                style={styles.communityImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons
+                name="people"
+                size={27}
+                color={theme.cyan}
+              />
+            )}
+          </View>
+
+          <View style={styles.communityInfo}>
+            <Text style={styles.communityName} numberOfLines={1}>
+              {community.name}
+            </Text>
+
+            <Text style={styles.communityMembers}>
+              {community.member_count ?? 0} members
+            </Text>
+          </View>
+
+          <View style={styles.communityLabel}>
+            <Ionicons
+              name="people-circle-outline"
+              size={18}
+              color={theme.cyan}
+            />
+            <Text style={styles.communityLabelText}>Community</Text>
+          </View>
+        </View>
+
+        {community.description ? (
+          <Text style={styles.communityDescription} numberOfLines={3}>
+            {community.description}
+          </Text>
+        ) : (
+          <Text style={styles.communityDescriptionMuted}>
+            A place to connect with people who share your interests.
+          </Text>
+        )}
+
+        <View style={styles.communityBottom}>
+          <Text style={styles.communityInvite}>
+            Discover this community
+          </Text>
+
+          <Pressable
+            style={[
+              styles.communityJoinButton,
+              isMember && styles.communityJoinedButton,
+            ]}
+            onPress={() => void handleCommunityMembership(community)}
+            disabled={isBusy}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isMember ? 'Leave community' : 'Join community'
+            }
+          >
+            {isBusy ? (
+              <ActivityIndicator
+                size="small"
+                color={isMember ? theme.text : '#000000'}
+              />
+            ) : (
+              <>
+                <Ionicons
+                  name={isMember ? 'checkmark' : 'add'}
+                  size={18}
+                  color={isMember ? theme.text : '#000000'}
+                />
+                <Text
+                  style={[
+                    styles.communityJoinText,
+                    isMember && styles.communityJoinedText,
+                  ]}
+                >
+                  {isMember ? 'Joined' : 'Join'}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    );
   };
 
   const Header = (
@@ -706,7 +976,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  const renderPost = ({ item }: { item: FeedPost }) => {
+  const renderPost = (item: FeedPost) => {
     const interaction = interactions[item.id];
 
     const liked = interaction?.liked ?? false;
@@ -716,8 +986,9 @@ export default function HomeScreen() {
 
     const author =
       item.author?.display_name ||
-      item.author?.username ||
-      t('britumeMember');
+      (item.author?.username
+        ? `@${item.author.username}`
+        : t('britumeMember'));
 
     const images = (item.media ?? []).filter(
       media => media.media_type === 'image',
@@ -728,19 +999,33 @@ export default function HomeScreen() {
     );
 
     const isVideoPost = item.post_type === 'video';
+    const canOpenProfile =
+      !!item.author?.username?.trim() &&
+      item.author?.is_public !== false;
 
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
-          <View style={styles.avatar}>
+          <Pressable
+            style={styles.avatar}
+            onPress={() => openAuthorProfile(item)}
+            disabled={!canOpenProfile}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${author}'s profile`}
+          >
             <Ionicons
               name="person"
               size={20}
               color={theme.cyan}
             />
-          </View>
+          </Pressable>
 
-          <View style={styles.postAuthor}>
+          <Pressable
+            style={styles.postAuthor}
+            onPress={() => openAuthorProfile(item)}
+            disabled={!canOpenProfile}
+            accessibilityRole="button"
+          >
             <Text style={styles.authorName} numberOfLines={1}>
               {author}
             </Text>
@@ -749,7 +1034,7 @@ export default function HomeScreen() {
               {new Date(item.created_at).toLocaleDateString()}
               {isVideoPost ? '  •  Video' : ''}
             </Text>
-          </View>
+          </Pressable>
 
           <Pressable
             onPress={() => openPostOptions(item)}
@@ -970,7 +1255,15 @@ export default function HomeScreen() {
     );
   };
 
-  const hasAnyPosts = filteredPosts.length > 0;
+  const renderFeedRow = ({ item }: { item: FeedRow }) => {
+    if (item.type === 'community') {
+      return renderCommunity(item.community);
+    }
+
+    return renderPost(item.post);
+  };
+
+  const hasFeedRows = feedRows.length > 0;
 
   return (
     <View style={styles.screen}>
@@ -990,7 +1283,7 @@ export default function HomeScreen() {
         <FlatList
           style={styles.screen}
           contentContainerStyle={styles.content}
-          data={filteredPosts}
+          data={feedRows}
           keyExtractor={item => item.id}
           numColumns={1}
           ListHeaderComponent={Header}
@@ -1004,7 +1297,7 @@ export default function HomeScreen() {
             />
           }
           ListEmptyComponent={
-            !hasAnyPosts ? (
+            !hasFeedRows ? (
               <View style={styles.emptyBox}>
                 <Ionicons
                   name="images-outline"
@@ -1014,19 +1307,19 @@ export default function HomeScreen() {
 
                 <Text style={styles.emptyTitle}>
                   {search.trim()
-                    ? t('noMatchingPosts')
+                    ? 'No matching posts or communities'
                     : t('welcomeToBritume')}
                 </Text>
 
                 <Text style={styles.emptyText}>
                   {search.trim()
-                    ? t('trySearchingElse')
+                    ? 'Try searching for another name or topic.'
                     : t('communityStarts')}
                 </Text>
               </View>
             ) : null
           }
-          renderItem={renderPost}
+          renderItem={renderFeedRow}
         />
       )}
 
@@ -1039,7 +1332,6 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Three-dot post options modal */}
       <Modal
         visible={selectedPost !== null}
         transparent
@@ -1219,7 +1511,6 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* Full-screen image and video viewer */}
       <Modal
         visible={activeMedia !== null}
         transparent
@@ -1259,7 +1550,6 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Comments modal */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -1308,32 +1598,55 @@ export default function HomeScreen() {
                     Be the first to comment.
                   </Text>
                 ) : (
-                  comments.map(comment => (
-                    <View
-                      key={comment.id}
-                      style={styles.commentCard}
-                    >
-                      <View style={styles.avatar}>
-                        <Ionicons
-                          name="person"
-                          size={18}
-                          color={theme.cyan}
-                        />
-                      </View>
+                  comments.map(comment => {
+                    const commentAuthor =
+                      comment.author?.display_name ||
+                      (comment.author?.username
+                        ? `@${comment.author.username}`
+                        : t('britumeMember'));
 
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.commentAuthor}>
-                          {comment.author?.display_name ||
-                            comment.author?.username ||
-                            t('britumeMember')}
-                        </Text>
+                    const canOpenCommentProfile =
+                      !!comment.author?.username?.trim() &&
+                      comment.author?.is_public !== false;
 
-                        <Text style={styles.commentContent}>
-                          {comment.content}
-                        </Text>
+                    return (
+                      <View
+                        key={comment.id}
+                        style={styles.commentCard}
+                      >
+                        <Pressable
+                          style={styles.avatar}
+                          disabled={!canOpenCommentProfile}
+                          onPress={() =>
+                            openCommentAuthorProfile(comment)
+                          }
+                        >
+                          <Ionicons
+                            name="person"
+                            size={18}
+                            color={theme.cyan}
+                          />
+                        </Pressable>
+
+                        <View style={{ flex: 1 }}>
+                          <Pressable
+                            disabled={!canOpenCommentProfile}
+                            onPress={() =>
+                              openCommentAuthorProfile(comment)
+                            }
+                          >
+                            <Text style={styles.commentAuthor}>
+                              {commentAuthor}
+                            </Text>
+                          </Pressable>
+
+                          <Text style={styles.commentContent}>
+                            {comment.content}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  ))
+                    );
+                  })
                 )}
               </ScrollView>
             )}
@@ -1815,6 +2128,135 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       color: theme.text,
     },
 
+    communityCard: {
+      width: '100%',
+      backgroundColor: surface,
+      borderWidth: isDark ? 1.5 : 2,
+      borderColor: border,
+      borderRadius: 22,
+      padding: 15,
+      marginBottom: 18,
+      elevation: isDark ? 8 : 8,
+      shadowColor: shadow,
+      shadowOpacity: isDark ? 0.8 : 0.22,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 0 },
+    },
+
+    communityTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    communityIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: raised,
+      borderWidth: 1,
+      borderColor: border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+
+    communityImage: {
+      width: '100%',
+      height: '100%',
+    },
+
+    communityInfo: {
+      flex: 1,
+      marginLeft: 11,
+    },
+
+    communityName: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '900',
+    },
+
+    communityMembers: {
+      color: softText,
+      fontSize: 12,
+      fontWeight: '700',
+      marginTop: 4,
+    },
+
+    communityLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: raised,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    },
+
+    communityLabelText: {
+      color: theme.cyan,
+      fontSize: 10,
+      fontWeight: '900',
+    },
+
+    communityDescription: {
+      color: theme.text,
+      fontSize: 13,
+      lineHeight: 20,
+      marginTop: 13,
+    },
+
+    communityDescriptionMuted: {
+      color: softText,
+      fontSize: 13,
+      lineHeight: 20,
+      marginTop: 13,
+    },
+
+    communityBottom: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: border,
+    },
+
+    communityInvite: {
+      color: softText,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+
+    communityJoinButton: {
+      minWidth: 95,
+      minHeight: 38,
+      borderRadius: 13,
+      paddingHorizontal: 13,
+      backgroundColor: '#FFFFFF',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+    },
+
+    communityJoinedButton: {
+      backgroundColor: raised,
+      borderWidth: 1,
+      borderColor: border,
+    },
+
+    communityJoinText: {
+      color: '#000000',
+      fontSize: 13,
+      fontWeight: '900',
+    },
+
+    communityJoinedText: {
+      color: theme.text,
+    },
+
     emptyBox: {
       backgroundColor: surface,
       borderWidth: 1.5,
@@ -1869,7 +2311,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       fontSize: 14,
     },
 
-    // Three-dot menu styles.
     postMenuBackground: {
       flex: 1,
       justifyContent: 'flex-end',
@@ -1954,7 +2395,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       fontWeight: '900',
     },
 
-    // Media viewer styles.
     fullMediaBackground: {
       flex: 1,
       backgroundColor: '#000000',
@@ -1986,7 +2426,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       alignItems: 'center',
     },
 
-    // Comments modal styles.
     modalBackground: {
       flex: 1,
       justifyContent: 'flex-end',
@@ -2102,4 +2541,4 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       shadowOffset: { width: 0, height: 0 },
     },
   });
-    }
+}
