@@ -22,6 +22,8 @@ const PROFILE_SELECT =
   'user_id, username, display_name, bio, is_public, created_at, updated_at';
 
 const usernamePattern = /^[A-Za-z0-9_]{3,30}$/;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function getClient() {
   const client = supabase;
@@ -47,18 +49,14 @@ function normalizeProfile(
   return {
     user_id: profile.user_id,
     username:
-      typeof profile.username === 'string'
-        ? profile.username
-        : null,
+      typeof profile.username === 'string' ? profile.username : null,
     display_name:
       typeof profile.display_name === 'string'
         ? profile.display_name
         : null,
     bio: typeof profile.bio === 'string' ? profile.bio : '',
     is_public:
-      typeof profile.is_public === 'boolean'
-        ? profile.is_public
-        : true,
+      typeof profile.is_public === 'boolean' ? profile.is_public : true,
     created_at:
       typeof profile.created_at === 'string'
         ? profile.created_at
@@ -79,9 +77,7 @@ export async function fetchCurrentUserProfile(
 ): Promise<ProfileRecord | null> {
   const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
 
-  if (!cleanUserId) {
-    return null;
-  }
+  if (!cleanUserId) return null;
 
   const client = getClient();
 
@@ -102,18 +98,21 @@ export async function fetchProfileByUsername(
   username: string
 ): Promise<ProfileRecord | null> {
   const clean = cleanUsername(username);
+  const isUserId = uuidPattern.test(clean);
 
-  if (!usernamePattern.test(clean)) {
+  if (!isUserId && !usernamePattern.test(clean)) {
     return null;
   }
 
   const client = getClient();
 
-  const { data, error } = await client
+  const query = client
     .from('profiles')
-    .select(PROFILE_SELECT)
-    .ilike('username', clean)
-    .maybeSingle();
+    .select(PROFILE_SELECT);
+
+  const { data, error } = isUserId
+    ? await query.eq('user_id', clean).maybeSingle()
+    : await query.ilike('username', clean).maybeSingle();
 
   if (error) {
     throw new Error(`Could not load profile: ${error.message}`);
@@ -126,19 +125,22 @@ export async function fetchPublicProfileByUsername(
   username: string
 ): Promise<ProfileRecord | null> {
   const clean = cleanUsername(username);
+  const isUserId = uuidPattern.test(clean);
 
-  if (!usernamePattern.test(clean)) {
+  if (!isUserId && !usernamePattern.test(clean)) {
     return null;
   }
 
   const client = getClient();
 
-  const { data, error } = await client
+  const query = client
     .from('profiles')
     .select(PROFILE_SELECT)
-    .eq('is_public', true)
-    .ilike('username', clean)
-    .maybeSingle();
+    .eq('is_public', true);
+
+  const { data, error } = isUserId
+    ? await query.eq('user_id', clean).maybeSingle()
+    : await query.ilike('username', clean).maybeSingle();
 
   if (error) {
     throw new Error(
@@ -199,15 +201,11 @@ export async function updateOwnProfile(input: {
   }
 
   if (displayName && displayName.length > 60) {
-    throw new Error(
-      'Display name must be 60 characters or fewer.'
-    );
+    throw new Error('Display name must be 60 characters or fewer.');
   }
 
   if (bio.length > 500) {
-    throw new Error(
-      'Bio must be 500 characters or fewer.'
-    );
+    throw new Error('Bio must be 500 characters or fewer.');
   }
 
   let isPublic = input.is_public;
@@ -265,9 +263,7 @@ export async function updateOwnProfile(input: {
 export function getProfileName(
   profile: Partial<ProfileRecord> | null | undefined
 ): string {
-  if (!profile) {
-    return 'BRITUME member';
-  }
+  if (!profile) return 'BRITUME member';
 
   if (profile.display_name?.trim()) {
     return profile.display_name.trim();
