@@ -1,4 +1,3 @@
-
 import React, {
   useCallback,
   useEffect,
@@ -84,21 +83,23 @@ export default function AdminAdvertisementsScreen() {
   };
 
   const checkAdminAccess = useCallback(async () => {
-    if (!supabase) {
+    const client = supabase;
+
+    if (!client) {
       throw new Error('Supabase connection is unavailable.');
     }
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await client.auth.getUser();
 
     if (authError || !user) {
       setIsAdmin(false);
       throw new Error('Please sign in first.');
     }
 
-    const { data, error } = await supabase.rpc(
+    const { data, error } = await client.rpc(
       'is_britume_admin',
     );
 
@@ -120,11 +121,13 @@ export default function AdminAdvertisementsScreen() {
   }, []);
 
   const loadCampaigns = useCallback(async () => {
-    if (!supabase) {
+    const client = supabase;
+
+    if (!client) {
       throw new Error('Supabase connection is unavailable.');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('ad_campaigns')
       .select(`
         id,
@@ -168,6 +171,7 @@ export default function AdminAdvertisementsScreen() {
       await loadCampaigns();
     } catch (error: any) {
       setIsAdmin(false);
+
       Alert.alert(
         'Administrator access',
         error?.message || 'Unable to open the review screen.',
@@ -202,7 +206,16 @@ export default function AdminAdvertisementsScreen() {
     campaign: PendingCampaign,
     decision: 'approved' | 'rejected',
   ) => {
-    if (!supabase || busyCampaign) return;
+    // Capture a stable client reference for the confirmation callback.
+    const client = supabase;
+
+    if (!client || busyCampaign) {
+      Alert.alert(
+        'Connection unavailable',
+        'Please check your Supabase connection and try again.',
+      );
+      return;
+    }
 
     const note = (
       rejectionNotes[campaign.id] || ''
@@ -229,27 +242,18 @@ export default function AdminAdvertisementsScreen() {
           style: 'cancel',
         },
         {
-          text:
-            decision === 'approved'
-              ? 'Approve'
-              : 'Reject',
-          style:
-            decision === 'rejected'
-              ? 'destructive'
-              : 'default',
+          text: decision === 'approved' ? 'Approve' : 'Reject',
+          style: decision === 'rejected' ? 'destructive' : 'default',
           onPress: async () => {
             setBusyCampaign(campaign.id);
 
             try {
-              const { error } = await supabase.rpc(
+              const { error } = await client.rpc(
                 'review_ad_campaign',
                 {
                   p_campaign_id: campaign.id,
                   p_decision: decision,
-                  p_review_note:
-                    decision === 'rejected'
-                      ? note
-                      : '',
+                  p_review_note: decision === 'rejected' ? note : '',
                 },
               );
 
@@ -258,9 +262,7 @@ export default function AdminAdvertisementsScreen() {
               }
 
               setCampaigns((current) =>
-                current.filter(
-                  (item) => item.id !== campaign.id,
-                ),
+                current.filter((item) => item.id !== campaign.id),
               );
 
               setRejectionNotes((current) => {
