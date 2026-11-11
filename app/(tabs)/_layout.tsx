@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Tabs, router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -168,45 +169,14 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="create" />
 
-      <Tabs.Screen
-        name="games"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="wallet"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="rewards"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="discover"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="offline"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="profile"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="settings"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="more"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="games" options={{ href: null }} />
+      <Tabs.Screen name="wallet" options={{ href: null }} />
+      <Tabs.Screen name="rewards" options={{ href: null }} />
+      <Tabs.Screen name="discover" options={{ href: null }} />
+      <Tabs.Screen name="offline" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="more" options={{ href: null }} />
     </Tabs>
   );
 }
