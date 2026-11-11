@@ -232,7 +232,7 @@ export async function isCommunityMember(
 
   const { data, error } = await client
     .from('community_members')
-    .select('id')
+    .select('community_id')
     .eq('community_id', communityId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -260,7 +260,7 @@ export async function fetchCommunityMemberCount(
 
   const { count, error } = await client
     .from('community_members')
-    .select('id', {
+    .select('community_id', {
       count: 'exact',
       head: true,
     })
