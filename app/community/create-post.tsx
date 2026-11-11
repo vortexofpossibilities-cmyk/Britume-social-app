@@ -1,4 +1,3 @@
-// app/community/create-post.tsx
 
 import React, { useState } from 'react';
 import {
@@ -246,7 +245,9 @@ export default function CreateCommunityPostScreen() {
           throw new Error();
         }
       } catch {
-        showError('Enter a valid website address beginning with https:// or http://.');
+        showError(
+          'Enter a valid website address beginning with https:// or http://.'
+        );
         return;
       }
     }
@@ -282,6 +283,7 @@ export default function CreateCommunityPostScreen() {
 
       if (selectedMedia) {
         const prepared = await prepareUploadSource(selectedMedia);
+
         const extension = getExtension(
           prepared.name,
           prepared.mimeType
@@ -295,14 +297,10 @@ export default function CreateCommunityPostScreen() {
           prepared.source,
           uploadedPath,
           prepared.mimeType,
-          (progress) => {
-            if (progress.total > 0) {
-              setUploadProgress(
-                Math.round(
-                  (progress.loaded / progress.total) * 100
-                )
-              );
-            }
+          (progress: number) => {
+            setUploadProgress(
+              Math.max(0, Math.min(100, Math.round(progress)))
+            );
           }
         );
 
