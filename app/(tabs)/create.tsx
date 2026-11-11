@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { File as ExpoFile, Paths } from 'expo-file-system';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -28,8 +29,6 @@ import {
 const BUCKET = MEDIA_BUCKET;
 const MAX_FILES = 10;
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
-
-// Keep below Supabase's 50 MB per-file limit.
 const MAX_VIDEO_SIZE = 48 * 1024 * 1024;
 
 type MediaItem = {
@@ -85,6 +84,44 @@ function getSafeExtension(item: {
   return item.mediaType === 'image' ? 'jpg' : 'mp4';
 }
 
+/**
+ * Android's picker can return a temporary content URI.
+ * Copy it into the app cache while picker access is available.
+ */
+async function copyNativeMediaToCache(
+  uri: string,
+  name: string,
+  index: number,
+): Promise<{ uri: string; size: number }> {
+  const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const uniqueName = `britume-${Date.now()}-${index}-${safeName}`;
+
+  try {
+    const sourceFile = new ExpoFile(uri);
+
+    if (!sourceFile.exists) {
+      throw new Error('The selected file is no longer accessible.');
+    }
+
+    const cachedFile = new ExpoFile(Paths.cache, uniqueName);
+
+    await sourceFile.copy(cachedFile);
+
+    if (!cachedFile.exists || !cachedFile.size) {
+      throw new Error('The copied file is empty or unavailable.');
+    }
+
+    return {
+      uri: cachedFile.uri,
+      size: cachedFile.size,
+    };
+  } catch (error) {
+    throw new Error(
+      `Could not prepare ${name} on this device: ${getErrorMessage(error)}`,
+    );
+  }
+}
+
 async function prepareMediaItem(
   asset: ImagePicker.ImagePickerAsset,
   mediaType: 'image' | 'video',
@@ -111,16 +148,6 @@ async function prepareMediaItem(
     asset.fileName ||
     `${mediaType}-${Date.now()}-${index}.${extension}`;
 
-  const item: MediaItem = {
-    uri: asset.uri,
-    name,
-    mimeType,
-    mediaType,
-    size: asset.fileSize,
-  };
-
-  // On web, preserve the original File object.
-  // Do not read the entire file into an ArrayBuffer.
   if (Platform.OS === 'web') {
     try {
       let webFile = asset.file;
@@ -144,9 +171,12 @@ async function prepareMediaItem(
       }
 
       return {
-        ...item,
-        webFile,
+        uri: asset.uri,
+        name,
+        mimeType,
+        mediaType,
         size: webFile.size,
+        webFile,
       };
     } catch (error) {
       throw new Error(
@@ -155,7 +185,19 @@ async function prepareMediaItem(
     }
   }
 
-  return item;
+  const cached = await copyNativeMediaToCache(
+    asset.uri,
+    name,
+    index,
+  );
+
+  return {
+    uri: cached.uri,
+    name,
+    mimeType,
+    mediaType,
+    size: cached.size,
+  };
 }
 
 async function createCompressedWebFile(
@@ -244,7 +286,7 @@ export default function Create() {
         return;
       }
 
-      showStatus('Preparing your photos...', 'info');
+      showStatus('Preparing and securing your photos...', 'info');
 
       const selected = await Promise.all(
         result.assets.map((asset, index) =>
@@ -256,7 +298,7 @@ export default function Create() {
       setPostKind('photo');
 
       showStatus(
-        `${selected.length} photo(s) selected. Images will be compressed automatically when you publish.`,
+        `${selected.length} photo(s) selected. Automatic compression will run when you publish.`,
         'success',
       );
     } catch (error) {
@@ -319,7 +361,7 @@ export default function Create() {
       setPostKind(kind);
 
       showStatus(
-        'Video selected and ready for resumable upload.',
+        'Video selected and copied safely. It is ready for upload.',
         'success',
       );
     } catch (error) {
