@@ -214,7 +214,7 @@ export async function createCommunityPost(input: {
 
   const { data: membership, error: membershipError } = await client
     .from('community_members')
-    .select('id')
+    .select('community_id')
     .eq('community_id', input.communityId)
     .eq('user_id', userId)
     .maybeSingle();
