@@ -1,6 +1,4 @@
 
-// app/community/post/[id].tsx
-
 import React, {
   useCallback,
   useEffect,
@@ -31,36 +29,9 @@ import {
   createCommunityPostComment,
   deleteCommunityPostComment,
   fetchCommunityPosts,
+  type CommunityPost,
+  type CommunityPostComment,
 } from '../../../src/lib/communityPosts';
-
-type CommentItem = {
-  id: string;
-  content?: string;
-  user_id?: string;
-  created_at?: string;
-  author?: {
-    display_name?: string;
-    username?: string;
-  };
-  profile?: {
-    display_name?: string;
-    username?: string;
-  };
-};
-
-type PostItem = {
-  id: string;
-  content?: string | null;
-  post_type?: string;
-  link_url?: string | null;
-  created_at?: string;
-  author?: {
-    display_name?: string;
-    username?: string;
-  };
-  like_count?: number;
-  comment_count?: number;
-};
 
 export default function CommunityPostScreen() {
   const params = useLocalSearchParams<{
@@ -71,8 +42,8 @@ export default function CommunityPostScreen() {
   const postId = String(params.id || '');
   const communityId = String(params.communityId || '');
 
-  const [post, setPost] = useState<PostItem | null>(null);
-  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [post, setPost] = useState<CommunityPost | null>(null);
+  const [comments, setComments] = useState<CommunityPostComment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,6 +53,7 @@ export default function CommunityPostScreen() {
   const loadData = useCallback(async () => {
     if (!postId) {
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
@@ -90,14 +62,14 @@ export default function CommunityPostScreen() {
         await Promise.all([
           communityId
             ? fetchCommunityPosts(communityId)
-            : Promise.resolve([]),
+            : Promise.resolve([] as CommunityPost[]),
           fetchCommunityPostComments(postId),
           supabase?.auth.getUser(),
         ]);
 
       const foundPost = Array.isArray(postResult)
-        ? postResult.find((item: PostItem) => item.id === postId)
-        : null;
+        ? postResult.find((item) => item.id === postId)
+        : undefined;
 
       setPost(foundPost || null);
       setComments(Array.isArray(commentResult) ? commentResult : []);
@@ -158,7 +130,7 @@ export default function CommunityPostScreen() {
     }
   };
 
-  const deleteComment = (comment: CommentItem) => {
+  const deleteComment = (comment: CommunityPostComment) => {
     Alert.alert(
       'Delete comment',
       'Are you sure you want to delete this comment?',
@@ -186,17 +158,15 @@ export default function CommunityPostScreen() {
     );
   };
 
-  const getAuthorName = (comment: CommentItem) => {
+  const getAuthorName = (comment: CommunityPostComment) => {
     return (
       comment.author?.display_name ||
-      comment.profile?.display_name ||
       comment.author?.username ||
-      comment.profile?.username ||
       'BRITUME member'
     );
   };
 
-  const formatDate = (date?: string) => {
+  const formatDate = (date?: string | null) => {
     if (!date) return '';
 
     const parsed = new Date(date);
@@ -206,7 +176,11 @@ export default function CommunityPostScreen() {
     return parsed.toLocaleString();
   };
 
-  const renderComment = ({ item }: { item: CommentItem }) => {
+  const renderComment = ({
+    item,
+  }: {
+    item: CommunityPostComment;
+  }) => {
     const canDelete =
       !!currentUserId && item.user_id === currentUserId;
 
@@ -225,6 +199,7 @@ export default function CommunityPostScreen() {
             <Text style={styles.commentAuthor}>
               {getAuthorName(item)}
             </Text>
+
             <Text style={styles.commentDate}>
               {formatDate(item.created_at)}
             </Text>
@@ -344,6 +319,7 @@ export default function CommunityPostScreen() {
                         post.author?.username ||
                         'BRITUME member'}
                     </Text>
+
                     <Text style={styles.postDate}>
                       {formatDate(post.created_at)}
                     </Text>
@@ -366,6 +342,7 @@ export default function CommunityPostScreen() {
                   <Text style={styles.statText}>
                     {post.like_count || 0} likes
                   </Text>
+
                   <Text style={styles.statText}>
                     {comments.length} comments
                   </Text>
