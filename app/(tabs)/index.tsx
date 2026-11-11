@@ -386,22 +386,32 @@ export default function HomeScreen() {
     return true;
   };
 
-  const openAuthorProfile = (post: FeedPost) => {
-    const username = post.author?.username?.trim();
+  
+const openAuthorProfile = (post: FeedPost) => {
+  if (!post.author || post.author.is_public === false) {
+    Alert.alert(
+      'Profile unavailable',
+      'This member does not have a public profile available.',
+    );
+    return;
+  }
 
-    if (!username || post.author?.is_public === false) {
-      Alert.alert(
-        'Profile unavailable',
-        'This member does not have a public profile available.',
-      );
-      return;
-    }
+  const username = post.author.username?.trim();
+  const identifier = username || post.user_id;
 
-    router.push({
-      pathname: '/profile/[username]',
-      params: { username },
-    });
-  };
+  if (!identifier) return;
+
+  router.push({
+    pathname: '/profile/[username]',
+    params: { username: identifier },
+  });
+};
+
+ 
+const canOpenProfile =
+  !!item.author &&
+  item.author.is_public !== false &&
+  !!(item.author.username?.trim() || item.user_id);
 
   const openCommentAuthorProfile = (comment: PostComment) => {
     const username = comment.author?.username?.trim();
