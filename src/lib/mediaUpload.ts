@@ -1,4 +1,3 @@
-
 import * as tus from 'tus-js-client';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { File as ExpoFile } from 'expo-file-system';
@@ -7,14 +6,15 @@ import { supabase } from './supabase';
 
 export const MEDIA_BUCKET = 'britume-media';
 
+export const STORAGE_FILE_LIMIT = 50 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE = 48 * 1024 * 1024;
+
 export const MEDIA_LIMITS = {
   image: 15 * 1024 * 1024,
-  storyVideo: 100 * 1024 * 1024,
-  video: 500 * 1024 * 1024,
-  reel: 1024 * 1024 * 1024,
+  storyVideo: MAX_UPLOAD_SIZE,
+  video: MAX_UPLOAD_SIZE,
+  reel: MAX_UPLOAD_SIZE,
 };
-
-export const STORAGE_FILE_LIMIT = 50 * 1024 * 1024;
 
 export type UploadSource =
   | {
@@ -81,8 +81,7 @@ async function getFileSize(uri: string): Promise<number> {
       throw new Error('Could not read the image file.');
     }
 
-    const blob = await response.blob();
-    return blob.size;
+    return (await response.blob()).size;
   }
 
   const file = new ExpoFile(uri);
@@ -109,17 +108,12 @@ export async function compressImage(
 
   const originalType = getImageType(uri, suppliedMimeType);
 
-  // Do not flatten animated GIFs into a single still image.
   if (originalType === 'image/gif') {
     const size = await getFileSize(uri);
 
-    if (!size) {
-      throw new Error('The GIF image is empty.');
-    }
-
-    if (size > MEDIA_LIMITS.image) {
+    if (!size || size > MEDIA_LIMITS.image) {
       throw new Error(
-        'This GIF is larger than the 15 MB image limit. Please choose a smaller GIF.',
+        'This GIF must be 15 MB or smaller.',
       );
     }
 
@@ -131,20 +125,15 @@ export async function compressImage(
     };
   }
 
-  // Preserve PNG format and transparency.
-  const preservePng = originalType === 'image/png';
-
   let result;
 
   try {
     result = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 2560 } }],
+      [{ resize: { width: 2048 } }],
       {
-        compress: preservePng ? 1 : 0.78,
-        format: preservePng
-          ? ImageManipulator.SaveFormat.PNG
-          : ImageManipulator.SaveFormat.JPEG,
+        compress: 0.72,
+        format: ImageManipulator.SaveFormat.JPEG,
       },
     );
   } catch (error) {
@@ -162,17 +151,14 @@ export async function compressImage(
 
   if (size > MEDIA_LIMITS.image) {
     throw new Error(
-      'The image is still larger than 15 MB after compression. Please choose a smaller image.',
+      'The compressed image is still larger than 15 MB. Please choose a smaller image.',
     );
   }
 
-  const mimeType = preservePng ? 'image/png' : 'image/jpeg';
-  const extension = preservePng ? 'png' : 'jpg';
-
   return {
     uri: result.uri,
-    name: `britume-${Date.now()}.${extension}`,
-    mimeType,
+    name: `britume-${Date.now()}.jpg`,
+    mimeType: 'image/jpeg',
     size,
   };
 }
@@ -195,22 +181,80 @@ export async function uploadMediaResumable(
   } = await client.auth.getSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error('Please sign in again before uploading.');
+    throw new Error(
+      'Please sign in again before uploading.',
+    );
+  }
+
+  if (Platform.OS !== 'web') {
+    const uri = (source as { uri: string }).uri;
+    const file = new ExpoFile(uri);
+
+    if (!file.exists || !file.size) {
+      throw new Error(
+        'The selected file is unavailable. Please select it again.',
+      );
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE) {
+      throw new Error(
+        'This file exceeds the current 48 MB upload limit.',
+      );
+    }
+
+    onProgress?.(0, 0, file.size);
+
+    let bytes: ArrayBuffer;
+
+    try {
+      bytes = await file.arrayBuffer();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      throw new Error(
+        `Android could not read the selected file: ${message}`,
+      );
+    }
+
+    if (!bytes.byteLength) {
+      throw new Error('The selected file is empty.');
+    }
+
+    const { error } = await client.storage
+      .from(MEDIA_BUCKET)
+      .upload(storagePath, bytes, {
+        contentType: mimeType,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+
+    onProgress?.(100, bytes.byteLength, bytes.byteLength);
+    return;
   }
 
   const projectId = getProjectId();
 
-  const uploadSource =
-    Platform.OS === 'web'
-      ? source
-      : {
-          uri: (source as { uri: string }).uri,
-          name: (source as { name: string }).name,
-          type: mimeType,
-        };
+  const webSource = source as File;
+
+  if (!(webSource instanceof File) || !webSource.size) {
+    throw new Error(
+      'The browser file is unavailable. Please select it again.',
+    );
+  }
+
+  if (webSource.size > MAX_UPLOAD_SIZE) {
+    throw new Error(
+      'This file exceeds the current 48 MB upload limit.',
+    );
+  }
 
   await new Promise<void>((resolve, reject) => {
-    const upload = new tus.Upload(uploadSource as any, {
+    const upload = new tus.Upload(webSource, {
       endpoint:
         `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
 
@@ -236,17 +280,17 @@ export async function uploadMediaResumable(
       chunkSize: 6 * 1024 * 1024,
 
       onError(error: Error) {
-        reject(new Error(`Upload failed: ${error.message}`));
+        reject(
+          new Error(`Upload failed: ${error.message}`),
+        );
       },
 
-      onProgress(
-        uploadedBytes: number,
-        totalBytes: number,
-      ) {
-        const percent =
-          totalBytes > 0
-            ? Math.round((uploadedBytes / totalBytes) * 100)
-            : 0;
+      onProgress(uploadedBytes, totalBytes) {
+        const percent = totalBytes > 0
+          ? Math.round(
+              (uploadedBytes / totalBytes) * 100,
+            )
+          : 0;
 
         onProgress?.(
           percent,
