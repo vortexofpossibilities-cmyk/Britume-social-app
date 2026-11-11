@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -50,6 +51,12 @@ const adminSections = [
     description: 'Review reports and platform safety issues.',
     icon: 'flag-outline' as const,
     route: '/admin/reports',
+  },
+  {
+    title: 'Advertisement Review',
+    description: 'Approve or reject submitted advertising campaigns.',
+    icon: 'megaphone-outline' as const,
+    route: '/admin-advertisements',
   },
   {
     title: 'Platform Settings',
@@ -535,4 +542,4 @@ function createStyles(theme: any) {
       marginTop: 18,
     },
   });
-    }
+}
