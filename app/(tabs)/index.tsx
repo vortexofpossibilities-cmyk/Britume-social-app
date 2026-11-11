@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -145,7 +144,6 @@ export default function HomeScreen() {
   );
 
   const mediaWidth = Math.max(240, windowWidth - 48);
-
   const mediaHeight = Math.min(
     520,
     Math.max(320, windowWidth * 1.05),
@@ -176,7 +174,19 @@ export default function HomeScreen() {
 
   const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
 
-  // Load public posts and apply each user's own hidden/blocked settings.
+  // New state for the working three-dot menu.
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+
+  const closePostOptions = () => {
+    setSelectedPost(null);
+  };
+
+  const runPostAction = (action: () => void) => {
+    setSelectedPost(null);
+    setTimeout(action, 200);
+  };
+
+  // Load posts and apply the signed-in user's hidden and blocked settings.
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
       setRefreshing(true);
@@ -207,9 +217,7 @@ export default function HomeScreen() {
       const freshPosts = await withTimeout(fetchPublicPosts());
 
       const restrictions = currentUserId
-        ? await withTimeout(
-            fetchPostRestrictions(currentUserId),
-          )
+        ? await withTimeout(fetchPostRestrictions(currentUserId))
         : {
             hiddenPostIds: [],
             blockedUserIds: [],
@@ -239,7 +247,6 @@ export default function HomeScreen() {
       }
     } catch (e) {
       console.error('BRITUME feed:', e);
-
       setError(errorMessage(e));
     } finally {
       setLoading(false);
@@ -366,7 +373,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Hide a post only for the signed-in user.
   const handleHidePost = async (post: FeedPost) => {
     if (!requireSignedIn()) return;
 
@@ -383,7 +389,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Report a post for administrator review.
   const handleReportPost = (post: FeedPost) => {
     if (!requireSignedIn()) return;
 
@@ -413,7 +418,6 @@ export default function HomeScreen() {
     ]);
   };
 
-  // Block another account and reload the feed.
   const handleBlockAccount = async (post: FeedPost) => {
     if (!requireSignedIn()) return;
 
@@ -435,7 +439,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Suggest a post to BRITUME administrators for featuring.
   const handleProposePost = async (post: FeedPost) => {
     if (!requireSignedIn()) return;
 
@@ -451,7 +454,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Only the post owner can request deletion.
   const handleDeletePost = (post: FeedPost) => {
     if (!userId || post.user_id !== userId) {
       Alert.alert('Only the post owner can delete this post.');
@@ -487,7 +489,6 @@ export default function HomeScreen() {
     );
   };
 
-  // Blur is a local visual privacy effect, not a database change.
   const togglePostBlur = (postId: string) => {
     setBlurredPostIds(current =>
       current.includes(postId)
@@ -496,74 +497,9 @@ export default function HomeScreen() {
     );
   };
 
+  // The three-dot button now opens the React Native modal below.
   const openPostOptions = (post: FeedPost) => {
-    const isOwner = !!userId && post.user_id === userId;
-    const isBlurred = blurredPostIds.includes(post.id);
-
-    const options = [
-      {
-        text: 'Share',
-        onPress: () => void sharePost(post),
-      },
-      {
-        text: 'Hide post',
-        onPress: () => void handleHidePost(post),
-      },
-      {
-        text: isBlurred ? 'Remove blur' : 'Blur it',
-        onPress: () => togglePostBlur(post.id),
-      },
-      {
-        text: 'Report',
-        onPress: () => handleReportPost(post),
-      },
-      {
-        text: 'Propose for featuring',
-        onPress: () => void handleProposePost(post),
-      },
-      ...(isOwner
-        ? [
-            {
-              text: 'Delete my post',
-              style: 'destructive' as const,
-              onPress: () => handleDeletePost(post),
-            },
-          ]
-        : [
-            {
-              text: 'Block account',
-              style: 'destructive' as const,
-              onPress: () => {
-                Alert.alert(
-                  'Block this account?',
-                  'Posts from this account will disappear from your feed.',
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                    {
-                      text: 'Block',
-                      style: 'destructive',
-                      onPress: () =>
-                        void handleBlockAccount(post),
-                    },
-                  ],
-                );
-              },
-            },
-          ]),
-      {
-        text: 'Cancel',
-        style: 'cancel' as const,
-      },
-    ];
-
-    Alert.alert(
-      'Post options',
-      'Choose an action',
-      options,
-    );
+    setSelectedPost(post);
   };
 
   const openComments = async (postId: string) => {
@@ -1103,6 +1039,187 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
+      {/* Three-dot post options modal */}
+      <Modal
+        visible={selectedPost !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closePostOptions}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.postMenuBackground}
+          onPress={closePostOptions}
+        >
+          <Pressable
+            style={styles.postMenuPanel}
+            onPress={() => {}}
+          >
+            <View style={styles.postMenuHandle} />
+
+            <View style={styles.postMenuHeader}>
+              <Text style={styles.postMenuTitle}>
+                Post options
+              </Text>
+
+              <Pressable
+                onPress={closePostOptions}
+                hitSlop={12}
+                accessibilityLabel="Close post options"
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={29}
+                  color={theme.muted}
+                />
+              </Pressable>
+            </View>
+
+            {selectedPost ? (
+              <ScrollView
+                style={styles.postMenuScroll}
+                showsVerticalScrollIndicator={false}
+              >
+                <Pressable
+                  style={styles.postMenuItem}
+                  onPress={() =>
+                    runPostAction(() => void sharePost(selectedPost))
+                  }
+                >
+                  <Ionicons
+                    name="share-social-outline"
+                    size={22}
+                    color={theme.cyan}
+                  />
+                  <Text style={styles.postMenuText}>Share post</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.postMenuItem}
+                  onPress={() =>
+                    runPostAction(() => void handleHidePost(selectedPost))
+                  }
+                >
+                  <Ionicons
+                    name="eye-off-outline"
+                    size={22}
+                    color={theme.cyan}
+                  />
+                  <Text style={styles.postMenuText}>Hide post</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.postMenuItem}
+                  onPress={() =>
+                    runPostAction(() => togglePostBlur(selectedPost.id))
+                  }
+                >
+                  <Ionicons
+                    name="eye-outline"
+                    size={22}
+                    color={theme.cyan}
+                  />
+                  <Text style={styles.postMenuText}>
+                    {blurredPostIds.includes(selectedPost.id)
+                      ? 'Remove blur'
+                      : 'Blur it'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.postMenuItem}
+                  onPress={() =>
+                    runPostAction(() => handleReportPost(selectedPost))
+                  }
+                >
+                  <Ionicons
+                    name="flag-outline"
+                    size={22}
+                    color="#E6A23C"
+                  />
+                  <Text style={styles.postMenuText}>Report post</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.postMenuItem}
+                  onPress={() =>
+                    runPostAction(() => void handleProposePost(selectedPost))
+                  }
+                >
+                  <Ionicons
+                    name="star-outline"
+                    size={22}
+                    color={theme.gold}
+                  />
+                  <Text style={styles.postMenuText}>
+                    Propose for featuring
+                  </Text>
+                </Pressable>
+
+                {selectedPost.user_id === userId ? (
+                  <Pressable
+                    style={styles.postMenuItem}
+                    onPress={() =>
+                      runPostAction(() => handleDeletePost(selectedPost))
+                    }
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={22}
+                      color="#FF5252"
+                    />
+                    <Text style={styles.postMenuDangerText}>
+                      Delete my post
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.postMenuItem}
+                    onPress={() =>
+                      runPostAction(() => {
+                        Alert.alert(
+                          'Block this account?',
+                          'Posts from this account will disappear from your feed.',
+                          [
+                            {
+                              text: 'Cancel',
+                              style: 'cancel',
+                            },
+                            {
+                              text: 'Block',
+                              style: 'destructive',
+                              onPress: () =>
+                                void handleBlockAccount(selectedPost),
+                            },
+                          ],
+                        );
+                      })
+                    }
+                  >
+                    <Ionicons
+                      name="ban-outline"
+                      size={22}
+                      color="#FF5252"
+                    />
+                    <Text style={styles.postMenuDangerText}>
+                      Block account
+                    </Text>
+                  </Pressable>
+                )}
+              </ScrollView>
+            ) : null}
+
+            <Pressable
+              style={styles.postMenuCancel}
+              onPress={closePostOptions}
+            >
+              <Text style={styles.postMenuCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Full-screen image and video viewer */}
       <Modal
         visible={activeMedia !== null}
         transparent
@@ -1142,6 +1259,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* Comments modal */}
       <Modal
         visible={activePostId !== null}
         animationType="slide"
@@ -1550,10 +1668,11 @@ function createStyles(theme: AppTheme, isDark: boolean) {
     },
 
     moreButton: {
-      width: 36,
-      height: 36,
+      width: 42,
+      height: 42,
       alignItems: 'center',
       justifyContent: 'center',
+      borderRadius: 14,
     },
 
     postCaptionWrap: {
@@ -1661,37 +1780,6 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       zIndex: 5,
     },
 
-    fullMediaBackground: {
-      flex: 1,
-      backgroundColor: '#000000',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
-    fullMediaImage: {
-      width: '100%',
-      height: '100%',
-    },
-
-    fullMediaVideo: {
-      width: '100%',
-      height: '100%',
-      backgroundColor: '#000000',
-    },
-
-    closeMediaButton: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 55 : 38,
-      right: 18,
-      zIndex: 20,
-      width: 45,
-      height: 45,
-      borderRadius: 23,
-      backgroundColor: 'rgba(40,40,40,0.85)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
     postActions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1781,6 +1869,124 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       fontSize: 14,
     },
 
+    // Three-dot menu styles.
+    postMenuBackground: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.72)',
+    },
+
+    postMenuPanel: {
+      backgroundColor: surface,
+      borderTopLeftRadius: 27,
+      borderTopRightRadius: 27,
+      borderWidth: 1.5,
+      borderColor: border,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 30,
+      maxHeight: '85%',
+    },
+
+    postMenuHandle: {
+      width: 44,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: softText,
+      alignSelf: 'center',
+      marginBottom: 15,
+      opacity: 0.7,
+    },
+
+    postMenuHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      paddingBottom: 13,
+      borderBottomWidth: 1,
+      borderBottomColor: border,
+    },
+
+    postMenuTitle: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: '900',
+    },
+
+    postMenuScroll: {
+      flexGrow: 0,
+    },
+
+    postMenuItem: {
+      minHeight: 54,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 15,
+      paddingHorizontal: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: border,
+    },
+
+    postMenuText: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+
+    postMenuDangerText: {
+      color: '#FF5252',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+
+    postMenuCancel: {
+      marginTop: 15,
+      padding: 14,
+      borderRadius: 15,
+      backgroundColor: raised,
+      alignItems: 'center',
+    },
+
+    postMenuCancelText: {
+      color: theme.cyan,
+      fontSize: 15,
+      fontWeight: '900',
+    },
+
+    // Media viewer styles.
+    fullMediaBackground: {
+      flex: 1,
+      backgroundColor: '#000000',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    fullMediaImage: {
+      width: '100%',
+      height: '100%',
+    },
+
+    fullMediaVideo: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#000000',
+    },
+
+    closeMediaButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 55 : 38,
+      right: 18,
+      zIndex: 20,
+      width: 45,
+      height: 45,
+      borderRadius: 23,
+      backgroundColor: 'rgba(40,40,40,0.85)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    // Comments modal styles.
     modalBackground: {
       flex: 1,
       justifyContent: 'flex-end',
@@ -1896,4 +2102,4 @@ function createStyles(theme: AppTheme, isDark: boolean) {
       shadowOffset: { width: 0, height: 0 },
     },
   });
-}
+    }
