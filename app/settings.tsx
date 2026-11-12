@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -22,6 +23,8 @@ import {
   type Language,
 } from '../src/contexts/LanguageContext';
 import { theme as lightTheme } from '../src/lib/theme';
+
+const NOTIFICATIONS_STORAGE_KEY = '@britume_notifications_enabled';
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
@@ -40,7 +43,43 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
 
+  const [notificationsEnabled, setNotificationsEnabled] =
+    useState(true);
+  const [notificationsLoading, setNotificationsLoading] =
+    useState(true);
+
   const styles = createStyles(colors);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadNotificationPreference() {
+      try {
+        const saved = await AsyncStorage.getItem(
+          NOTIFICATIONS_STORAGE_KEY,
+        );
+
+        if (active && saved !== null) {
+          setNotificationsEnabled(saved === 'true');
+        }
+      } catch (error) {
+        console.warn(
+          'Could not load BRITUME notification preference:',
+          error,
+        );
+      } finally {
+        if (active) {
+          setNotificationsLoading(false);
+        }
+      }
+    }
+
+    void loadNotificationPreference();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const changeTheme = async (value: boolean) => {
     try {
@@ -59,8 +98,36 @@ export default function SettingsScreen() {
     }
   };
 
+  const changeNotifications = async (value: boolean) => {
+    const previousValue = notificationsEnabled;
+
+    setNotificationsEnabled(value);
+
+    try {
+      await AsyncStorage.setItem(
+        NOTIFICATIONS_STORAGE_KEY,
+        String(value),
+      );
+    } catch {
+      setNotificationsEnabled(previousValue);
+
+      Alert.alert(
+        'Notification preference',
+        'Your notification preference could not be saved. Please try again.',
+      );
+    }
+  };
+
   const openThemeStudio = () => {
     router.push('/theme-studio');
+  };
+
+  const openPrivacy = () => {
+    router.push('/privacy');
+  };
+
+  const openWallet = () => {
+    router.push('/(tabs)/wallet');
   };
 
   const handleSignOut = async () => {
@@ -86,7 +153,17 @@ export default function SettingsScreen() {
   };
 
   const showAbout = () => {
-    Alert.alert(t('about'), t('aboutMessage'));
+    Alert.alert(
+      'About BRITUME',
+      'BRITUME — Vortex of Possibilities.\n\nA place to connect, share, discover, create and explore.\n\nBuilt by brilliant mere.',
+    );
+  };
+
+  const showNotificationInfo = () => {
+    Alert.alert(
+      'BRITUME notifications',
+      'This setting saves your notification preference on this device. Push notification delivery still needs to be connected before this switch can control notifications sent by BRITUME.',
+    );
   };
 
   const SettingRow = ({
@@ -107,6 +184,8 @@ export default function SettingsScreen() {
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`${title}. ${subtitle}`}
       style={({ pressed }) => [
         styles.row,
         pressed && onPress ? styles.rowPressed : null,
@@ -142,12 +221,27 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
+  const Section = ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.card}>{children}</View>
+    </View>
+  );
+
   return (
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
+        {/* HEADER */}
+
         <View style={styles.header}>
           <View style={styles.brandIcon}>
             <Text style={styles.brandLetter}>B</Text>
@@ -157,110 +251,164 @@ export default function SettingsScreen() {
             <Text style={styles.brandName}>BRITUME</Text>
             <Text style={styles.tagline}>{t('tagline')}</Text>
           </View>
+
+          <View style={styles.settingsBadge}>
+            <Ionicons
+              name="settings-outline"
+              size={21}
+              color={colors.cyan}
+            />
+          </View>
         </View>
 
         <Text style={styles.pageTitle}>{t('settings')}</Text>
 
         <Text style={styles.pageSubtitle}>
-          {t('settingsSubtitle')}
+          Manage your BRITUME account, preferences and experience.
         </Text>
 
         {/* ACCOUNT */}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('account')}</Text>
+        <Section title="ACCOUNT">
+          <SettingRow
+            icon="person-circle-outline"
+            title={t('editProfile')}
+            subtitle={t('editProfileSubtitle')}
+            onPress={() => router.push('/profile-edit')}
+          />
 
-          <View style={styles.card}>
-            <SettingRow
-              icon="person-circle-outline"
-              title={t('editProfile')}
-              subtitle={t('editProfileSubtitle')}
-              onPress={() => router.push('/profile-edit')}
-            />
+          <View style={styles.separator} />
 
-            <View style={styles.separator} />
+          <SettingRow
+            icon="shield-checkmark-outline"
+            title="Privacy & Safety"
+            subtitle="Profile visibility and privacy information"
+            color={colors.purple}
+            onPress={openPrivacy}
+          />
 
-            <SettingRow
-              icon="lock-closed-outline"
-              title={t('privacy')}
-              subtitle={t('privacySubtitle')}
-              color={colors.purple}
-              onPress={() => router.push('/profile-edit')}
-            />
-          </View>
-        </View>
+          <View style={styles.separator} />
 
-        {/* APPEARANCE */}
+          <SettingRow
+            icon="wallet-outline"
+            title="Wallet security"
+            subtitle="Open your protected BRITUME wallet"
+            color={colors.gold}
+            onPress={openWallet}
+          />
+        </Section>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('appearance')}</Text>
+        {/* NOTIFICATIONS */}
 
-          <View style={styles.card}>
-            <SettingRow
-              icon={isDark ? 'moon' : 'sunny-outline'}
-              title={t('darkMode')}
-              subtitle={
-                isDark
-                  ? t('darkSelected')
-                  : t('lightSelected')
-              }
-              color={colors.purple}
-              trailing={
+        <Section title="NOTIFICATIONS">
+          <SettingRow
+            icon="notifications-outline"
+            title="All notifications"
+            subtitle={
+              notificationsLoading
+                ? 'Loading your preference...'
+                : notificationsEnabled
+                  ? 'Notification preference is enabled'
+                  : 'Notification preference is disabled'
+            }
+            color={colors.cyan}
+            trailing={
+              notificationsLoading ? (
+                <ActivityIndicator color={colors.cyan} />
+              ) : (
                 <Switch
-                  value={isDark}
-                  onValueChange={changeTheme}
+                  value={notificationsEnabled}
+                  onValueChange={changeNotifications}
+                  accessibilityLabel="Enable or disable all BRITUME notifications"
                   trackColor={{
                     false: '#C8D9EA',
                     true: colors.cyan,
                   }}
                   thumbColor="#FFFFFF"
                 />
-              }
-            />
+              )
+            }
+          />
 
-            <View style={styles.separator} />
+          <View style={styles.separator} />
 
-            <SettingRow
-              icon="color-palette-outline"
-              title="BRITUME Theme Studio"
-              subtitle={`Current material: ${selectedThemeStyle.name}`}
-              color={colors.gold}
-              onPress={openThemeStudio}
-            />
-          </View>
-        </View>
+          <SettingRow
+            icon="information-circle-outline"
+            title="About notification settings"
+            subtitle="Learn what this preference currently controls"
+            color={colors.purple}
+            onPress={showNotificationInfo}
+          />
+        </Section>
+
+        {/* APPEARANCE */}
+
+        <Section title="APPEARANCE">
+          <SettingRow
+            icon={isDark ? 'moon' : 'sunny-outline'}
+            title={t('darkMode')}
+            subtitle={
+              isDark ? t('darkSelected') : t('lightSelected')
+            }
+            color={colors.purple}
+            trailing={
+              <Switch
+                value={isDark}
+                onValueChange={changeTheme}
+                accessibilityLabel="Enable or disable dark mode"
+                trackColor={{
+                  false: '#C8D9EA',
+                  true: colors.cyan,
+                }}
+                thumbColor="#FFFFFF"
+              />
+            }
+          />
+
+          <View style={styles.separator} />
+
+          <SettingRow
+            icon="color-palette-outline"
+            title="BRITUME Theme Studio"
+            subtitle={`Current material: ${selectedThemeStyle.name}`}
+            color={colors.gold}
+            onPress={openThemeStudio}
+          />
+        </Section>
 
         {/* LANGUAGE */}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('language')}</Text>
-
-          <View style={styles.card}>
-            <SettingRow
-              icon="globe-outline"
-              title={t('appLanguage')}
-              subtitle={language}
-              color="#20A878"
-              onPress={() => setLanguageModal(true)}
-            />
-          </View>
-        </View>
+        <Section title="LANGUAGE">
+          <SettingRow
+            icon="globe-outline"
+            title={t('appLanguage')}
+            subtitle={language}
+            color="#20A878"
+            onPress={() => setLanguageModal(true)}
+          />
+        </Section>
 
         {/* INFORMATION */}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('information')}</Text>
+        <Section title="INFORMATION">
+          <SettingRow
+            icon="information-circle-outline"
+            title={t('about')}
+            subtitle={t('aboutSubtitle')}
+            color={colors.gold}
+            onPress={showAbout}
+          />
 
-          <View style={styles.card}>
-            <SettingRow
-              icon="information-circle-outline"
-              title={t('about')}
-              subtitle={t('aboutSubtitle')}
-              color={colors.gold}
-              onPress={showAbout}
-            />
-          </View>
-        </View>
+          <View style={styles.separator} />
+
+          <SettingRow
+            icon="help-circle-outline"
+            title="Privacy & Safety information"
+            subtitle="Read BRITUME's current privacy and safety information"
+            color={colors.purple}
+            onPress={openPrivacy}
+          />
+        </Section>
 
         {/* SIGN OUT */}
 
@@ -299,7 +447,12 @@ export default function SettingsScreen() {
 
           <Text style={styles.footerName}>BRITUME</Text>
           <Text style={styles.footerTagline}>{t('tagline')}</Text>
-          <Text style={styles.footerNote}>{t('footerNote')}</Text>
+          <Text style={styles.footerNote}>
+            Vortex of Possibilities
+          </Text>
+          <Text style={styles.footerCopyright}>
+            Built by brilliant mere
+          </Text>
         </View>
       </ScrollView>
 
@@ -314,7 +467,7 @@ export default function SettingsScreen() {
         }}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.languageCard}>
+          <View style={styles.modalCard}>
             <View style={styles.signOutIcon}>
               <Ionicons
                 name="log-out-outline"
@@ -340,9 +493,10 @@ export default function SettingsScreen() {
             <Pressable
               disabled={signingOut}
               onPress={handleSignOut}
+              accessibilityRole="button"
               style={[
                 styles.signOutButton,
-                signingOut && { opacity: 0.6 },
+                signingOut && styles.disabledButton,
               ]}
             >
               {signingOut ? (
@@ -376,9 +530,9 @@ export default function SettingsScreen() {
         onRequestClose={() => setLanguageModal(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.languageCard}>
+          <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <View>
+              <View style={styles.modalHeadingText}>
                 <Text style={styles.modalTitle}>
                   {t('chooseLanguage')}
                 </Text>
@@ -390,6 +544,9 @@ export default function SettingsScreen() {
 
               <Pressable
                 onPress={() => setLanguageModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close language selection"
+                hitSlop={10}
               >
                 <Ionicons
                   name="close-circle"
@@ -399,11 +556,18 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
 
-            <ScrollView style={styles.languageList}>
+            <ScrollView
+              style={styles.languageList}
+              showsVerticalScrollIndicator={false}
+            >
               {supportedLanguages.map((item) => (
                 <Pressable
                   key={item}
                   onPress={() => changeLanguage(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: language === item,
+                  }}
                   style={styles.languageOption}
                 >
                   <Text style={styles.languageText}>
@@ -484,6 +648,16 @@ function createStyles(colors: typeof lightTheme) {
       fontSize: 11,
       marginTop: 2,
     },
+    settingsBadge: {
+      width: 43,
+      height: 43,
+      borderRadius: 15,
+      backgroundColor: colors.panel,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     pageTitle: {
       color: colors.text,
       fontSize: 29,
@@ -492,6 +666,7 @@ function createStyles(colors: typeof lightTheme) {
     pageSubtitle: {
       color: colors.muted,
       fontSize: 13,
+      lineHeight: 19,
       marginTop: 5,
       marginBottom: 24,
     },
@@ -549,6 +724,7 @@ function createStyles(colors: typeof lightTheme) {
     rowSubtitle: {
       color: colors.muted,
       fontSize: 11,
+      lineHeight: 16,
       marginTop: 4,
     },
     separator: {
@@ -591,8 +767,13 @@ function createStyles(colors: typeof lightTheme) {
     },
     footerNote: {
       color: colors.muted,
+      fontSize: 11,
+      marginTop: 10,
+    },
+    footerCopyright: {
+      color: colors.muted,
       fontSize: 10,
-      marginTop: 13,
+      marginTop: 5,
     },
     modalBackdrop: {
       flex: 1,
@@ -600,8 +781,8 @@ function createStyles(colors: typeof lightTheme) {
       justifyContent: 'center',
       padding: 22,
     },
-    languageCard: {
-      maxHeight: '80%',
+    modalCard: {
+      maxHeight: '85%',
       backgroundColor: colors.panel,
       borderRadius: 25,
       padding: 20,
@@ -615,6 +796,10 @@ function createStyles(colors: typeof lightTheme) {
       alignItems: 'center',
       marginBottom: 15,
     },
+    modalHeadingText: {
+      flex: 1,
+      marginRight: 12,
+    },
     modalTitle: {
       color: colors.text,
       fontSize: 20,
@@ -624,6 +809,7 @@ function createStyles(colors: typeof lightTheme) {
     modalSubtitle: {
       color: colors.muted,
       fontSize: 12,
+      lineHeight: 18,
       marginTop: 4,
     },
     signOutIcon: {
@@ -648,6 +834,9 @@ function createStyles(colors: typeof lightTheme) {
       fontWeight: '900',
       fontSize: 15,
     },
+    disabledButton: {
+      opacity: 0.6,
+    },
     cancelButton: {
       padding: 14,
       alignItems: 'center',
@@ -661,6 +850,7 @@ function createStyles(colors: typeof lightTheme) {
       color: colors.danger,
       fontSize: 12,
       marginTop: 12,
+      lineHeight: 18,
     },
     languageList: {
       maxHeight: 360,
