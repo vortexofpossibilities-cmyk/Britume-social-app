@@ -1,4 +1,3 @@
-
 import { supabase, supabaseConfigured } from './supabase';
 
 export type ProfileRecord = {
@@ -6,6 +5,7 @@ export type ProfileRecord = {
   username: string | null;
   display_name: string | null;
   bio: string;
+  avatar_path: string | null;
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -19,7 +19,7 @@ export type ProfileSummary = {
 };
 
 const PROFILE_SELECT =
-  'user_id, username, display_name, bio, is_public, created_at, updated_at';
+  'user_id, username, display_name, bio, avatar_path, is_public, created_at, updated_at';
 
 const usernamePattern = /^[A-Za-z0-9_]{3,30}$/;
 const uuidPattern =
@@ -55,6 +55,10 @@ function normalizeProfile(
         ? profile.display_name
         : null,
     bio: typeof profile.bio === 'string' ? profile.bio : '',
+    avatar_path:
+      typeof profile.avatar_path === 'string'
+        ? profile.avatar_path
+        : null,
     is_public:
       typeof profile.is_public === 'boolean' ? profile.is_public : true,
     created_at:
@@ -156,6 +160,7 @@ export async function updateOwnProfile(input: {
   username?: string | null;
   display_name?: string | null;
   bio?: string;
+  avatar_path?: string | null;
   is_public?: boolean;
 }): Promise<ProfileRecord> {
   if (!input || typeof input.userId !== 'string' || !input.userId.trim()) {
@@ -208,33 +213,37 @@ export async function updateOwnProfile(input: {
     throw new Error('Bio must be 500 characters or fewer.');
   }
 
-  let isPublic = input.is_public;
+  const { data: existingProfile, error: existingError } =
+    await client
+      .from('profiles')
+      .select('avatar_path, is_public')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (typeof isPublic !== 'boolean') {
-    const { data: existingProfile, error: profileError } =
-      await client
-        .from('profiles')
-        .select('is_public')
-        .eq('user_id', userId)
-        .maybeSingle();
+  if (existingError) {
+    throw new Error(
+      `Could not check existing profile: ${existingError.message}`
+    );
+  }
 
-    if (profileError) {
-      throw new Error(
-        `Could not check profile privacy: ${profileError.message}`
-      );
-    }
+  const avatarPath =
+    input.avatar_path !== undefined
+      ? input.avatar_path
+      : existingProfile?.avatar_path ?? null;
 
-    isPublic =
-      typeof existingProfile?.is_public === 'boolean'
+  const isPublic =
+    typeof input.is_public === 'boolean'
+      ? input.is_public
+      : typeof existingProfile?.is_public === 'boolean'
         ? existingProfile.is_public
         : true;
-  }
 
   const payload = {
     user_id: userId,
     username: username || null,
     display_name: displayName || null,
     bio,
+    avatar_path: avatarPath,
     is_public: isPublic,
     updated_at: new Date().toISOString(),
   };
@@ -274,4 +283,4 @@ export function getProfileName(
   }
 
   return 'BRITUME member';
-}
+    }
