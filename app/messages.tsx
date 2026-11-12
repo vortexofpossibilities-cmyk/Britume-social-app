@@ -1,8 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,6 +21,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -31,6 +42,15 @@ type FriendRequest = {
   status: 'pending' | 'accepted' | 'rejected';
 };
 
+type ChatMessage = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+};
+
 export default function MessagesScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -40,13 +60,28 @@ export default function MessagesScreen() {
   const [incoming, setIncoming] = useState<FriendRequest[]>([]);
   const [outgoing, setOutgoing] = useState<FriendRequest[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Direct chat state
+  const [activePerson, setActivePerson] = useState<Profile | null>(null);
+  const [conversationId, setConversationId] = useState('');
+  const [chatVisible, setChatVisible] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [messageText, setMessageText] = useState('');
+
+  const displayName = (person: Profile) =>
+    person.display_name || person.username || 'BRITUME member';
+
   const loadMessagesData = useCallback(async () => {
-    if (!supabase) {
+    const client = supabase;
+
+    if (!client) {
       Alert.alert(
         'Connection unavailable',
         'Please check your Supabase configuration.'
@@ -58,7 +93,7 @@ export default function MessagesScreen() {
 
     try {
       const { data: authData, error: authError } =
-        await supabase.auth.getUser();
+        await client.auth.getUser();
 
       if (authError || !authData.user) {
         setLoading(false);
@@ -69,7 +104,7 @@ export default function MessagesScreen() {
       const userId = authData.user.id;
       setMyId(userId);
 
-      const { data: requests, error } = await supabase
+      const { data: requests, error } = await client
         .from('friend_requests')
         .select('id,sender_id,recipient_id,status')
         .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`);
@@ -112,9 +147,10 @@ export default function MessagesScreen() {
 
       if (profileIds.length === 0) {
         setFriends([]);
+        setProfiles([]);
       } else {
         const { data: friendProfiles, error: profileError } =
-          await supabase
+          await client
             .from('profiles')
             .select('user_id,username,display_name,avatar_url')
             .in('user_id', profileIds);
@@ -146,6 +182,7 @@ export default function MessagesScreen() {
     void loadMessagesData();
   }, [loadMessagesData]);
 
+  // Search for BRITUME members.
   const searchPeople = async () => {
     const term = search.trim();
 
@@ -154,12 +191,13 @@ export default function MessagesScreen() {
       return;
     }
 
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
 
     setSearching(true);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('profiles')
         .select('user_id,username,display_name,avatar_url')
         .or(
@@ -181,18 +219,17 @@ export default function MessagesScreen() {
     }
   };
 
+  // Send a friend request.
   const sendFriendRequest = async (person: Profile) => {
-    if (!supabase || !myId) return;
+    const client = supabase;
+    if (!client || !myId) return;
 
     const existingFriend = friends.some(
       friend => friend.user_id === person.user_id
     );
 
     if (existingFriend) {
-      Alert.alert(
-        'Already friends',
-        'This person is already your friend.'
-      );
+      Alert.alert('Already friends', 'This person is already your friend.');
       return;
     }
 
@@ -201,10 +238,7 @@ export default function MessagesScreen() {
     );
 
     if (alreadySent) {
-      Alert.alert(
-        'Request sent',
-        'You have already sent this friend request.'
-      );
+      Alert.alert('Request sent', 'You have already sent this request.');
       return;
     }
 
@@ -215,13 +249,13 @@ export default function MessagesScreen() {
     if (alreadyReceived) {
       Alert.alert(
         'Friend request received',
-        'This person has already sent you a request. Accept it in Friend requests.'
+        'Accept this person’s request in Friend requests.'
       );
       return;
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('friend_requests')
         .insert({
           sender_id: myId,
@@ -233,7 +267,7 @@ export default function MessagesScreen() {
 
       Alert.alert(
         'Request sent!',
-        `Your friend request was sent to ${person.display_name || person.username || 'this person'}.`
+        `Your friend request was sent to ${displayName(person)}.`
       );
 
       await loadMessagesData();
@@ -245,14 +279,16 @@ export default function MessagesScreen() {
     }
   };
 
+  // Accept or reject friend requests.
   const respondToRequest = async (
     request: FriendRequest,
     status: 'accepted' | 'rejected'
   ) => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('friend_requests')
         .update({
           status,
@@ -280,8 +316,129 @@ export default function MessagesScreen() {
     }
   };
 
-  const displayName = (person: Profile) =>
-    person.display_name || person.username || 'BRITUME member';
+  // Load messages between the signed-in user and one friend.
+  const loadConversationMessages = useCallback(
+    async (person: Profile) => {
+      const client = supabase;
+      if (!client || !myId) return;
+
+      const { data, error } = await client
+        .from('messages')
+        .select('id,sender_id,recipient_id,content,created_at,read_at')
+        .or(
+          `and(sender_id.eq.${myId},recipient_id.eq.${person.user_id}),and(sender_id.eq.${person.user_id},recipient_id.eq.${myId})`
+        )
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setChatMessages((data || []) as ChatMessage[]);
+
+      // Mark incoming unread messages as read.
+      await client
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('sender_id', person.user_id)
+        .eq('recipient_id', myId)
+        .is('read_at', null);
+    },
+    [myId]
+  );
+
+  // Open or create a direct conversation.
+  const openChat = async (person: Profile) => {
+    const client = supabase;
+
+    if (!client || !myId) {
+      Alert.alert('Please sign in', 'Sign in to start a conversation.');
+      return;
+    }
+
+    setActivePerson(person);
+    setChatMessages([]);
+    setMessageText('');
+    setConversationId('');
+    setChatVisible(true);
+    setChatLoading(true);
+
+    try {
+      const { data, error } = await client.rpc(
+        'create_britume_direct_conversation',
+        {
+          p_other_user: person.user_id,
+        }
+      );
+
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error('The conversation could not be created.');
+      }
+
+      setConversationId(data);
+
+      await loadConversationMessages(person);
+    } catch (error: any) {
+      Alert.alert(
+        'Could not open conversation',
+        error?.message || 'Please try again.'
+      );
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  // Send a real text message to the existing messages table.
+  const sendMessage = async () => {
+    const client = supabase;
+    const person = activePerson;
+    const content = messageText.trim();
+
+    if (!client || !person || !myId || !conversationId) return;
+    if (!content || sending) return;
+
+    if (content.length > 5000) {
+      Alert.alert(
+        'Message too long',
+        'Messages can contain up to 5,000 characters.'
+      );
+      return;
+    }
+
+    setSending(true);
+    setMessageText('');
+
+    try {
+      const { error } = await client
+        .from('messages')
+        .insert({
+          sender_id: myId,
+          recipient_id: person.user_id,
+          content,
+        });
+
+      if (error) throw error;
+
+      await loadConversationMessages(person);
+    } catch (error: any) {
+      setMessageText(content);
+
+      Alert.alert(
+        'Message not sent',
+        error?.message || 'Please try again.'
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const closeChat = () => {
+    setChatVisible(false);
+    setActivePerson(null);
+    setConversationId('');
+    setChatMessages([]);
+    setMessageText('');
+  };
 
   const Avatar = ({
     person,
@@ -325,12 +482,7 @@ export default function MessagesScreen() {
         styles.friendCard,
         pressed && styles.pressed,
       ]}
-      onPress={() => {
-        Alert.alert(
-          displayName(person),
-          'You are connected! The individual chat conversation screen still needs to be connected to the messaging database.'
-        );
-      }}
+      onPress={() => void openChat(person)}
     >
       <Avatar person={person} size={57} />
 
@@ -338,9 +490,11 @@ export default function MessagesScreen() {
         <Text style={styles.friendName}>
           {displayName(person)}
         </Text>
+
         <Text style={styles.friendUsername}>
           {person.username ? `@${person.username}` : 'BRITUME friend'}
         </Text>
+
         <Text style={styles.tapHint}>
           Tap to open conversation
         </Text>
@@ -373,47 +527,63 @@ export default function MessagesScreen() {
           <Text style={styles.friendName}>
             {displayName(person)}
           </Text>
+
           <Text style={styles.friendUsername}>
             {person.username ? `@${person.username}` : 'BRITUME member'}
           </Text>
         </View>
 
-        <Pressable
-          disabled={sent || isFriend}
-          style={[
-            styles.addButton,
-            (sent || isFriend) && styles.disabledButton,
-          ]}
-          onPress={() => void sendFriendRequest(person)}
-        >
-          <Ionicons
-            name={
-              isFriend
-                ? 'checkmark'
-                : sent
-                  ? 'time-outline'
-                  : 'person-add'
-            }
-            size={17}
-            color={sent || isFriend ? theme.muted : '#FFFFFF'}
-          />
-          <Text
-            style={[
-              styles.addButtonText,
-              (sent || isFriend) && styles.disabledButtonText,
-            ]}
+        {isFriend ? (
+          <Pressable
+            style={styles.addButton}
+            onPress={() => void openChat(person)}
           >
-            {isFriend ? 'Friends' : sent ? 'Sent' : 'Add'}
-          </Text>
-        </Pressable>
+            <Ionicons name="chatbubble" size={16} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>Chat</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            disabled={sent}
+            style={[
+              styles.addButton,
+              sent && styles.disabledButton,
+            ]}
+            onPress={() => void sendFriendRequest(person)}
+          >
+            <Ionicons
+              name={sent ? 'time-outline' : 'person-add'}
+              size={17}
+              color={sent ? theme.muted : '#FFFFFF'}
+            />
+
+            <Text
+              style={[
+                styles.addButtonText,
+                sent && styles.disabledButtonText,
+              ]}
+            >
+              {sent ? 'Sent' : 'Add'}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
+  };
+
+  const formatMessageTime = (value: string) => {
+    const date = new Date(value);
+
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color={theme.cyan} />
+
         <Text style={styles.loadingText}>
           Loading your BRITUME friends...
         </Text>
@@ -453,6 +623,7 @@ export default function MessagesScreen() {
             <View style={styles.logo}>
               <Text style={styles.logoText}>B</Text>
             </View>
+
             <View>
               <Text style={styles.brandName}>BRITUME</Text>
               <Text style={styles.tagline}>
@@ -466,10 +637,6 @@ export default function MessagesScreen() {
             onPress={() => {
               setSearch('');
               setProfiles([]);
-              Alert.alert(
-                'Find friends',
-                'Search for BRITUME members below.'
-              );
             }}
           >
             <Ionicons
@@ -481,6 +648,7 @@ export default function MessagesScreen() {
         </View>
 
         <Text style={styles.title}>Messages</Text>
+
         <Text style={styles.subtitle}>
           Connect, communicate and stay close.
         </Text>
@@ -488,12 +656,12 @@ export default function MessagesScreen() {
         <View style={styles.shortcuts}>
           <Pressable
             style={styles.shortcut}
-            onPress={() =>
+            onPress={() => {
               Alert.alert(
                 'Chats',
-                'Your conversations will appear in this section when messaging is connected.'
-              )
-            }
+                'Open a friend below to start or continue a conversation.'
+              );
+            }}
           >
             <View style={styles.shortcutIcon}>
               <Ionicons
@@ -502,13 +670,17 @@ export default function MessagesScreen() {
                 color={theme.cyan}
               />
             </View>
+
             <Text style={styles.shortcutText}>Chats</Text>
           </Pressable>
 
           <Pressable
             style={styles.shortcut}
             onPress={() =>
-              Alert.alert('Calls', 'Audio calling is not connected yet.')
+              Alert.alert(
+                'Calls',
+                'Voice and video calling will be connected in a later stage.'
+              )
             }
           >
             <View style={styles.shortcutIcon}>
@@ -518,13 +690,17 @@ export default function MessagesScreen() {
                 color={theme.success}
               />
             </View>
+
             <Text style={styles.shortcutText}>Calls</Text>
           </Pressable>
 
           <Pressable
             style={styles.shortcut}
             onPress={() =>
-              Alert.alert('Voice', 'Voice messages are not connected yet.')
+              Alert.alert(
+                'Voice',
+                'Voice messages will be connected in a later stage.'
+              )
             }
           >
             <View style={styles.shortcutIcon}>
@@ -534,13 +710,17 @@ export default function MessagesScreen() {
                 color={theme.purple}
               />
             </View>
+
             <Text style={styles.shortcutText}>Voice</Text>
           </Pressable>
 
           <Pressable
             style={styles.shortcut}
             onPress={() =>
-              Alert.alert('Groups', 'Group conversations are not connected yet.')
+              Alert.alert(
+                'Groups',
+                'Group conversation creation is the next database feature we will connect.'
+              )
             }
           >
             <View style={styles.shortcutIcon}>
@@ -550,12 +730,14 @@ export default function MessagesScreen() {
                 color={theme.gold}
               />
             </View>
+
             <Text style={styles.shortcutText}>Groups</Text>
           </Pressable>
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Find friends</Text>
+
           <Ionicons
             name="people"
             size={21}
@@ -600,6 +782,7 @@ export default function MessagesScreen() {
         {profiles.length > 0 && (
           <View style={styles.resultsArea}>
             <Text style={styles.smallHeading}>Search results</Text>
+
             {profiles.map(person => (
               <PersonResult
                 key={person.user_id}
@@ -623,6 +806,7 @@ export default function MessagesScreen() {
               <Text style={styles.sectionTitle}>
                 Friend requests
               </Text>
+
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>
                   {incoming.length}
@@ -630,53 +814,61 @@ export default function MessagesScreen() {
               </View>
             </View>
 
-            {incoming.map(request => (
-              <View key={request.id} style={styles.requestCard}>
-                <View style={styles.friendInfo}>
-                  <Text style={styles.friendName}>
-                    New friend request
-                  </Text>
-                  <Text style={styles.friendUsername}>
-                    A BRITUME member wants to connect with you.
-                  </Text>
+            {incoming.map(request => {
+              const sender = profiles.find(
+                person => person.user_id === request.sender_id
+              );
+
+              return (
+                <View key={request.id} style={styles.requestCard}>
+                  <View style={styles.friendInfo}>
+                    <Text style={styles.friendName}>
+                      {sender ? displayName(sender) : 'New friend request'}
+                    </Text>
+
+                    <Text style={styles.friendUsername}>
+                      {sender?.username
+                        ? `@${sender.username}`
+                        : 'A BRITUME member wants to connect with you.'}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    style={styles.acceptButton}
+                    onPress={() =>
+                      void respondToRequest(request, 'accepted')
+                    }
+                  >
+                    <Ionicons
+                      name="checkmark"
+                      color="#FFFFFF"
+                      size={19}
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.rejectButton}
+                    onPress={() =>
+                      void respondToRequest(request, 'rejected')
+                    }
+                  >
+                    <Ionicons
+                      name="close"
+                      color={theme.danger}
+                      size={19}
+                    />
+                  </Pressable>
                 </View>
-
-                <Pressable
-                  style={styles.acceptButton}
-                  onPress={() =>
-                    void respondToRequest(request, 'accepted')
-                  }
-                >
-                  <Ionicons
-                    name="checkmark"
-                    color="#FFFFFF"
-                    size={19}
-                  />
-                </Pressable>
-
-                <Pressable
-                  style={styles.rejectButton}
-                  onPress={() =>
-                    void respondToRequest(request, 'rejected')
-                  }
-                >
-                  <Ionicons
-                    name="close"
-                    color={theme.danger}
-                    size={19}
-                  />
-                </Pressable>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>
-                Your friends
-              </Text>
+              <Text style={styles.sectionTitle}>Your friends</Text>
+
               <Text style={styles.sectionSubtitle}>
                 People you can connect with
               </Text>
@@ -687,10 +879,6 @@ export default function MessagesScreen() {
               onPress={() => {
                 setSearch('');
                 setProfiles([]);
-                Alert.alert(
-                  'Add friends',
-                  'Search for a BRITUME member above.'
-                );
               }}
             >
               <Ionicons
@@ -698,6 +886,7 @@ export default function MessagesScreen() {
                 size={18}
                 color="#FFFFFF"
               />
+
               <Text style={styles.addFriendText}>Add</Text>
             </Pressable>
           </View>
@@ -735,6 +924,215 @@ export default function MessagesScreen() {
           BRITUME • Vortex of Possibilities
         </Text>
       </ScrollView>
+
+      {/* DIRECT CHAT WINDOW */}
+      <Modal
+        visible={chatVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={closeChat}
+      >
+        <KeyboardAvoidingView
+          style={styles.chatScreen}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        >
+          <View style={styles.chatHeader}>
+            <Pressable
+              style={styles.chatBackButton}
+              onPress={closeChat}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={23}
+                color={theme.text}
+              />
+            </Pressable>
+
+            {activePerson && (
+              <>
+                <Avatar person={activePerson} size={43} />
+
+                <View style={styles.chatHeaderInfo}>
+                  <Text style={styles.chatHeaderName}>
+                    {displayName(activePerson)}
+                  </Text>
+
+                  <Text style={styles.chatHeaderStatus}>
+                    BRITUME conversation
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <Pressable
+              style={styles.chatBackButton}
+              onPress={() => {
+                if (activePerson) {
+                  setChatLoading(true);
+
+                  void loadConversationMessages(activePerson)
+                    .catch(error => {
+                      Alert.alert(
+                        'Could not refresh',
+                        error?.message || 'Please try again.'
+                      );
+                    })
+                    .finally(() => setChatLoading(false));
+                }
+              }}
+            >
+              <Ionicons
+                name="refresh"
+                size={21}
+                color={theme.cyan}
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.chatBody}>
+            {chatLoading ? (
+              <View style={styles.chatLoading}>
+                <ActivityIndicator
+                  size="large"
+                  color={theme.cyan}
+                />
+
+                <Text style={styles.loadingText}>
+                  Loading conversation...
+                </Text>
+              </View>
+            ) : chatMessages.length === 0 ? (
+              <View style={styles.chatEmpty}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={38}
+                    color={theme.cyan}
+                  />
+                </View>
+
+                <Text style={styles.emptyTitle}>
+                  Start the conversation
+                </Text>
+
+                <Text style={styles.emptyText}>
+                  Send your first message to{' '}
+                  {activePerson ? displayName(activePerson) : 'your friend'}.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.messageScroll}
+                contentContainerStyle={styles.messageList}
+                showsVerticalScrollIndicator={false}
+              >
+                {chatMessages.map(message => {
+                  const mine = message.sender_id === myId;
+
+                  return (
+                    <View
+                      key={message.id}
+                      style={[
+                        styles.messageRow,
+                        mine
+                          ? styles.myMessageRow
+                          : styles.theirMessageRow,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.messageBubble,
+                          mine
+                            ? styles.myMessageBubble
+                            : styles.theirMessageBubble,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.messageContent,
+                            mine && styles.myMessageContent,
+                          ]}
+                        >
+                          {message.content}
+                        </Text>
+
+                        <View style={styles.messageMeta}>
+                          <Text
+                            style={[
+                              styles.messageTime,
+                              mine && styles.myMessageTime,
+                            ]}
+                          >
+                            {formatMessageTime(message.created_at)}
+                          </Text>
+
+                          {mine && (
+                            <Ionicons
+                              name={
+                                message.read_at
+                                  ? 'checkmark-done'
+                                  : 'checkmark'
+                              }
+                              size={14}
+                              color={
+                                message.read_at
+                                  ? '#B8F4FF'
+                                  : '#FFFFFF'
+                              }
+                            />
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+
+          <View style={styles.composer}>
+            <TextInput
+              value={messageText}
+              onChangeText={setMessageText}
+              placeholder="Write a message..."
+              placeholderTextColor={theme.muted}
+              style={styles.composerInput}
+              multiline
+              maxLength={5000}
+              editable={!chatLoading && !sending}
+            />
+
+            <Pressable
+              style={[
+                styles.sendButton,
+                (!messageText.trim() || sending || chatLoading) &&
+                  styles.sendButtonDisabled,
+              ]}
+              disabled={
+                !messageText.trim() ||
+                sending ||
+                chatLoading ||
+                !conversationId
+              }
+              onPress={() => void sendMessage()}
+            >
+              {sending ? (
+                <ActivityIndicator
+                  size="small"
+                  color="#FFFFFF"
+                />
+              ) : (
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color="#FFFFFF"
+                />
+              )}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1133,5 +1531,176 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       fontSize: 10,
       marginTop: 30,
     },
+
+    // Direct chat window
+    chatScreen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+
+    chatHeader: {
+      minHeight: 72,
+      paddingHorizontal: 13,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      backgroundColor: theme.panel,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+
+    chatBackButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.panel2,
+    },
+
+    chatHeaderInfo: {
+      flex: 1,
+    },
+
+    chatHeaderName: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '900',
+    },
+
+    chatHeaderStatus: {
+      color: theme.muted,
+      fontSize: 10,
+      marginTop: 3,
+    },
+
+    chatBody: {
+      flex: 1,
+      minHeight: 0,
+    },
+
+    chatLoading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    chatEmpty: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 25,
+    },
+
+    messageScroll: {
+      flex: 1,
+    },
+
+    messageList: {
+      paddingHorizontal: 14,
+      paddingVertical: 18,
+      gap: 11,
+    },
+
+    messageRow: {
+      width: '100%',
+      flexDirection: 'row',
+    },
+
+    myMessageRow: {
+      justifyContent: 'flex-end',
+    },
+
+    theirMessageRow: {
+      justifyContent: 'flex-start',
+    },
+
+    messageBubble: {
+      maxWidth: '85%',
+      minWidth: 85,
+      borderRadius: 19,
+      paddingHorizontal: 13,
+      paddingTop: 10,
+      paddingBottom: 7,
+    },
+
+    myMessageBubble: {
+      backgroundColor: theme.cyan,
+      borderBottomRightRadius: 5,
+    },
+
+    theirMessageBubble: {
+      backgroundColor: theme.panel,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderBottomLeftRadius: 5,
+    },
+
+    messageContent: {
+      color: theme.text,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+
+    myMessageContent: {
+      color: '#FFFFFF',
+    },
+
+    messageMeta: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 5,
+    },
+
+    messageTime: {
+      color: theme.muted,
+      fontSize: 9,
+    },
+
+    myMessageTime: {
+      color: '#E7FAFF',
+    },
+
+    composer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 9,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+      backgroundColor: theme.panel,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+
+    composerInput: {
+      flex: 1,
+      minHeight: 45,
+      maxHeight: 120,
+      borderRadius: 17,
+      backgroundColor: theme.bg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      color: theme.text,
+      fontSize: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+    },
+
+    sendButton: {
+      width: 45,
+      height: 45,
+      borderRadius: 16,
+      backgroundColor: theme.cyan,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    sendButtonDisabled: {
+      opacity: 0.45,
+    },
   });
-            }
+}
