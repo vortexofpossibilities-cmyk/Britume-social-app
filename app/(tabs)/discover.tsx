@@ -89,6 +89,7 @@ export default function DiscoverScreen() {
   const getError = (error: any) =>
     error?.message || 'Please try again.';
 
+  // LOAD DISCOVER DATA
   const loadDiscover = useCallback(async () => {
     const db = supabase;
 
@@ -223,6 +224,7 @@ export default function DiscoverScreen() {
     await loadDiscover();
   };
 
+  // SEARCH
   const searchPeople = async () => {
     const term = search.trim();
     const db = supabase;
@@ -267,9 +269,15 @@ export default function DiscoverScreen() {
     }
   };
 
+  // SAVE PROFILE VISIT IN BACKGROUND
   const rememberVisit = async (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
+
+    setRecent((old) => [
+      person,
+      ...old.filter((p) => p.user_id !== person.user_id),
+    ]);
 
     try {
       const { error } = await db
@@ -284,21 +292,18 @@ export default function DiscoverScreen() {
         );
 
       if (error) throw error;
-
-      setRecent((old) => [
-        person,
-        ...old.filter((p) => p.user_id !== person.user_id),
-      ]);
     } catch (error: any) {
-      Alert.alert('Recent history unavailable', getError(error));
+      // Recent history is optional; don't interrupt profile opening.
+      console.warn('Recent profile save failed:', getError(error));
     }
   };
 
-  const openProfile = async (person: Profile) => {
+  const openProfile = (person: Profile) => {
     setSelected(person);
-    await rememberVisit(person);
+    void rememberVisit(person);
   };
 
+  // SEND FRIEND REQUEST
   const sendFriendRequest = async (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
@@ -329,30 +334,41 @@ export default function DiscoverScreen() {
       return;
     }
 
-    try {
-      setWorking(true);
+    const temporaryId = `temporary-${person.user_id}`;
+    const optimisticRequest: FriendRequest = {
+      id: temporaryId,
+      sender_id: myId,
+      recipient_id: person.user_id,
+      status: 'pending',
+    };
 
-      const { error } = await db.from('friend_requests').insert({
-        sender_id: myId,
-        recipient_id: person.user_id,
-        status: 'pending',
-      });
+    setRequests((old) => [...old, optimisticRequest]);
+
+    try {
+      const { data, error } = await db
+        .from('friend_requests')
+        .insert({
+          sender_id: myId,
+          recipient_id: person.user_id,
+          status: 'pending',
+        })
+        .select('id,sender_id,recipient_id,status')
+        .single();
 
       if (error) throw error;
 
-      Alert.alert(
-        'Request sent',
-        `Your request was sent to ${nameOf(person)}.`
+      setRequests((old) =>
+        old.map((r) => r.id === temporaryId ? data as FriendRequest : r)
       );
-
-      await loadDiscover();
     } catch (error: any) {
+      setRequests((old) =>
+        old.filter((r) => r.id !== temporaryId)
+      );
       Alert.alert('Could not send request', getError(error));
-    } finally {
-      setWorking(false);
     }
   };
 
+  // ACCEPT OR REJECT: UPDATE THE SCREEN FIRST
   const respondToRequest = async (
     request: FriendRequest,
     status: 'accepted' | 'rejected'
@@ -360,33 +376,47 @@ export default function DiscoverScreen() {
     const db = supabase;
     if (!db || !myId) return;
 
-    try {
-      setWorking(true);
+    const previousRequests = requests;
+    const previousFriends = friends;
 
-      const { error } = await db
+    setRequests((old) =>
+      old.map((r) =>
+        r.id === request.id ? { ...r, status } : r
+      )
+    );
+
+    if (status === 'accepted') {
+      const friendId = request.sender_id;
+      setFriends((old) =>
+        old.includes(friendId) ? old : [...old, friendId]
+      );
+    } else {
+      setFriends((old) =>
+        old.filter((id) => id !== request.sender_id)
+      );
+    }
+
+    try {
+      const { data, error } = await db
         .from('friend_requests')
         .update({ status })
         .eq('id', request.id)
         .eq('recipient_id', myId)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .select('id');
 
       if (error) throw error;
-
-      Alert.alert(
-        status === 'accepted' ? 'Friend request accepted' : 'Request rejected',
-        status === 'accepted'
-          ? 'You are now friends.'
-          : 'The request has been rejected.'
-      );
-
-      await loadDiscover();
+      if (!data?.length) {
+        throw new Error('This request has already changed. Refresh Discover.');
+      }
     } catch (error: any) {
+      setRequests(previousRequests);
+      setFriends(previousFriends);
       Alert.alert('Request update failed', getError(error));
-    } finally {
-      setWorking(false);
     }
   };
 
+  // CANCEL SENT REQUEST
   const cancelRequest = async (request: FriendRequest) => {
     const db = supabase;
     if (!db || !myId) return;
@@ -400,9 +430,13 @@ export default function DiscoverScreen() {
           text: 'Cancel request',
           style: 'destructive',
           onPress: async () => {
-            try {
-              setWorking(true);
+            const previousRequests = requests;
 
+            setRequests((old) =>
+              old.filter((r) => r.id !== request.id)
+            );
+
+            try {
               const { error } = await db
                 .from('friend_requests')
                 .delete()
@@ -411,12 +445,9 @@ export default function DiscoverScreen() {
                 .eq('status', 'pending');
 
               if (error) throw error;
-
-              await loadDiscover();
             } catch (error: any) {
+              setRequests(previousRequests);
               Alert.alert('Could not cancel', getError(error));
-            } finally {
-              setWorking(false);
             }
           },
         },
@@ -424,15 +455,21 @@ export default function DiscoverScreen() {
     );
   };
 
+  // FOLLOW / UNFOLLOW
   const toggleFollow = async (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
 
     const isFollowing = following.includes(person.user_id);
+    const previousFollowing = following;
+
+    setFollowing((old) =>
+      isFollowing
+        ? old.filter((id) => id !== person.user_id)
+        : [...old, person.user_id]
+    );
 
     try {
-      setWorking(true);
-
       if (isFollowing) {
         const { error } = await db
           .from('user_follows')
@@ -441,10 +478,6 @@ export default function DiscoverScreen() {
           .eq('following_id', person.user_id);
 
         if (error) throw error;
-
-        setFollowing((old) =>
-          old.filter((id) => id !== person.user_id)
-        );
       } else {
         const { error } = await db.from('user_follows').insert({
           follower_id: myId,
@@ -452,25 +485,28 @@ export default function DiscoverScreen() {
         });
 
         if (error) throw error;
-
-        setFollowing((old) => [...old, person.user_id]);
       }
     } catch (error: any) {
+      setFollowing(previousFollowing);
       Alert.alert('Follow action failed', getError(error));
-    } finally {
-      setWorking(false);
     }
   };
 
+  // PIN / UNPIN
   const togglePin = async (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
 
     const isPinned = pinned.includes(person.user_id);
+    const previousPinned = pinned;
+
+    setPinned((old) =>
+      isPinned
+        ? old.filter((id) => id !== person.user_id)
+        : [...old, person.user_id]
+    );
 
     try {
-      setWorking(true);
-
       if (isPinned) {
         const { error } = await db
           .from('pinned_profiles')
@@ -479,10 +515,6 @@ export default function DiscoverScreen() {
           .eq('profile_id', person.user_id);
 
         if (error) throw error;
-
-        setPinned((old) =>
-          old.filter((id) => id !== person.user_id)
-        );
       } else {
         const { error } = await db.from('pinned_profiles').insert({
           user_id: myId,
@@ -490,19 +522,33 @@ export default function DiscoverScreen() {
         });
 
         if (error) throw error;
-
-        setPinned((old) => [...old, person.user_id]);
       }
     } catch (error: any) {
+      setPinned(previousPinned);
       Alert.alert('Pin action failed', getError(error));
-    } finally {
-      setWorking(false);
     }
   };
 
+  // REMOVE FRIEND: REMOVE LOCALLY FIRST
   const removeFriend = (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
+
+    const request = requests.find(
+      (r) =>
+        r.status === 'accepted' &&
+        (
+          (r.sender_id === myId &&
+            r.recipient_id === person.user_id) ||
+          (r.recipient_id === myId &&
+            r.sender_id === person.user_id)
+        )
+    );
+
+    if (!request) {
+      Alert.alert('Friend not found', 'Refresh Discover and try again.');
+      return;
+    }
 
     Alert.alert(
       'Remove friend?',
@@ -513,42 +559,28 @@ export default function DiscoverScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            const request = requests.find(
-              (r) =>
-                r.status === 'accepted' &&
-                (
-                  (r.sender_id === myId &&
-                    r.recipient_id === person.user_id) ||
-                  (r.recipient_id === myId &&
-                    r.sender_id === person.user_id)
-                )
+            const previousFriends = friends;
+            const previousRequests = requests;
+
+            setFriends((old) =>
+              old.filter((id) => id !== person.user_id)
             );
 
-            if (!request) return;
+            setRequests((old) =>
+              old.filter((r) => r.id !== request.id)
+            );
 
             try {
-              setWorking(true);
-
               const { error } = await db
                 .from('friend_requests')
                 .delete()
                 .eq('id', request.id);
 
               if (error) throw error;
-
-              setFriends((old) =>
-                old.filter((id) => id !== person.user_id)
-              );
-
-              setRequests((old) =>
-                old.filter((r) => r.id !== request.id)
-              );
-
-              Alert.alert('Friend removed', 'Friendship removed.');
             } catch (error: any) {
+              setFriends(previousFriends);
+              setRequests(previousRequests);
               Alert.alert('Could not remove friend', getError(error));
-            } finally {
-              setWorking(false);
             }
           },
         },
@@ -556,6 +588,7 @@ export default function DiscoverScreen() {
     );
   };
 
+  // BLOCK MEMBER: HIDE IMMEDIATELY
   const blockPerson = (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
@@ -569,9 +602,55 @@ export default function DiscoverScreen() {
           text: 'Block',
           style: 'destructive',
           onPress: async () => {
-            try {
-              setWorking(true);
+            const previousBlocked = blocked;
+            const previousPeople = people;
+            const previousRecent = recent;
+            const previousFriends = friends;
+            const previousFollowing = following;
+            const previousPinned = pinned;
+            const previousRequests = requests;
+            const previousSelected = selected;
+            const previousMenu = menuPerson;
 
+            // Immediately hide the member.
+            setBlocked((old) =>
+              old.includes(person.user_id)
+                ? old
+                : [...old, person.user_id]
+            );
+
+            setPeople((old) =>
+              old.filter((p) => p.user_id !== person.user_id)
+            );
+
+            setRecent((old) =>
+              old.filter((p) => p.user_id !== person.user_id)
+            );
+
+            setFriends((old) =>
+              old.filter((id) => id !== person.user_id)
+            );
+
+            setFollowing((old) =>
+              old.filter((id) => id !== person.user_id)
+            );
+
+            setPinned((old) =>
+              old.filter((id) => id !== person.user_id)
+            );
+
+            setRequests((old) =>
+              old.filter(
+                (r) =>
+                  r.sender_id !== person.user_id &&
+                  r.recipient_id !== person.user_id
+              )
+            );
+
+            setSelected(null);
+            setMenuPerson(null);
+
+            try {
               const { error } = await db
                 .from('blocked_users')
                 .insert({
@@ -580,23 +659,18 @@ export default function DiscoverScreen() {
                 });
 
               if (error) throw error;
-
-              setBlocked((old) => [...old, person.user_id]);
-              setPeople((old) =>
-                old.filter((p) => p.user_id !== person.user_id)
-              );
-              setRecent((old) =>
-                old.filter((p) => p.user_id !== person.user_id)
-              );
-              setSelected(null);
-              setMenuPerson(null);
-
-              Alert.alert('Member blocked', 'This member is now blocked.');
-              await loadDiscover();
             } catch (error: any) {
+              setBlocked(previousBlocked);
+              setPeople(previousPeople);
+              setRecent(previousRecent);
+              setFriends(previousFriends);
+              setFollowing(previousFollowing);
+              setPinned(previousPinned);
+              setRequests(previousRequests);
+              setSelected(previousSelected);
+              setMenuPerson(previousMenu);
+
               Alert.alert('Could not block member', getError(error));
-            } finally {
-              setWorking(false);
             }
           },
         },
@@ -604,13 +678,18 @@ export default function DiscoverScreen() {
     );
   };
 
+  // UNBLOCK MEMBER
   const unblockPerson = async (personId: string) => {
     const db = supabase;
     if (!db || !myId) return;
 
-    try {
-      setWorking(true);
+    const previousBlocked = blocked;
 
+    setBlocked((old) =>
+      old.filter((id) => id !== personId)
+    );
+
+    try {
       const { error } = await db
         .from('blocked_users')
         .delete()
@@ -619,18 +698,31 @@ export default function DiscoverScreen() {
 
       if (error) throw error;
 
-      setBlocked((old) => old.filter((id) => id !== personId));
+      const { data, error: profileError } = await db
+        .from('profiles')
+        .select(
+          'user_id,username,display_name,bio,avatar_url,is_public'
+        )
+        .eq('user_id', personId)
+        .eq('is_public', true)
+        .maybeSingle();
 
-      Alert.alert('Unblocked', 'Member unblocked successfully.');
+      if (profileError) throw profileError;
 
-      await loadDiscover();
+      if (data) {
+        setPeople((old) =>
+          old.some((p) => p.user_id === personId)
+            ? old
+            : [data as Profile, ...old]
+        );
+      }
     } catch (error: any) {
+      setBlocked(previousBlocked);
       Alert.alert('Could not unblock member', getError(error));
-    } finally {
-      setWorking(false);
     }
   };
 
+  // REPORT MEMBER
   const submitReport = async () => {
     const db = supabase;
     if (!db || !myId || !reportPerson) return;
@@ -664,9 +756,16 @@ export default function DiscoverScreen() {
     }
   };
 
+  // DELETE RECENT PROFILE
   const deleteRecent = async (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
+
+    const previousRecent = recent;
+
+    setRecent((old) =>
+      old.filter((p) => p.user_id !== person.user_id)
+    );
 
     try {
       const { error } = await db
@@ -676,15 +775,13 @@ export default function DiscoverScreen() {
         .eq('profile_id', person.user_id);
 
       if (error) throw error;
-
-      setRecent((old) =>
-        old.filter((p) => p.user_id !== person.user_id)
-      );
     } catch (error: any) {
+      setRecent(previousRecent);
       Alert.alert('Could not delete recent user', getError(error));
     }
   };
 
+  // CLEAR RECENT HISTORY
   const clearRecent = () => {
     if (!recent.length) {
       Alert.alert('Recent users', 'There are no recent profiles to delete.');
@@ -703,6 +800,9 @@ export default function DiscoverScreen() {
             const db = supabase;
             if (!db) return;
 
+            const previousRecent = recent;
+            setRecent([]);
+
             try {
               const { error } = await db
                 .from('recent_profiles')
@@ -710,9 +810,8 @@ export default function DiscoverScreen() {
                 .eq('user_id', myId);
 
               if (error) throw error;
-
-              setRecent([]);
             } catch (error: any) {
+              setRecent(previousRecent);
               Alert.alert('Could not delete', getError(error));
             }
           },
@@ -738,6 +837,7 @@ export default function DiscoverScreen() {
     setReportDetails('');
   };
 
+  // AVATAR
   const Avatar = ({
     person,
     size = 58,
@@ -774,6 +874,7 @@ export default function DiscoverScreen() {
     </View>
   );
 
+  // SECTION BUTTON
   const SectionButton = ({
     label,
     icon,
@@ -797,11 +898,7 @@ export default function DiscoverScreen() {
       <Ionicons
         name={icon}
         size={17}
-        color={
-          selectedValue === value
-            ? '#FFFFFF'
-            : theme.blue
-        }
+        color={selectedValue === value ? '#FFFFFF' : theme.blue}
       />
       <Text
         style={[
@@ -814,6 +911,7 @@ export default function DiscoverScreen() {
     </Pressable>
   );
 
+  // PROFILE CARD
   const ProfileCard = ({
     person,
     isRecent = false,
@@ -902,7 +1000,7 @@ export default function DiscoverScreen() {
             </Pressable>
           ) : (
             <Pressable
-              disabled={working || outgoing}
+              disabled={outgoing}
               style={styles.smallAction}
               onPress={() => sendFriendRequest(person)}
             >
@@ -918,7 +1016,6 @@ export default function DiscoverScreen() {
           )}
 
           <Pressable
-            disabled={working}
             style={styles.smallAction}
             onPress={() => toggleFollow(person)}
           >
@@ -960,6 +1057,7 @@ export default function DiscoverScreen() {
     );
   };
 
+  // REQUEST CARD
   const RequestCard = ({
     request,
     incoming,
@@ -990,7 +1088,9 @@ export default function DiscoverScreen() {
                   {person.username ? `@${person.username}` : 'BRITUME member'}
                 </Text>
                 <Text style={styles.bio}>
-                  {incoming ? 'Sent you a friend request' : 'Request awaiting response'}
+                  {incoming
+                    ? 'Sent you a friend request'
+                    : 'Request awaiting response'}
                 </Text>
               </View>
             </Pressable>
@@ -1007,7 +1107,6 @@ export default function DiscoverScreen() {
         {incoming ? (
           <View style={styles.requestActions}>
             <Pressable
-              disabled={working}
               style={styles.acceptButton}
               onPress={() => respondToRequest(request, 'accepted')}
             >
@@ -1015,7 +1114,6 @@ export default function DiscoverScreen() {
             </Pressable>
 
             <Pressable
-              disabled={working}
               style={styles.rejectButton}
               onPress={() => respondToRequest(request, 'rejected')}
             >
@@ -1105,11 +1203,7 @@ export default function DiscoverScreen() {
           </View>
 
           <Pressable style={styles.headerButton} onPress={refresh}>
-            <Ionicons
-              name="refresh"
-              size={22}
-              color={theme.blue}
-            />
+            <Ionicons name="refresh" size={22} color={theme.blue} />
           </Pressable>
         </View>
 
@@ -1137,10 +1231,12 @@ export default function DiscoverScreen() {
           />
 
           {search.length > 0 && (
-            <Pressable onPress={() => {
-              setSearch('');
-              loadDiscover();
-            }}>
+            <Pressable
+              onPress={() => {
+                setSearch('');
+                void loadDiscover();
+              }}
+            >
               <Ionicons name="close-circle" size={20} color={theme.muted} />
             </Pressable>
           )}
@@ -1299,6 +1395,7 @@ export default function DiscoverScreen() {
                 title="No friends yet"
                 message="Send friend requests to connect with members."
                 styles={styles}
+                color={theme.blue}
               />
             ) : (
               friendPeople.map((person) => (
@@ -1321,6 +1418,7 @@ export default function DiscoverScreen() {
                 title="Not following anyone"
                 message="Follow members to keep track of their profiles."
                 styles={styles}
+                color={theme.blue}
               />
             ) : (
               followingPeople.map((person) => (
@@ -1344,6 +1442,7 @@ export default function DiscoverScreen() {
                 title="No incoming requests"
                 message="New friend requests will appear here."
                 styles={styles}
+                color={theme.blue}
               />
             ) : (
               incomingRequests.map((request) => (
@@ -1365,6 +1464,7 @@ export default function DiscoverScreen() {
                 title="No pending sent requests"
                 message="Requests you send will appear here."
                 styles={styles}
+                color={theme.blue}
               />
             ) : (
               outgoingRequests.map((request) => (
@@ -1391,6 +1491,7 @@ export default function DiscoverScreen() {
                 title="No blocked members"
                 message="Members you block will appear here."
                 styles={styles}
+                color={theme.blue}
               />
             ) : (
               blocked.map((id) => (
@@ -1403,7 +1504,6 @@ export default function DiscoverScreen() {
                   </View>
 
                   <Pressable
-                    disabled={working}
                     style={styles.unblockButton}
                     onPress={() => unblockPerson(id)}
                   >
@@ -1458,7 +1558,6 @@ export default function DiscoverScreen() {
 
                 <View style={styles.modalActions}>
                   <Pressable
-                    disabled={working}
                     style={styles.modalPrimary}
                     onPress={() => toggleFollow(selected)}
                   >
@@ -1479,7 +1578,6 @@ export default function DiscoverScreen() {
                   </Pressable>
 
                   <Pressable
-                    disabled={working}
                     style={styles.modalSecondary}
                     onPress={() => togglePin(selected)}
                   >
@@ -1512,7 +1610,6 @@ export default function DiscoverScreen() {
                   </Pressable>
                 ) : (
                   <Pressable
-                    disabled={working}
                     style={styles.modalPrimary}
                     onPress={() => sendFriendRequest(selected)}
                   >
@@ -1608,8 +1705,9 @@ export default function DiscoverScreen() {
                       : 'Pin profile'
                   }
                   onPress={() => {
-                    togglePin(menuPerson);
+                    const person = menuPerson;
                     setMenuPerson(null);
+                    void togglePin(person);
                   }}
                   styles={styles}
                 />
@@ -1715,26 +1813,30 @@ export default function DiscoverScreen() {
   );
 }
 
+// EMPTY STATE
 function EmptyState({
   icon,
   title,
   message,
   styles,
+  color,
 }: {
   icon: any;
   title: string;
   message: string;
   styles: any;
+  color: string;
 }) {
   return (
     <View style={styles.emptyCard}>
-      <Ionicons name={icon} size={37} color={styles.__blue || '#3988E8'} />
+      <Ionicons name={icon} size={37} color={color} />
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyText}>{message}</Text>
     </View>
   );
 }
 
+// MENU ACTION
 function MenuAction({
   icon,
   label,
@@ -1767,6 +1869,7 @@ function MenuAction({
   );
 }
 
+// DISCOVER STYLES
 function createStyles(theme: any) {
   return StyleSheet.create({
     screen: {
