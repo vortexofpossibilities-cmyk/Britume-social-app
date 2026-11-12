@@ -70,9 +70,9 @@ const items: TabItem[] = [
   },
   {
     icon: 'videocam-outline',
-    route: '/stories',
-    activePath: '/stories',
-    key: 'videos',
+    route: '/reels',
+activePath: '/reels',
+key: 'videos',
   },
 ];
 
