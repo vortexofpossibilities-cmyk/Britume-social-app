@@ -5,6 +5,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -50,6 +51,36 @@ const REPORT_REASONS: ReportReason[] = [
   'scam',
   'other',
 ];
+
+// CROSS-PLATFORM CONFIRMATION
+function showDestructiveConfirmation(
+  title: string,
+  message: string,
+  confirmLabel: string,
+  onConfirm: () => void
+) {
+  if (Platform.OS === 'web') {
+    if (
+      typeof window !== 'undefined' &&
+      window.confirm(`${title}\n\n${message}`)
+    ) {
+      onConfirm();
+    }
+    return;
+  }
+
+  Alert.alert(title, message, [
+    {
+      text: 'Cancel',
+      style: 'cancel',
+    },
+    {
+      text: confirmLabel,
+      style: 'destructive',
+      onPress: onConfirm,
+    },
+  ]);
+}
 
 export default function DiscoverScreen() {
   const { theme } = useAppTheme();
@@ -293,7 +324,6 @@ export default function DiscoverScreen() {
 
       if (error) throw error;
     } catch (error: any) {
-      // Recent history is optional; don't interrupt profile opening.
       console.warn('Recent profile save failed:', getError(error));
     }
   };
@@ -358,7 +388,9 @@ export default function DiscoverScreen() {
       if (error) throw error;
 
       setRequests((old) =>
-        old.map((r) => r.id === temporaryId ? data as FriendRequest : r)
+        old.map((r) =>
+          r.id === temporaryId ? data as FriendRequest : r
+        )
       );
     } catch (error: any) {
       setRequests((old) =>
@@ -368,7 +400,7 @@ export default function DiscoverScreen() {
     }
   };
 
-  // ACCEPT OR REJECT: UPDATE THE SCREEN FIRST
+  // ACCEPT OR REJECT REQUEST
   const respondToRequest = async (
     request: FriendRequest,
     status: 'accepted' | 'rejected'
@@ -407,7 +439,9 @@ export default function DiscoverScreen() {
 
       if (error) throw error;
       if (!data?.length) {
-        throw new Error('This request has already changed. Refresh Discover.');
+        throw new Error(
+          'This request has already changed. Refresh Discover.'
+        );
       }
     } catch (error: any) {
       setRequests(previousRequests);
@@ -421,37 +455,31 @@ export default function DiscoverScreen() {
     const db = supabase;
     if (!db || !myId) return;
 
-    Alert.alert(
+    showDestructiveConfirmation(
       'Cancel friend request?',
       'This will cancel your pending request.',
-      [
-        { text: 'Keep request', style: 'cancel' },
-        {
-          text: 'Cancel request',
-          style: 'destructive',
-          onPress: async () => {
-            const previousRequests = requests;
+      'Cancel request',
+      async () => {
+        const previousRequests = requests;
 
-            setRequests((old) =>
-              old.filter((r) => r.id !== request.id)
-            );
+        setRequests((old) =>
+          old.filter((r) => r.id !== request.id)
+        );
 
-            try {
-              const { error } = await db
-                .from('friend_requests')
-                .delete()
-                .eq('id', request.id)
-                .eq('sender_id', myId)
-                .eq('status', 'pending');
+        try {
+          const { error } = await db
+            .from('friend_requests')
+            .delete()
+            .eq('id', request.id)
+            .eq('sender_id', myId)
+            .eq('status', 'pending');
 
-              if (error) throw error;
-            } catch (error: any) {
-              setRequests(previousRequests);
-              Alert.alert('Could not cancel', getError(error));
-            }
-          },
-        },
-      ]
+          if (error) throw error;
+        } catch (error: any) {
+          setRequests(previousRequests);
+          Alert.alert('Could not cancel', getError(error));
+        }
+      }
     );
   };
 
@@ -529,7 +557,7 @@ export default function DiscoverScreen() {
     }
   };
 
-  // REMOVE FRIEND: REMOVE LOCALLY FIRST
+  // REMOVE FRIEND
   const removeFriend = (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
@@ -546,135 +574,131 @@ export default function DiscoverScreen() {
     );
 
     if (!request) {
-      Alert.alert('Friend not found', 'Refresh Discover and try again.');
+      Alert.alert(
+        'Friend not found',
+        'Refresh Discover and try again.'
+      );
       return;
     }
 
-    Alert.alert(
+    showDestructiveConfirmation(
       'Remove friend?',
       `Remove ${nameOf(person)} from your friends?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const previousFriends = friends;
-            const previousRequests = requests;
+      'Remove',
+      async () => {
+        const previousFriends = friends;
+        const previousRequests = requests;
 
-            setFriends((old) =>
-              old.filter((id) => id !== person.user_id)
-            );
+        setFriends((old) =>
+          old.filter((id) => id !== person.user_id)
+        );
 
-            setRequests((old) =>
-              old.filter((r) => r.id !== request.id)
-            );
+        setRequests((old) =>
+          old.filter((r) => r.id !== request.id)
+        );
 
-            try {
-              const { error } = await db
-                .from('friend_requests')
-                .delete()
-                .eq('id', request.id);
+        try {
+          const { error } = await db
+            .from('friend_requests')
+            .delete()
+            .eq('id', request.id);
 
-              if (error) throw error;
-            } catch (error: any) {
-              setFriends(previousFriends);
-              setRequests(previousRequests);
-              Alert.alert('Could not remove friend', getError(error));
-            }
-          },
-        },
-      ]
+          if (error) throw error;
+        } catch (error: any) {
+          setFriends(previousFriends);
+          setRequests(previousRequests);
+          Alert.alert(
+            'Could not remove friend',
+            getError(error)
+          );
+        }
+      }
     );
   };
 
-  // BLOCK MEMBER: HIDE IMMEDIATELY
+  // BLOCK MEMBER
   const blockPerson = (person: Profile) => {
     const db = supabase;
     if (!db || !myId) return;
 
-    Alert.alert(
+    showDestructiveConfirmation(
       'Block member?',
       `${nameOf(person)} will be added to your blocked list.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            const previousBlocked = blocked;
-            const previousPeople = people;
-            const previousRecent = recent;
-            const previousFriends = friends;
-            const previousFollowing = following;
-            const previousPinned = pinned;
-            const previousRequests = requests;
-            const previousSelected = selected;
-            const previousMenu = menuPerson;
+      'Block',
+      async () => {
+        const previousBlocked = blocked;
+        const previousPeople = people;
+        const previousRecent = recent;
+        const previousFriends = friends;
+        const previousFollowing = following;
+        const previousPinned = pinned;
+        const previousRequests = requests;
+        const previousSelected = selected;
+        const previousMenu = menuPerson;
 
-            // Immediately hide the member.
-            setBlocked((old) =>
-              old.includes(person.user_id)
-                ? old
-                : [...old, person.user_id]
-            );
+        setBlocked((old) =>
+          old.includes(person.user_id)
+            ? old
+            : [...old, person.user_id]
+        );
 
-            setPeople((old) =>
-              old.filter((p) => p.user_id !== person.user_id)
-            );
+        setPeople((old) =>
+          old.filter((p) => p.user_id !== person.user_id)
+        );
 
-            setRecent((old) =>
-              old.filter((p) => p.user_id !== person.user_id)
-            );
+        setRecent((old) =>
+          old.filter((p) => p.user_id !== person.user_id)
+        );
 
-            setFriends((old) =>
-              old.filter((id) => id !== person.user_id)
-            );
+        setFriends((old) =>
+          old.filter((id) => id !== person.user_id)
+        );
 
-            setFollowing((old) =>
-              old.filter((id) => id !== person.user_id)
-            );
+        setFollowing((old) =>
+          old.filter((id) => id !== person.user_id)
+        );
 
-            setPinned((old) =>
-              old.filter((id) => id !== person.user_id)
-            );
+        setPinned((old) =>
+          old.filter((id) => id !== person.user_id)
+        );
 
-            setRequests((old) =>
-              old.filter(
-                (r) =>
-                  r.sender_id !== person.user_id &&
-                  r.recipient_id !== person.user_id
-              )
-            );
+        setRequests((old) =>
+          old.filter(
+            (r) =>
+              r.sender_id !== person.user_id &&
+              r.recipient_id !== person.user_id
+          )
+        );
 
-            setSelected(null);
-            setMenuPerson(null);
+        setSelected(null);
+        setMenuPerson(null);
 
-            try {
-              const { error } = await db
-                .from('blocked_users')
-                .insert({
-                  user_id: myId,
-                  blocked_user_id: person.user_id,
-                });
+        try {
+          const { error } = await db
+            .from('blocked_users')
+            .insert({
+              user_id: myId,
+              blocked_user_id: person.user_id,
+            });
 
-              if (error) throw error;
-            } catch (error: any) {
-              setBlocked(previousBlocked);
-              setPeople(previousPeople);
-              setRecent(previousRecent);
-              setFriends(previousFriends);
-              setFollowing(previousFollowing);
-              setPinned(previousPinned);
-              setRequests(previousRequests);
-              setSelected(previousSelected);
-              setMenuPerson(previousMenu);
+          if (error) throw error;
+        } catch (error: any) {
+          setBlocked(previousBlocked);
+          setPeople(previousPeople);
+          setRecent(previousRecent);
+          setFriends(previousFriends);
+          setFollowing(previousFollowing);
+          setPinned(previousPinned);
+          setRequests(previousRequests);
+          setSelected(previousSelected);
+          setMenuPerson(previousMenu);
 
-              Alert.alert('Could not block member', getError(error));
-            }
-          },
-        },
-      ]
+          Alert.alert(
+            'Could not block member',
+            getError(error)
+          );
+        }
+      }
     );
   };
 
@@ -784,39 +808,36 @@ export default function DiscoverScreen() {
   // CLEAR RECENT HISTORY
   const clearRecent = () => {
     if (!recent.length) {
-      Alert.alert('Recent users', 'There are no recent profiles to delete.');
+      Alert.alert(
+        'Recent users',
+        'There are no recent profiles to delete.'
+      );
       return;
     }
 
-    Alert.alert(
+    showDestructiveConfirmation(
       'Clear recent users?',
       'Delete all your recent profile visits?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete all',
-          style: 'destructive',
-          onPress: async () => {
-            const db = supabase;
-            if (!db) return;
+      'Delete all',
+      async () => {
+        const db = supabase;
+        if (!db) return;
 
-            const previousRecent = recent;
-            setRecent([]);
+        const previousRecent = recent;
+        setRecent([]);
 
-            try {
-              const { error } = await db
-                .from('recent_profiles')
-                .delete()
-                .eq('user_id', myId);
+        try {
+          const { error } = await db
+            .from('recent_profiles')
+            .delete()
+            .eq('user_id', myId);
 
-              if (error) throw error;
-            } catch (error: any) {
-              setRecent(previousRecent);
-              Alert.alert('Could not delete', getError(error));
-            }
-          },
-        },
-      ]
+          if (error) throw error;
+        } catch (error: any) {
+          setRecent(previousRecent);
+          Alert.alert('Could not delete', getError(error));
+        }
+      }
     );
   };
 
@@ -993,7 +1014,11 @@ export default function DiscoverScreen() {
               style={styles.smallAction}
               onPress={() => setActiveSection('requests')}
             >
-              <Ionicons name="mail-outline" size={16} color={theme.success} />
+              <Ionicons
+                name="mail-outline"
+                size={16}
+                color={theme.success}
+              />
               <Text style={[styles.smallActionText, { color: theme.success }]}>
                 Respond
               </Text>
@@ -1085,7 +1110,9 @@ export default function DiscoverScreen() {
                   {nameOf(person)}
                 </Text>
                 <Text style={styles.username}>
-                  {person.username ? `@${person.username}` : 'BRITUME member'}
+                  {person.username
+                    ? `@${person.username}`
+                    : 'BRITUME member'}
                 </Text>
                 <Text style={styles.bio}>
                   {incoming
@@ -1098,7 +1125,9 @@ export default function DiscoverScreen() {
             <View style={styles.personInfo}>
               <Text style={styles.personName}>BRITUME member</Text>
               <Text style={styles.bio}>
-                {incoming ? 'Incoming friend request' : 'Outgoing friend request'}
+                {incoming
+                  ? 'Incoming friend request'
+                  : 'Outgoing friend request'}
               </Text>
             </View>
           )}
@@ -1237,7 +1266,11 @@ export default function DiscoverScreen() {
                 void loadDiscover();
               }}
             >
-              <Ionicons name="close-circle" size={20} color={theme.muted} />
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={theme.muted}
+              />
             </Pressable>
           )}
 
@@ -1330,7 +1363,11 @@ export default function DiscoverScreen() {
 
                 {recent.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <Ionicons name="time-outline" size={34} color={theme.blue} />
+                    <Ionicons
+                      name="time-outline"
+                      size={34}
+                      color={theme.blue}
+                    />
                     <Text style={styles.emptyTitle}>No recent users</Text>
                     <Text style={styles.emptyText}>
                       Profiles you visit will appear here.
@@ -1640,7 +1677,11 @@ export default function DiscoverScreen() {
                   style={styles.modalDanger}
                   onPress={() => blockPerson(selected)}
                 >
-                  <Ionicons name="ban-outline" size={18} color={theme.danger} />
+                  <Ionicons
+                    name="ban-outline"
+                    size={18}
+                    color={theme.danger}
+                  />
                   <Text style={styles.modalDangerText}>Block member</Text>
                 </Pressable>
 
