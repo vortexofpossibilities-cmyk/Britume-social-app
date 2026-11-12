@@ -104,29 +104,44 @@ async function enrichPosts(
   }
 
   const mediaByPost = new Map<string, PostMedia[]>();
+  const mediaItems = mediaResult.data ?? [];
+  const signedMedia: PostMedia[] = [];
 
-  for (const item of mediaResult.data ?? []) {
-    const { data, error } = await client.storage
-      .from(MEDIA_BUCKET)
-      .createSignedUrl(item.storage_path, SIGNED_URL_SECONDS);
+  // Create signed URLs in batches of 8 for faster loading.
+  for (let start = 0; start < mediaItems.length; start += 8) {
+    const batch = mediaItems.slice(start, start + 8);
 
-    if (error || !data?.signedUrl) {
-      console.warn(
-        'BRITUME media link could not be created:',
-        item.storage_path,
-        error?.message,
-      );
-      continue;
-    }
+    const results = await Promise.all(
+      batch.map(async item => {
+        const { data, error } = await client.storage
+          .from(MEDIA_BUCKET)
+          .createSignedUrl(item.storage_path, SIGNED_URL_SECONDS);
 
-    const mediaItem: PostMedia = {
-      ...item,
-      url: data.signedUrl,
-    } as PostMedia;
+        if (error || !data?.signedUrl) {
+          console.warn(
+            'BRITUME media link could not be created:',
+            item.storage_path,
+            error?.message,
+          );
+          return null;
+        }
 
-    const existing = mediaByPost.get(item.post_id) ?? [];
+        return {
+          ...item,
+          url: data.signedUrl,
+        } as PostMedia;
+      }),
+    );
+
+    signedMedia.push(
+      ...results.filter((item): item is PostMedia => item !== null),
+    );
+  }
+
+  for (const mediaItem of signedMedia) {
+    const existing = mediaByPost.get(mediaItem.post_id) ?? [];
     existing.push(mediaItem);
-    mediaByPost.set(item.post_id, existing);
+    mediaByPost.set(mediaItem.post_id, existing);
   }
 
   return posts.map(post => ({
@@ -413,4 +428,4 @@ export async function fetchPostsForUser(
   return enrichPosts(
     (data ?? []) as Omit<FeedPost, 'author' | 'media'>[],
   );
-  }
+    }
