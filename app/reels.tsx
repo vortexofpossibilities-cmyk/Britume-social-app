@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,7 +37,7 @@ function ReelVideo({ uri }: { uri: string }) {
     <View style={styles.videoFallback}>
       <Ionicons name="videocam-outline" size={48} color="#fff" />
       <Text style={styles.white}>
-        Open BRITUME in a supported video player.
+        Video playback is not available here.
       </Text>
     </View>
   );
@@ -48,6 +49,18 @@ export default function VideosScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const addReel = () => {
+    router.push('/(tabs)/create' as never);
+  };
+
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)' as never);
+    }
+  };
 
   const loadVideos = useCallback(async () => {
     setLoading(true);
@@ -68,7 +81,7 @@ export default function VideosScreen() {
     } catch (err: any) {
       console.error('BRITUME Reels loading error:', err);
       setError(
-        err?.message || 'Could not load videos. Please try again.'
+        err?.message || 'Could not load Reels. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -97,17 +110,6 @@ export default function VideosScreen() {
           </View>
         )}
 
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.back}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={25} color="#fff" />
-          </Pressable>
-
-          <Text style={styles.heading}>BRITUME REELS</Text>
-        </View>
-
         <View style={styles.captionArea}>
           <Text style={styles.author}>
             {item.author?.display_name ||
@@ -122,7 +124,7 @@ export default function VideosScreen() {
           )}
 
           <Text style={styles.hint}>
-            Swipe up for the next video
+            Swipe up for the next Reel
           </Text>
         </View>
       </View>
@@ -131,6 +133,28 @@ export default function VideosScreen() {
 
   return (
     <View style={styles.screen}>
+      <View style={styles.topBar}>
+        <Pressable
+          style={styles.iconButton}
+          onPress={goBack}
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </Pressable>
+
+        <Text style={styles.heading}>BRITUME REELS</Text>
+
+        <Pressable
+          style={styles.addButton}
+          onPress={addReel}
+          accessibilityRole="button"
+          accessibilityLabel="Add a Reel"
+        >
+          <Ionicons name="add" size={23} color="#fff" />
+          <Text style={styles.addText}>Add</Text>
+        </Pressable>
+      </View>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#19C5E8" />
@@ -143,7 +167,9 @@ export default function VideosScreen() {
             size={55}
             color="#FF6B6B"
           />
+
           <Text style={styles.title}>Reels could not load</Text>
+
           <Text style={styles.message}>{error}</Text>
 
           <Pressable
@@ -154,12 +180,14 @@ export default function VideosScreen() {
             <Text style={styles.white}>Try again</Text>
           </Pressable>
 
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.link}>Go back</Text>
+          <Pressable style={styles.retry} onPress={addReel}>
+            <Ionicons name="add" size={20} color="#fff" />
+            <Text style={styles.white}>Add a Reel</Text>
           </Pressable>
         </View>
       ) : posts.length > 0 ? (
         <FlatList
+          style={styles.list}
           data={posts}
           keyExtractor={item => item.id}
           renderItem={renderItem}
@@ -180,29 +208,22 @@ export default function VideosScreen() {
         />
       ) : (
         <View style={styles.center}>
-          <Pressable
-            style={styles.back}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={25} color="#fff" />
-          </Pressable>
-
           <Ionicons
             name="videocam-off-outline"
-            size={60}
+            size={65}
             color="#fff"
           />
+
           <Text style={styles.title}>No Reels yet</Text>
+
           <Text style={styles.message}>
-            Videos shared publicly on BRITUME will appear here.
+            Be the first to share a video on BRITUME.
+            Your public video posts will appear here.
           </Text>
 
-          <Pressable
-            style={styles.retry}
-            onPress={() => router.push('/(tabs)/create')}
-          >
-            <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
-            <Text style={styles.white}>Upload a video</Text>
+          <Pressable style={styles.retry} onPress={addReel}>
+            <Ionicons name="add-circle-outline" size={21} color="#fff" />
+            <Text style={styles.white}>Add your first Reel</Text>
           </Pressable>
         </View>
       )}
@@ -214,6 +235,49 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#07111F',
+  },
+  list: {
+    flex: 1,
+  },
+  topBar: {
+    height: 66,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    backgroundColor: '#07111F',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+    elevation: 10,
+  },
+  heading: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 22,
+    backgroundColor: '#1B3046',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#128FBD',
+    paddingHorizontal: 14,
+    height: 40,
+    borderRadius: 22,
+  },
+  addText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
   },
   reel: {
     width: '100%',
@@ -238,29 +302,6 @@ const styles = StyleSheet.create({
   white: {
     color: '#fff',
     fontSize: 14,
-  },
-  topBar: {
-    position: 'absolute',
-    top: 22,
-    left: 15,
-    right: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0008',
-  },
-  heading: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: 1,
   },
   captionArea: {
     position: 'absolute',
@@ -304,10 +345,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 13,
     borderRadius: 25,
-    marginTop: 8,
-  },
-  link: {
-    color: '#59D9F5',
     marginTop: 8,
   },
 });
