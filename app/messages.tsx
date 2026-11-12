@@ -1,8 +1,8 @@
-
 import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -66,7 +66,6 @@ export default function MessagesScreen() {
   const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Direct chat state
   const [activePerson, setActivePerson] = useState<Profile | null>(null);
   const [conversationId, setConversationId] = useState('');
   const [chatVisible, setChatVisible] = useState(false);
@@ -75,8 +74,37 @@ export default function MessagesScreen() {
   const [sending, setSending] = useState(false);
   const [messageText, setMessageText] = useState('');
 
+  const [peerOnline, setPeerOnline] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+
+  const channelRef = useRef<any>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const displayName = (person: Profile) =>
     person.display_name || person.username || 'BRITUME member';
+
+  const sortMessages = (items: ChatMessage[]) =>
+    [...items].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() -
+        new Date(b.created_at).getTime()
+    );
+
+  const mergeMessage = useCallback((message: ChatMessage) => {
+    setChatMessages(previous => {
+      const exists = previous.some(item => item.id === message.id);
+
+      if (exists) {
+        return sortMessages(
+          previous.map(item =>
+            item.id === message.id ? { ...item, ...message } : item
+          )
+        );
+      }
+
+      return sortMessages([...previous, message]);
+    });
+  }, []);
 
   const loadMessagesData = useCallback(async () => {
     const client = supabase;
@@ -316,7 +344,7 @@ export default function MessagesScreen() {
     }
   };
 
-  // Load messages between the signed-in user and one friend.
+  // Load messages and mark incoming messages as read.
   const loadConversationMessages = useCallback(
     async (person: Profile) => {
       const client = supabase;
@@ -332,15 +360,39 @@ export default function MessagesScreen() {
 
       if (error) throw error;
 
-      setChatMessages((data || []) as ChatMessage[]);
+      const messages = (data || []) as ChatMessage[];
+      setChatMessages(sortMessages(messages));
 
-      // Mark incoming unread messages as read.
-      await client
-        .from('messages')
-        .update({ read_at: new Date().toISOString() })
-        .eq('sender_id', person.user_id)
-        .eq('recipient_id', myId)
-        .is('read_at', null);
+      const unreadIds = messages
+        .filter(
+          message =>
+            message.sender_id === person.user_id &&
+            message.recipient_id === myId &&
+            !message.read_at
+        )
+        .map(message => message.id);
+
+      if (unreadIds.length > 0) {
+        const readAt = new Date().toISOString();
+
+        const { error: readError } = await client
+          .from('messages')
+          .update({ read_at: readAt })
+          .in('id', unreadIds)
+          .eq('recipient_id', myId);
+
+        if (readError) {
+          console.warn('Could not update read receipts:', readError.message);
+        } else {
+          setChatMessages(previous =>
+            previous.map(message =>
+              unreadIds.includes(message.id)
+                ? { ...message, read_at: readAt }
+                : message
+            )
+          );
+        }
+      }
     },
     [myId]
   );
@@ -358,6 +410,8 @@ export default function MessagesScreen() {
     setChatMessages([]);
     setMessageText('');
     setConversationId('');
+    setPeerOnline(false);
+    setPeerTyping(false);
     setChatVisible(true);
     setChatLoading(true);
 
@@ -388,7 +442,179 @@ export default function MessagesScreen() {
     }
   };
 
-  // Send a real text message to the existing messages table.
+  // Realtime messages, online presence and typing updates.
+  useEffect(() => {
+    const client = supabase;
+
+    if (
+      !client ||
+      !chatVisible ||
+      !activePerson ||
+      !myId ||
+      !conversationId
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    const channel = client.channel(
+      `britume-chat-${conversationId}`,
+      {
+        config: {
+          presence: {
+            key: myId,
+          },
+        },
+      }
+    );
+
+    channelRef.current = channel;
+
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload: any) => {
+          if (!active) return;
+
+          const row = (payload.new || payload.old) as ChatMessage;
+
+          if (!row?.id) return;
+
+          const belongsToChat =
+            (row.sender_id === myId &&
+              row.recipient_id === activePerson.user_id) ||
+            (row.sender_id === activePerson.user_id &&
+              row.recipient_id === myId);
+
+          if (!belongsToChat) return;
+
+          if (payload.eventType === 'INSERT') {
+            mergeMessage(row);
+
+            // Automatically mark a new incoming message as read.
+            if (
+              row.sender_id === activePerson.user_id &&
+              row.recipient_id === myId &&
+              !row.read_at
+            ) {
+              const readAt = new Date().toISOString();
+
+              const { error } = await client
+                .from('messages')
+                .update({ read_at: readAt })
+                .eq('id', row.id)
+                .eq('recipient_id', myId)
+                .is('read_at', null);
+
+              if (!error && active) {
+                mergeMessage({ ...row, read_at: readAt });
+              }
+            }
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            mergeMessage(row);
+          }
+        }
+      )
+      .on('presence', { event: 'sync' }, () => {
+        if (!active) return;
+
+        const state = channel.presenceState() as Record<
+          string,
+          Array<{ user_id?: string }>
+        >;
+
+        const otherIsOnline = Object.values(state).some(entries =>
+          entries.some(entry => entry.user_id === activePerson.user_id)
+        );
+
+        setPeerOnline(otherIsOnline);
+      })
+      .on(
+        'broadcast',
+        { event: 'typing' },
+        (payload: any) => {
+          if (!active) return;
+
+          if (payload?.payload?.user_id === activePerson.user_id) {
+            setPeerTyping(Boolean(payload.payload.is_typing));
+          }
+        }
+      )
+      .subscribe(async (status: string) => {
+        if (status === 'SUBSCRIBED' && active) {
+          await channel.track({
+            user_id: myId,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
+
+      setPeerOnline(false);
+      setPeerTyping(false);
+
+      void client.removeChannel(channel);
+    };
+  }, [
+    chatVisible,
+    activePerson,
+    myId,
+    conversationId,
+    mergeMessage,
+  ]);
+
+  // Send typing information to the other person.
+  const handleMessageTextChange = (value: string) => {
+    setMessageText(value);
+
+    const channel = channelRef.current;
+
+    if (channel && conversationId) {
+      void channel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          user_id: myId,
+          is_typing: value.trim().length > 0,
+        },
+      });
+    }
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+    }
+
+    typingTimerRef.current = setTimeout(() => {
+      const currentChannel = channelRef.current;
+
+      if (currentChannel) {
+        void currentChannel.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: {
+            user_id: myId,
+            is_typing: false,
+          },
+        });
+      }
+    }, 1800);
+  };
+
+  // Send a real text message.
   const sendMessage = async () => {
     const client = supabase;
     const person = activePerson;
@@ -409,17 +635,35 @@ export default function MessagesScreen() {
     setMessageText('');
 
     try {
-      const { error } = await client
+      const { data, error } = await client
         .from('messages')
         .insert({
           sender_id: myId,
           recipient_id: person.user_id,
           content,
-        });
+        })
+        .select('id,sender_id,recipient_id,content,created_at,read_at')
+        .single();
 
       if (error) throw error;
 
-      await loadConversationMessages(person);
+      // Add immediately; Realtime will also update both devices.
+      if (data) {
+        mergeMessage(data as ChatMessage);
+      }
+
+      const channel = channelRef.current;
+
+      if (channel) {
+        void channel.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: {
+            user_id: myId,
+            is_typing: false,
+          },
+        });
+      }
     } catch (error: any) {
       setMessageText(content);
 
@@ -433,11 +677,31 @@ export default function MessagesScreen() {
   };
 
   const closeChat = () => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
+    const channel = channelRef.current;
+
+    if (channel) {
+      void channel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          user_id: myId,
+          is_typing: false,
+        },
+      });
+    }
+
     setChatVisible(false);
     setActivePerson(null);
     setConversationId('');
     setChatMessages([]);
     setMessageText('');
+    setPeerOnline(false);
+    setPeerTyping(false);
   };
 
   const Avatar = ({
@@ -656,12 +920,12 @@ export default function MessagesScreen() {
         <View style={styles.shortcuts}>
           <Pressable
             style={styles.shortcut}
-            onPress={() => {
+            onPress={() =>
               Alert.alert(
                 'Chats',
                 'Open a friend below to start or continue a conversation.'
-              );
-            }}
+              )
+            }
           >
             <View style={styles.shortcutIcon}>
               <Ionicons
@@ -951,7 +1215,15 @@ export default function MessagesScreen() {
 
             {activePerson && (
               <>
-                <Avatar person={activePerson} size={43} />
+                <View style={styles.chatAvatarWrap}>
+                  <Avatar person={activePerson} size={43} />
+                  <View
+                    style={[
+                      styles.onlineDot,
+                      !peerOnline && styles.offlineDot,
+                    ]}
+                  />
+                </View>
 
                 <View style={styles.chatHeaderInfo}>
                   <Text style={styles.chatHeaderName}>
@@ -959,7 +1231,11 @@ export default function MessagesScreen() {
                   </Text>
 
                   <Text style={styles.chatHeaderStatus}>
-                    BRITUME conversation
+                    {peerTyping
+                      ? 'Typing...'
+                      : peerOnline
+                        ? 'Online'
+                        : 'Offline'}
                   </Text>
                 </View>
               </>
@@ -1068,19 +1344,26 @@ export default function MessagesScreen() {
                           </Text>
 
                           {mine && (
-                            <Ionicons
-                              name={
-                                message.read_at
-                                  ? 'checkmark-done'
-                                  : 'checkmark'
-                              }
-                              size={14}
-                              color={
-                                message.read_at
-                                  ? '#B8F4FF'
-                                  : '#FFFFFF'
-                              }
-                            />
+                            <View style={styles.readEyes}>
+                              <Ionicons
+                                name={message.read_at ? 'eye' : 'eye-off'}
+                                size={13}
+                                color={
+                                  message.read_at
+                                    ? '#B8F4FF'
+                                    : '#FFFFFF'
+                                }
+                              />
+                              <Ionicons
+                                name={message.read_at ? 'eye' : 'eye-off'}
+                                size={13}
+                                color={
+                                  message.read_at
+                                    ? '#B8F4FF'
+                                    : '#FFFFFF'
+                                }
+                              />
+                            </View>
                           )}
                         </View>
                       </View>
@@ -1094,7 +1377,7 @@ export default function MessagesScreen() {
           <View style={styles.composer}>
             <TextInput
               value={messageText}
-              onChangeText={setMessageText}
+              onChangeText={handleMessageTextChange}
               placeholder="Write a message..."
               placeholderTextColor={theme.muted}
               style={styles.composerInput}
@@ -1532,7 +1815,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       marginTop: 30,
     },
 
-    // Direct chat window
     chatScreen: {
       flex: 1,
       backgroundColor: theme.bg,
@@ -1557,6 +1839,26 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.panel2,
+    },
+
+    chatAvatarWrap: {
+      position: 'relative',
+    },
+
+    onlineDot: {
+      position: 'absolute',
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: theme.success,
+      borderWidth: 2,
+      borderColor: theme.panel,
+      right: 0,
+      bottom: 0,
+    },
+
+    offlineDot: {
+      backgroundColor: theme.muted,
     },
 
     chatHeaderInfo: {
@@ -1651,8 +1953,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      gap: 4,
+      gap: 5,
       marginTop: 5,
+    },
+
+    readEyes: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 0,
     },
 
     messageTime: {
