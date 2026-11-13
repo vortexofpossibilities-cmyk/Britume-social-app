@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -37,10 +38,8 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
 
-  const [notificationsEnabled, setNotificationsEnabled] =
-    useState(true);
-  const [notificationsLoading, setNotificationsLoading] =
-    useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
 
   const styles = createStyles(colors);
 
@@ -62,9 +61,7 @@ export default function SettingsScreen() {
           error,
         );
       } finally {
-        if (active) {
-          setNotificationsLoading(false);
-        }
+        if (active) setNotificationsLoading(false);
       }
     }
 
@@ -352,13 +349,60 @@ export default function SettingsScreen() {
 
           <View style={styles.separator} />
 
-          <SettingRow
-            icon="color-palette-outline"
-            title="BRITUME Theme Studio"
-            subtitle={`Current material: ${selectedThemeStyle.name}`}
-            color={colors.gold}
+          {/* THEME STUDIO FEATURE */}
+
+          <Pressable
             onPress={openThemeStudio}
-          />
+            accessibilityRole="button"
+            accessibilityLabel="Open BRITUME Theme Studio"
+            style={({ pressed }) => [
+              styles.themeStudioCard,
+              pressed && styles.themeStudioPressed,
+            ]}
+          >
+            <View style={styles.themeStudioArtwork}>
+              <View style={styles.themeOrbOne} />
+              <View style={styles.themeOrbTwo} />
+              <View style={styles.themeOrbThree} />
+
+              <Ionicons
+                name="color-palette"
+                size={31}
+                color="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.themeStudioContent}>
+              <Text style={styles.themeStudioTitle}>
+                BRITUME Theme Studio
+              </Text>
+
+              <Text style={styles.themeStudioSubtitle}>
+                Explore 30 unique 3D-inspired visual experiences.
+              </Text>
+
+              <View style={styles.themeStudioMeta}>
+                <Ionicons
+                  name="sparkles"
+                  size={13}
+                  color={colors.gold}
+                />
+                <Text style={styles.themeStudioMetaText}>
+                  All themes free
+                </Text>
+              </View>
+
+              <Text style={styles.currentThemeText}>
+                Current: {selectedThemeStyle.name}
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward-circle"
+              size={27}
+              color={colors.cyan}
+            />
+          </Pressable>
         </Section>
 
         {/* INFORMATION */}
@@ -634,6 +678,92 @@ function createStyles(colors: typeof lightTheme) {
       backgroundColor: colors.border,
       marginLeft: 57,
     },
+
+    // Theme Studio card
+    themeStudioCard: {
+      minHeight: 128,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      gap: 11,
+    },
+    themeStudioPressed: {
+      opacity: 0.75,
+    },
+    themeStudioArtwork: {
+      width: 69,
+      height: 76,
+      borderRadius: 21,
+      backgroundColor: colors.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      elevation: 6,
+      shadowColor: colors.blue,
+      shadowOpacity: 0.28,
+      shadowRadius: 9,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    themeOrbOne: {
+      position: 'absolute',
+      width: 47,
+      height: 47,
+      borderRadius: 24,
+      backgroundColor: colors.purple,
+      top: -12,
+      right: -9,
+      opacity: 0.9,
+    },
+    themeOrbTwo: {
+      position: 'absolute',
+      width: 37,
+      height: 37,
+      borderRadius: 20,
+      backgroundColor: colors.gold,
+      bottom: -12,
+      left: -8,
+      opacity: 0.9,
+    },
+    themeOrbThree: {
+      position: 'absolute',
+      width: 15,
+      height: 15,
+      borderRadius: 9,
+      backgroundColor: colors.blueLight,
+      bottom: 9,
+      right: 9,
+    },
+    themeStudioContent: {
+      flex: 1,
+    },
+    themeStudioTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '900',
+    },
+    themeStudioSubtitle: {
+      color: colors.muted,
+      fontSize: 10,
+      lineHeight: 15,
+      marginTop: 4,
+    },
+    themeStudioMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 7,
+    },
+    themeStudioMetaText: {
+      color: colors.success,
+      fontSize: 10,
+      fontWeight: '800',
+    },
+    currentThemeText: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 5,
+    },
+
     footer: {
       alignItems: 'center',
       paddingTop: 15,
