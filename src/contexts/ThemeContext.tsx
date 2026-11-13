@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -67,17 +66,40 @@ export const ACCENT_COLOURS: AccentColour[] = [
 export type ExtendedTheme = typeof lightTheme & {
   materialStyle: ThemeStyle;
   material: string;
+
   backgroundGradient: ThemeStyle['gradient'];
   backgroundType: ThemeStyle['backgroundType'];
+
   shape: ThemeStyle['shape'];
   texture: string;
   lighting: string;
   depth: number;
   motion: string;
+
   cardRadius: number;
   cardBorderWidth: number;
+
   glow: string;
   accent: string;
+
+  highlight: string;
+
+  glass: string;
+  glassLight: string;
+  glassBorder: string;
+
+  clay: string;
+  clayBlue: string;
+  clayPurple: string;
+  clayPressed: string;
+
+  oilBlue: string;
+  oilGrey: string;
+  oilYellow: string;
+
+  glowBlue: string;
+  glowPurple: string;
+  glowGold: string;
 };
 
 type ThemeContextType = {
@@ -121,6 +143,7 @@ const darkTheme: typeof lightTheme = {
 
   glass: 'rgba(27, 43, 64, 0.92)',
   glassLight: 'rgba(36, 58, 82, 0.75)',
+  glassBorder: 'rgba(120, 170, 220, 0.25)',
 
   clay: '#1B2B40',
   clayBlue: '#243A52',
@@ -199,7 +222,6 @@ export function ThemeProvider({
           savedMode === 'true' ? 'dark' : 'light',
         );
 
-        // Old theme IDs are automatically replaced.
         const validTheme = THEME_STYLES.some(
           (item) => item.id === savedMaterialTheme,
         );
@@ -210,11 +232,11 @@ export function ThemeProvider({
             : DEFAULT_THEME_ID,
         );
 
-        if (isValidAccent(savedAccent)) {
-          setAccentColourState(savedAccent);
-        } else {
-          setAccentColourState(DEFAULT_ACCENT);
-        }
+        setAccentColourState(
+          isValidAccent(savedAccent)
+            ? savedAccent
+            : DEFAULT_ACCENT,
+        );
 
         if (!validTheme) {
           await AsyncStorage.setItem(
@@ -266,7 +288,7 @@ export function ThemeProvider({
   };
 
   // ------------------------------------------------
-  // SELECTED THEME
+  // SELECTED MATERIAL THEME
   // ------------------------------------------------
 
   const setSelectedTheme = async (themeId: string) => {
@@ -325,7 +347,7 @@ export function ThemeProvider({
   };
 
   // ------------------------------------------------
-  // BUILD ACTIVE THEME
+  // SELECTED THEME STYLE
   // ------------------------------------------------
 
   const selectedThemeStyle = useMemo(
@@ -333,39 +355,90 @@ export function ThemeProvider({
     [selectedTheme],
   );
 
+  // ------------------------------------------------
+  // BUILD COMPLETE ACTIVE THEME
+  // ------------------------------------------------
+
   const activeTheme = useMemo<ExtendedTheme>(() => {
-    const base = mode === 'dark' ? darkTheme : lightTheme;
+    const base = mode === 'dark'
+      ? darkTheme
+      : lightTheme;
+
     const material = selectedThemeStyle;
 
     const accent =
       ACCENT_COLOURS.find(
         (item) => item.id === accentColour,
-      )?.value ?? '#168BFF';
+      )?.value ?? lightTheme.blue;
+
+    const glass = material.panel;
+    const glassLight = material.panel2;
+    const glassBorder = material.border;
+
+    const clay = material.panel;
+    const clayBlue = material.panel2;
+    const clayPurple = material.gradient[0];
+    const clayPressed = material.panel3;
+
+    const glowBlue = material.glow;
+    const glowPurple = material.glow;
+    const glowGold = material.glow;
 
     return {
       ...base,
 
-      // Selected theme colours
+      // Main surfaces
       bg: material.bg,
       panel: material.panel,
       panel2: material.panel2,
       panel3: material.panel3,
 
+      // Text
       text: material.text,
       muted: material.muted,
 
-      border: material.border,
-      borderStrong: material.borderStrong,
-
-      shadow: material.shadow,
-
-      // Selected accent
+      // Brand and accent
       cyan: accent,
       blue: accent,
       blueLight: accent,
       blueDark: accent,
+      accent,
 
-      // Theme design properties
+      // Theme-specific highlights
+      highlight: material.highlight,
+      gold: material.highlight,
+      yellow: material.highlight,
+
+      // Borders and shadows
+      border: material.border,
+      borderStrong: material.borderStrong,
+      shadow: material.shadow,
+      shadowDark: material.shadow,
+      shadowLight: material.highlight,
+
+      // Glass system
+      glass,
+      glassLight,
+      glassBorder,
+
+      // Claymorphism surfaces
+      clay,
+      clayBlue,
+      clayPurple,
+      clayPressed,
+
+      // Glow system
+      glow: material.glow,
+      glowBlue,
+      glowPurple,
+      glowGold,
+
+      // Brand aliases
+      oilBlue: accent,
+      oilGrey: material.muted,
+      oilYellow: material.highlight,
+
+      // Material theme metadata
       materialStyle: material,
       material: material.material,
 
@@ -380,8 +453,6 @@ export function ThemeProvider({
 
       cardRadius: material.radius,
       cardBorderWidth: material.borderWidth,
-      glow: material.glow,
-      accent,
     };
   }, [
     mode,
