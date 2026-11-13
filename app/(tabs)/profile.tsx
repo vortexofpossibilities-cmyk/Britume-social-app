@@ -47,7 +47,7 @@ export default function ProfileScreen() {
   const { theme } = useAppTheme();
   const { language } = useLanguage();
 
-  const isSt = language === 'Setswana';
+  const isSt = false;
 
   const words = {
     profile: isSt ? 'Profaele' : 'Profile',
