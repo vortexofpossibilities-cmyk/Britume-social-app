@@ -11,7 +11,7 @@ import {
 import { Stack, router } from 'expo-router';
 
 import { AuthProvider } from '../src/auth/AuthProvider';
-import { ThemeProvider } from '../src/contexts/ThemeContext';
+import { ThemeProvider, useAppTheme } from '../src/contexts/ThemeContext';
 import { LanguageProvider } from '../src/contexts/LanguageContext';
 
 function FloatingBritumeAI() {
@@ -36,27 +36,42 @@ function FloatingBritumeAI() {
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
+
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
+
         onPanResponderGrant: () => {
           startX.current = currentX.current;
           startY.current = currentY.current;
         },
+
         onPanResponderMove: (_, gesture) => {
           const x = Math.max(
             edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+            Math.min(
+              width - buttonSize - edgePadding,
+              startX.current + gesture.dx,
+            ),
           );
+
           const y = Math.max(
             65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+            Math.min(
+              height - buttonSize - 100,
+              startY.current + gesture.dy,
+            ),
           );
+
           position.setValue({ x, y });
         },
+
         onPanResponderRelease: (_, gesture) => {
           const proposedX = Math.max(
             edgePadding,
-            Math.min(width - buttonSize - edgePadding, startX.current + gesture.dx),
+            Math.min(
+              width - buttonSize - edgePadding,
+              startX.current + gesture.dx,
+            ),
           );
 
           const finalX =
@@ -66,7 +81,10 @@ function FloatingBritumeAI() {
 
           const finalY = Math.max(
             65,
-            Math.min(height - buttonSize - 100, startY.current + gesture.dy),
+            Math.min(
+              height - buttonSize - 100,
+              startY.current + gesture.dy,
+            ),
           );
 
           currentX.current = finalX;
@@ -101,6 +119,7 @@ function FloatingBritumeAI() {
         <View style={styles.eye}>
           <View style={styles.pupil} />
         </View>
+
         <View style={styles.eye}>
           <View style={styles.pupil} />
         </View>
@@ -109,22 +128,41 @@ function FloatingBritumeAI() {
   );
 }
 
+function RootNavigator() {
+  const { theme } = useAppTheme();
+
+  return (
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade',
+          contentStyle: {
+            backgroundColor: theme.bg,
+          },
+        }}
+      >
+        <Stack.Screen
+          name="theme-studio"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack>
+
+      <View pointerEvents="box-none" style={styles.aiOverlay}>
+        <FloatingBritumeAI />
+      </View>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <View style={styles.root}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
-            <View pointerEvents="box-none" style={styles.aiOverlay}>
-              <FloatingBritumeAI />
-            </View>
-          </View>
+          <RootNavigator />
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
@@ -134,13 +172,14 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#EAF4FF',
   },
+
   aiOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     elevation: 20,
   },
+
   aiPosition: {
     position: 'absolute',
     left: 0,
@@ -148,6 +187,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
   },
+
   aiButton: {
     width: 58,
     height: 58,
@@ -165,6 +205,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 9,
   },
+
   eye: {
     width: 15,
     height: 21,
@@ -173,6 +214,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   pupil: {
     width: 5,
     height: 7,
