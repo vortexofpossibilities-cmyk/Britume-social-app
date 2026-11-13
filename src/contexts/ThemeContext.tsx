@@ -14,6 +14,7 @@ import { theme as lightTheme } from '../themes/theme';
 
 import {
   THEME_STYLES,
+  DEFAULT_THEME_ID,
   getThemeStyle,
   type ThemeStyle,
 } from '../theme/themeDefinitions';
@@ -67,6 +68,12 @@ export type ExtendedTheme = typeof lightTheme & {
   materialStyle: ThemeStyle;
   material: string;
   backgroundGradient: ThemeStyle['gradient'];
+  backgroundType: ThemeStyle['backgroundType'];
+  shape: ThemeStyle['shape'];
+  texture: string;
+  lighting: string;
+  depth: number;
+  motion: string;
   cardRadius: number;
   cardBorderWidth: number;
   glow: string;
@@ -132,10 +139,11 @@ const darkTheme: typeof lightTheme = {
 // DEFAULT SETTINGS
 // --------------------------------------------------
 
-const DEFAULT_THEME_ID = 'clay';
 const DEFAULT_ACCENT: AccentColourId = 'blue';
 
-function isValidAccent(value: string | null): value is AccentColourId {
+function isValidAccent(
+  value: string | null,
+): value is AccentColourId {
   return ACCENT_COLOURS.some((item) => item.id === value);
 }
 
@@ -151,7 +159,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(
 // PROVIDER
 // --------------------------------------------------
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [mode, setModeState] = useState<ThemeMode>('light');
 
   const [selectedTheme, setSelectedThemeState] =
@@ -183,25 +195,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
         if (!active) return;
 
-        if (savedMode === 'true') {
-          setModeState('dark');
-        } else {
-          setModeState('light');
-        }
+        setModeState(
+          savedMode === 'true' ? 'dark' : 'light',
+        );
 
-        if (
-          savedMaterialTheme &&
-          THEME_STYLES.some((item) => item.id === savedMaterialTheme)
-        ) {
-          setSelectedThemeState(savedMaterialTheme);
-        } else {
-          setSelectedThemeState(DEFAULT_THEME_ID);
-        }
+        // Old theme IDs are automatically replaced.
+        const validTheme = THEME_STYLES.some(
+          (item) => item.id === savedMaterialTheme,
+        );
+
+        setSelectedThemeState(
+          validTheme && savedMaterialTheme
+            ? savedMaterialTheme
+            : DEFAULT_THEME_ID,
+        );
 
         if (isValidAccent(savedAccent)) {
           setAccentColourState(savedAccent);
         } else {
           setAccentColourState(DEFAULT_ACCENT);
+        }
+
+        if (!validTheme) {
+          await AsyncStorage.setItem(
+            MATERIAL_THEME_STORAGE_KEY,
+            DEFAULT_THEME_ID,
+          );
         }
       } catch (error) {
         console.warn(
@@ -247,14 +266,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   // ------------------------------------------------
-  // MATERIAL THEME
+  // SELECTED THEME
   // ------------------------------------------------
 
   const setSelectedTheme = async (themeId: string) => {
-    const selected = getThemeStyle(themeId);
+    const selected = THEME_STYLES.find(
+      (item) => item.id === themeId,
+    );
 
     if (!selected) {
-      console.warn(`BRITUME theme "${themeId}" was not found.`);
+      console.warn(
+        `BRITUME theme "${themeId}" was not found.`,
+      );
       return;
     }
 
@@ -267,7 +290,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       );
     } catch (error) {
       console.warn(
-        'Could not save BRITUME material theme:',
+        'Could not save BRITUME theme:',
         error,
       );
     }
@@ -277,7 +300,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // ACCENT COLOUR
   // ------------------------------------------------
 
-  const setAccentColour = async (colour: AccentColourId) => {
+  const setAccentColour = async (
+    colour: AccentColourId,
+  ) => {
     const validColour = ACCENT_COLOURS.find(
       (item) => item.id === colour,
     );
@@ -304,23 +329,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // ------------------------------------------------
 
   const selectedThemeStyle = useMemo(
-    () => getThemeStyle(selectedTheme) ?? getThemeStyle(DEFAULT_THEME_ID),
+    () => getThemeStyle(selectedTheme),
     [selectedTheme],
   );
 
   const activeTheme = useMemo<ExtendedTheme>(() => {
     const base = mode === 'dark' ? darkTheme : lightTheme;
-
     const material = selectedThemeStyle;
 
     const accent =
-      ACCENT_COLOURS.find((item) => item.id === accentColour)?.value ??
-      '#168BFF';
+      ACCENT_COLOURS.find(
+        (item) => item.id === accentColour,
+      )?.value ?? '#168BFF';
 
     return {
       ...base,
 
-      // Selected material appearance
+      // Selected theme colours
       bg: material.bg,
       panel: material.panel,
       panel2: material.panel2,
@@ -340,16 +365,29 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       blueLight: accent,
       blueDark: accent,
 
-      // Material information for advanced components
+      // Theme design properties
       materialStyle: material,
       material: material.material,
+
       backgroundGradient: material.gradient,
+      backgroundType: material.backgroundType,
+
+      shape: material.shape,
+      texture: material.texture,
+      lighting: material.lighting,
+      depth: material.depth,
+      motion: material.motion,
+
       cardRadius: material.radius,
       cardBorderWidth: material.borderWidth,
       glow: material.glow,
       accent,
     };
-  }, [mode, selectedThemeStyle, accentColour]);
+  }, [
+    mode,
+    selectedThemeStyle,
+    accentColour,
+  ]);
 
   // ------------------------------------------------
   // CONTEXT VALUE
