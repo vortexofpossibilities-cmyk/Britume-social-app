@@ -1,3 +1,43 @@
+export type ThemeBackgroundType =
+  | 'gradient'
+  | 'bordered'
+  | 'tiles'
+  | 'plain'
+  | 'heavenly'
+  | 'galaxy'
+  | 'nature-glass'
+  | 'rainbow-mesh'
+  | 'luxury'
+  | 'classroom'
+  | 'fantasy'
+  | 'button'
+  | 'flag'
+  | 'executive'
+  | 'trading'
+  | 'achievement'
+  | 'ocean'
+  | 'aurora'
+  | 'cyber'
+  | 'african'
+  | 'holographic'
+  | 'marble'
+  | 'sunset'
+  | 'carbon'
+  | 'forest'
+  | 'ice'
+  | 'blossom'
+  | 'arcade'
+  | 'desert'
+  | 'cosmic';
+
+export type ThemeShape =
+  | 'rounded'
+  | 'square'
+  | 'hexagon'
+  | 'pill'
+  | 'geometric'
+  | 'soft'
+  | 'mixed';
 
 export type ThemeStyle = {
   id: string;
@@ -5,24 +45,41 @@ export type ThemeStyle = {
   category: string;
   description: string;
   material: string;
+
   bg: string;
   panel: string;
   panel2: string;
   panel3: string;
+
   text: string;
   muted: string;
+
   border: string;
   borderStrong: string;
   shadow: string;
   highlight: string;
+
   gradient: [string, string, string];
+
   radius: number;
   borderWidth: number;
   glow: string;
   dark: boolean;
+
+  backgroundType: ThemeBackgroundType;
+  shape: ThemeShape;
+  texture: string;
+  lighting: string;
+  depth: number;
+  motion: string;
 };
 
-type ThemeOptions = Partial<Omit<ThemeStyle, 'id' | 'name' | 'category' | 'description'>>;
+type ThemeOptions = Partial<
+  Omit<
+    ThemeStyle,
+    'id' | 'name' | 'category' | 'description'
+  >
+>;
 
 function makeTheme(
   id: string,
@@ -36,302 +93,735 @@ function makeTheme(
     name,
     category,
     description,
-    material: 'soft',
-    bg: '#EAF4FF',
-    panel: '#FFFFFF',
-    panel2: '#DCEBFA',
-    panel3: '#F4F9FF',
-    text: '#19334D',
-    muted: '#66829B',
-    border: '#D3E6F8',
-    borderStrong: '#B9D8F5',
-    shadow: '#8BAECC',
+
+    material: '3d',
+
+    bg: '#101B2A',
+    panel: '#24344A',
+    panel2: '#30445C',
+    panel3: '#1B2B40',
+
+    text: '#FFFFFF',
+    muted: '#B8C8DA',
+
+    border: '#456482',
+    borderStrong: '#7598BA',
+    shadow: '#080F19',
     highlight: '#FFFFFF',
-    gradient: ['#FFFFFF', '#EAF4FF', '#DCEBFA'],
-    radius: 22,
+
+    gradient: ['#30445C', '#1B2B40', '#101B2A'],
+
+    radius: 24,
     borderWidth: 1,
-    glow: 'rgba(22,139,255,0.18)',
-    dark: false,
+    glow: 'rgba(255,255,255,0.18)',
+    dark: true,
+
+    backgroundType: 'gradient',
+    shape: 'rounded',
+    texture: 'smooth',
+    lighting: 'soft',
+    depth: 3,
+    motion: 'subtle',
+
     ...options,
   };
 }
 
 export const THEME_STYLES: ThemeStyle[] = [
-  makeTheme('mirror', 'Mirror', 'Luxury', 'Reflective silver surfaces', {
-    material: 'mirror',
-    bg: '#DCE3EA', panel: '#FFFFFF', panel2: '#C7D0D9',
-    text: '#263747', muted: '#647586', border: '#FFFFFF',
-    borderStrong: '#AEBBC8', shadow: '#8293A4',
-    gradient: ['#FFFFFF', '#E8EDF2', '#BFC9D3'],
-    glow: 'rgba(255,255,255,0.8)',
-  }),
-  makeTheme('glass', 'Glass', 'Transparent', 'Frosted transparent surfaces', {
-    material: 'glass',
-    bg: '#C8E3F0', panel: 'rgba(255,255,255,0.72)',
-    panel2: 'rgba(255,255,255,0.48)', panel3: 'rgba(255,255,255,0.6)',
-    border: 'rgba(255,255,255,0.85)', borderStrong: '#FFFFFF',
-    shadow: '#7199B1', gradient: ['#FFFFFF', '#D9F1F8', '#A8D6E8'],
-    glow: 'rgba(255,255,255,0.55)',
-  }),
-  makeTheme('clay', 'Clay', 'Soft 3D', 'Soft puffy 3D clay surfaces', {
-    material: 'clay',
-    bg: '#EAF4FF', panel: '#FFFFFF', panel2: '#DCEBFA',
-    border: '#D3E6F8', shadow: '#8BAECC',
-    gradient: ['#FFFFFF', '#EAF4FF', '#DCEBFA'],
-  }),
-  makeTheme('chrome', 'Chrome', 'Luxury', 'Shiny metallic silver and blue', {
-    material: 'chrome',
-    bg: '#AAB8C7', panel: '#E8EEF4', panel2: '#B8C6D4',
-    text: '#182A3B', muted: '#52677B', border: '#FFFFFF',
-    borderStrong: '#8295A8', shadow: '#586C80',
-    gradient: ['#FFFFFF', '#C9D5E0', '#8295A8'],
-    glow: 'rgba(255,255,255,0.7)',
-  }),
-  makeTheme('bubble', 'Bubble', 'Soft 3D', 'Glossy floating bubble surfaces', {
-    material: 'bubble',
-    bg: '#E4F7FF', panel: '#FFFFFF', panel2: '#C9EDFA',
-    border: '#FFFFFF', borderStrong: '#A9E0F3',
-    shadow: '#8DC8DD', radius: 32,
-    gradient: ['#FFFFFF', '#DDF7FF', '#AEE5F6'],
-    glow: 'rgba(255,255,255,0.8)',
-  }),
-  makeTheme('crystal', 'Crystal', 'Luxury', 'Faceted translucent crystal', {
-    material: 'crystal',
-    bg: '#DDEBFA', panel: '#F9FCFF', panel2: '#C8DDF4',
-    border: '#FFFFFF', borderStrong: '#A8C6E8',
-    shadow: '#829FC1', gradient: ['#FFFFFF', '#D8E9FF', '#A9C9F0'],
-    glow: 'rgba(190,225,255,0.8)',
-  }),
-  makeTheme('diamond', 'Diamond', 'Luxury', 'White and silver luxury sparkle', {
-    material: 'diamond',
-    bg: '#E8EDF2', panel: '#FFFFFF', panel2: '#D5DDE5',
-    border: '#FFFFFF', borderStrong: '#BCC8D4',
-    shadow: '#8998A8', gradient: ['#FFFFFF', '#F0F3F7', '#C7D2DE'],
-    glow: 'rgba(255,255,255,0.9)',
-  }),
-  makeTheme('metal', 'Metal', 'Material', 'Brushed steel surfaces', {
-    material: 'metal',
-    bg: '#303A44', panel: '#46535F', panel2: '#35414C',
-    text: '#F4F7FA', muted: '#B7C2CC',
-    border: '#687987', borderStrong: '#A7B5C1',
-    shadow: '#17212A', gradient: ['#73818D', '#46535F', '#28343E'],
-    dark: true, glow: 'rgba(210,230,245,0.2)',
-  }),
-  makeTheme('neon-3d', 'Neon 3D', 'Futuristic', 'Dark glowing neon surfaces', {
-    material: 'neon',
-    bg: '#100D24', panel: '#21163C', panel2: '#30204D',
-    text: '#FFFFFF', muted: '#C2B5E8',
-    border: '#8D55FF', borderStrong: '#FF64D8',
-    shadow: '#05020E', gradient: ['#35205A', '#1B1434', '#090817'],
-    dark: true, glow: 'rgba(255,70,220,0.65)',
-  }),
-  makeTheme('inflatable', 'Inflatable', 'Soft 3D', 'Puffy balloon-like surfaces', {
-    material: 'inflatable',
-    bg: '#FFE8EF', panel: '#FFFFFF', panel2: '#FFD0DE',
-    border: '#FFFFFF', borderStrong: '#FFB4CD',
-    shadow: '#DDA0B4', radius: 34,
-    gradient: ['#FFFFFF', '#FFE3EC', '#FFBBD2'],
-    glow: 'rgba(255,255,255,0.8)',
-  }),
-  makeTheme('jelly', 'Jelly', 'Transparent', 'Glossy translucent candy surfaces', {
-    material: 'jelly',
-    bg: '#FFE0F0', panel: 'rgba(255,255,255,0.78)',
-    panel2: 'rgba(255,160,210,0.38)',
-    border: '#FFFFFF', borderStrong: '#FF91C5',
-    shadow: '#D88EB5', gradient: ['#FFF6FB', '#FFB8DC', '#E987C4'],
-    glow: 'rgba(255,130,210,0.55)',
-  }),
-  makeTheme('plastic', 'Plastic', 'Material', 'Glossy colourful toy surfaces', {
-    material: 'plastic',
-    bg: '#E4F3FF', panel: '#FFFFFF', panel2: '#BFE2FF',
-    border: '#FFFFFF', borderStrong: '#8DC8F5',
-    shadow: '#78A8CC', gradient: ['#FFFFFF', '#CDEAFF', '#80C5F5'],
-    glow: 'rgba(255,255,255,0.65)',
-  }),
-  makeTheme('wood', 'Wood', 'Material', 'Warm carved wood surfaces', {
-    material: 'wood',
-    bg: '#765037', panel: '#B9865B', panel2: '#936344',
-    panel3: '#D1A47B', text: '#FFF8EF', muted: '#F0D5B9',
-    border: '#D5A77E', borderStrong: '#70452D',
-    shadow: '#3D2518', gradient: ['#D3A77D', '#A8754D', '#70452F'],
-    dark: true, glow: 'rgba(255,210,160,0.2)',
-  }),
-  makeTheme('marble', 'Marble', 'Luxury', 'White marble with gold accents', {
-    material: 'marble',
-    bg: '#F0EFEC', panel: '#FFFFFF', panel2: '#E6E2DC',
-    border: '#D9D2C7', borderStrong: '#C8B99D',
-    shadow: '#AAA39A', gradient: ['#FFFFFF', '#F0EFEC', '#D8D2C8'],
-    glow: 'rgba(212,180,110,0.25)',
-  }),
-  makeTheme('ice', 'Ice', 'Transparent', 'Frozen translucent blue surfaces', {
-    material: 'ice',
-    bg: '#D8F2FF', panel: '#F5FCFF', panel2: '#B8E4F5',
-    border: '#FFFFFF', borderStrong: '#9DD9F1',
-    shadow: '#76B3D0', gradient: ['#FFFFFF', '#D7F4FF', '#92D5EF'],
-    glow: 'rgba(180,235,255,0.7)',
-  }),
-  makeTheme('water', 'Water', 'Transparent', 'Liquid blue water surfaces', {
-    material: 'water',
-    bg: '#B9E8F5', panel: '#E9FAFF', panel2: '#8BD4E8',
-    border: '#FFFFFF', borderStrong: '#65BDD7',
-    shadow: '#539FB7', gradient: ['#E9FCFF', '#8BD9ED', '#258EBA'],
-    glow: 'rgba(120,230,255,0.55)',
-  }),
-  makeTheme('liquid-metal', 'Liquid Metal', 'Futuristic', 'Flowing liquid silver', {
-    material: 'liquid-metal',
-    bg: '#59636D', panel: '#AEB8C2', panel2: '#7D8994',
-    text: '#17212A', muted: '#354553',
-    border: '#E9F1F8', borderStrong: '#687581',
-    shadow: '#303941', gradient: ['#F4F7FA', '#8D9AA5', '#45515B'],
-    dark: true, glow: 'rgba(255,255,255,0.5)',
-  }),
-  makeTheme('holographic', 'Holographic', 'Transparent', 'Iridescent rainbow surfaces', {
-    material: 'holographic',
-    bg: '#EDE3FF', panel: '#FFFFFF', panel2: '#E5D7FF',
-    border: '#FFFFFF', borderStrong: '#C6A9F8',
-    shadow: '#A28BC7', gradient: ['#FBCBEE', '#C8E7FF', '#D8C5FF'],
-    glow: 'rgba(205,180,255,0.65)',
-  }),
-  makeTheme('paper', 'Paper', 'Material', 'Layered paper craft surfaces', {
-    material: 'paper',
-    bg: '#F4EDE0', panel: '#FFFCF5', panel2: '#E9DFC9',
-    text: '#4A4034', muted: '#897C6B',
-    border: '#E0D4BE', borderStrong: '#C7B99F',
-    shadow: '#A99B83', gradient: ['#FFFCF5', '#F1E7D5', '#DED0B8'],
-    glow: 'rgba(255,255,255,0.4)',
-  }),
-  makeTheme('lego', 'Lego', 'Creative', 'Bold colourful block surfaces', {
-    material: 'lego',
-    bg: '#E7F2FF', panel: '#FFFFFF', panel2: '#D2E4FA',
-    border: '#FFFFFF', borderStrong: '#9DBDE5',
-    shadow: '#819AB8', radius: 12,
-    gradient: ['#FFFFFF', '#E0EDFF', '#BDD5F5'],
-    glow: 'rgba(255,255,255,0.5)',
-  }),
-  makeTheme('candy', 'Candy', 'Creative', 'Sweet glossy candy surfaces', {
-    material: 'candy',
-    bg: '#FFE5F1', panel: '#FFFFFF', panel2: '#FFC7DF',
-    border: '#FFFFFF', borderStrong: '#FF9BC7',
-    shadow: '#D98CAF', gradient: ['#FFFFFF', '#FFD8EA', '#FF9EC8'],
-    glow: 'rgba(255,170,215,0.55)',
-  }),
-  makeTheme('cloud', 'Cloud', 'Soft 3D', 'Fluffy white cloud surfaces', {
-    material: 'cloud',
-    bg: '#E8F5FF', panel: '#FFFFFF', panel2: '#D8EDFF',
-    border: '#FFFFFF', borderStrong: '#C2E1F8',
-    shadow: '#A5C6DF', radius: 30,
-    gradient: ['#FFFFFF', '#F1F9FF', '#D4EBFF'],
-    glow: 'rgba(255,255,255,0.75)',
-  }),
-  makeTheme('velvet', 'Velvet', 'Material', 'Deep soft velvet surfaces', {
-    material: 'velvet',
-    bg: '#291D3B', panel: '#463052', panel2: '#382442',
-    text: '#FFF7FF', muted: '#D4BEDD',
-    border: '#75527D', borderStrong: '#A27AA9',
-    shadow: '#130C1D', gradient: ['#65466C', '#392543', '#20172F'],
-    dark: true, glow: 'rgba(190,130,220,0.25)',
-  }),
-  makeTheme('leather', 'Leather', 'Material', 'Stitched premium leather surfaces', {
-    material: 'leather',
-    bg: '#4B3025', panel: '#79513C', panel2: '#5F3D2D',
-    text: '#FFF6EC', muted: '#E4C5AC',
-    border: '#A77A5C', borderStrong: '#D2A47C',
-    shadow: '#28170F', gradient: ['#A77857', '#704832', '#452A20'],
-    dark: true, glow: 'rgba(220,170,120,0.2)',
-  }),
-  makeTheme('world-3d', '3D World', 'Fantasy', 'Immersive world-inspired surfaces', {
-    material: 'world',
-    bg: '#CBE8D6', panel: '#F4FFF5', panel2: '#B6D9C1',
-    text: '#234735', muted: '#5E826B',
-    border: '#FFFFFF', borderStrong: '#8EB99A',
-    shadow: '#71977D', gradient: ['#E9F9E9', '#B9E1C3', '#76B58C'],
-    glow: 'rgba(170,255,190,0.35)',
-  }),
-  makeTheme('galaxy-3d', 'Galaxy 3D', 'Fantasy', 'Deep cosmic space surfaces', {
-    material: 'galaxy',
-    bg: '#100E2C', panel: '#211B4B', panel2: '#30235D',
-    text: '#FFFFFF', muted: '#C6B9ED',
-    border: '#6E5BC1', borderStrong: '#A68BFF',
-    shadow: '#070617', gradient: ['#493078', '#211B4B', '#0B0A20'],
-    dark: true, glow: 'rgba(150,100,255,0.5)',
-  }),
-  makeTheme('ocean-3d', 'Ocean 3D', 'Fantasy', 'Deep underwater blue surfaces', {
-    material: 'ocean',
-    bg: '#0D526B', panel: '#16738C', panel2: '#105D76',
-    text: '#F0FFFF', muted: '#B8E8ED',
-    border: '#55C5D5', borderStrong: '#91E8EA',
-    shadow: '#073747', gradient: ['#3CB4C6', '#126B83', '#073E5C'],
-    dark: true, glow: 'rgba(90,230,245,0.35)',
-  }),
-  makeTheme('lava', 'Lava', 'Fantasy', 'Glowing volcanic rock surfaces', {
-    material: 'lava',
-    bg: '#24110D', panel: '#472018', panel2: '#652A16',
-    text: '#FFF5E9', muted: '#E8B69C',
-    border: '#D64B20', borderStrong: '#FF8B27',
-    shadow: '#100704', gradient: ['#A33C17', '#5A2114', '#21100D'],
-    dark: true, glow: 'rgba(255,90,20,0.55)',
-  }),
-  makeTheme('smoke', 'Smoke', 'Fantasy', 'Soft smoky grey surfaces', {
-    material: 'smoke',
-    bg: '#3A424B', panel: '#626D78', panel2: '#4D5862',
-    text: '#FFFFFF', muted: '#D1D7DC',
-    border: '#89949E', borderStrong: '#B9C1C8',
-    shadow: '#20262C', gradient: ['#89949E', '#59636D', '#343C44'],
-    dark: true, glow: 'rgba(210,220,230,0.22)',
-  }),
-  makeTheme('origami', 'Origami', 'Creative', 'Folded geometric paper surfaces', {
-    material: 'origami',
-    bg: '#E9E4FF', panel: '#FFFFFF', panel2: '#D6D0F6',
-    text: '#39345B', muted: '#77719A',
-    border: '#FFFFFF', borderStrong: '#B9B0E9',
-    shadow: '#A39CCB', radius: 14,
-    gradient: ['#FFFFFF', '#E6E0FF', '#C7BDF0'],
-    glow: 'rgba(190,175,255,0.3)',
-  }),
-  makeTheme('cartoon-3d', 'Cartoon 3D', 'Creative', 'Bold playful cartoon surfaces', {
-    material: 'cartoon',
-    bg: '#FFF1D4', panel: '#FFFFFF', panel2: '#FFE0A0',
-    text: '#30243A', muted: '#76647A',
-    border: '#30243A', borderStrong: '#30243A',
-    shadow: '#6F5A47', borderWidth: 2,
-    gradient: ['#FFFFFF', '#FFF0C9', '#FFD88C'],
-    glow: 'rgba(255,210,100,0.3)',
-  }),
-  makeTheme('cyber-3d', 'Cyber 3D', 'Futuristic', 'Futuristic digital surfaces', {
-    material: 'cyber',
-    bg: '#071923', panel: '#102D3A', panel2: '#164052',
-    text: '#E7FFFF', muted: '#9ACBD2',
-    border: '#27DDE0', borderStrong: '#55F4F0',
-    shadow: '#020B11', gradient: ['#1B5263', '#102D3A', '#06141F'],
-    dark: true, glow: 'rgba(30,240,230,0.4)',
-  }),
-  makeTheme('retro-3d', 'Retro 3D', 'Futuristic', '80s arcade-inspired surfaces', {
-    material: 'retro',
-    bg: '#211437', panel: '#39204F', panel2: '#4C2860',
-    text: '#FFFFFF', muted: '#E4B7F0',
-    border: '#FF65C8', borderStrong: '#48D9FF',
-    shadow: '#10091C', gradient: ['#69366E', '#34204D', '#17102D'],
-    dark: true, glow: 'rgba(255,75,200,0.45)',
-  }),
-  makeTheme('gold-3d', 'Gold 3D', 'Luxury', 'Shiny gold luxury surfaces', {
-    material: 'gold',
-    bg: '#392B12', panel: '#806222', panel2: '#624916',
-    text: '#FFF9E8', muted: '#EEDCA8',
-    border: '#E9C65D', borderStrong: '#FFE99A',
-    shadow: '#211705', gradient: ['#FFE99A', '#B98A28', '#67470F'],
-    dark: true, glow: 'rgba(255,205,70,0.5)',
-  }),
-  makeTheme('creamy-3d', 'Creamy 3D', 'Soft 3D', 'Smooth milky creamy surfaces', {
-    material: 'creamy',
-    bg: '#FFF3E1', panel: '#FFFCF5', panel2: '#F4E3CB',
-    text: '#594633', muted: '#99836A',
-    border: '#FFFFFF', borderStrong: '#E8D3B7',
-    shadow: '#C5AC8E', gradient: ['#FFFCF5', '#FFF0D9', '#EAD7B9'],
-    glow: 'rgba(255,255,255,0.65)',
-  }),
+
+  // YOUR 15 THEMES
+
+  makeTheme(
+    'border-lined',
+    'Border Lined',
+    'Creative',
+    'Decorative dimensional borders',
+    {
+      backgroundType: 'bordered',
+      shape: 'geometric',
+      material: 'outlined-3d',
+      bg: '#101725',
+      panel: '#1D2B40',
+      panel2: '#263B56',
+      border: '#45B5FF',
+      borderStrong: '#A5DCFF',
+      gradient: ['#243B59', '#15243A', '#0B1424'],
+      glow: 'rgba(69,181,255,0.45)',
+      texture: 'layered-lines',
+      lighting: 'edge',
+    },
+  ),
+
+  makeTheme(
+    'tiled-3d',
+    'Tiled 3D',
+    '3D',
+    'Raised dimensional tile surfaces',
+    {
+      backgroundType: 'tiles',
+      shape: 'square',
+      material: 'raised-tiles',
+      bg: '#DCE7F2',
+      panel: '#FFFFFF',
+      panel2: '#B9CDE0',
+      text: '#233B52',
+      muted: '#617A91',
+      border: '#FFFFFF',
+      shadow: '#7893AD',
+      gradient: ['#FFFFFF', '#DCE7F2', '#AFC6DD'],
+      dark: false,
+      radius: 12,
+      texture: 'tiled',
+      lighting: 'top-left',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'plain',
+    'Plain',
+    'Minimal',
+    'Simple clean appearance',
+    {
+      backgroundType: 'plain',
+      shape: 'rounded',
+      material: 'minimal',
+      bg: '#F4F6F9',
+      panel: '#FFFFFF',
+      panel2: '#E8EDF2',
+      text: '#263747',
+      muted: '#718096',
+      border: '#E0E6ED',
+      shadow: '#BCC8D4',
+      gradient: ['#FFFFFF', '#F4F6F9', '#E8EDF2'],
+      dark: false,
+      texture: 'none',
+      lighting: 'natural',
+      depth: 1,
+      motion: 'none',
+    },
+  ),
+
+  makeTheme(
+    'god',
+    'God',
+    'Heavenly',
+    'Majestic heavenly-inspired appearance',
+    {
+      backgroundType: 'heavenly',
+      shape: 'soft',
+      material: 'celestial',
+      bg: '#171B38',
+      panel: '#34365E',
+      panel2: '#484A75',
+      border: '#E8D49B',
+      borderStrong: '#FFF0BE',
+      shadow: '#080B20',
+      gradient: ['#FFF0BE', '#6B6BA0', '#171B38'],
+      glow: 'rgba(255,225,160,0.55)',
+      texture: 'soft-clouds',
+      lighting: 'golden-rays',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'vortex-galaxy',
+    'Vortex Galaxy',
+    'Cosmic',
+    'Spiralling cosmic space',
+    {
+      backgroundType: 'galaxy',
+      shape: 'geometric',
+      material: 'cosmic',
+      bg: '#09091F',
+      panel: '#201A4A',
+      panel2: '#34245F',
+      border: '#8B72FF',
+      borderStrong: '#D5A8FF',
+      shadow: '#030311',
+      gradient: ['#7C42B5', '#241B56', '#08091E'],
+      glow: 'rgba(160,100,255,0.6)',
+      texture: 'nebula',
+      lighting: 'cosmic-glow',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'nature-glass',
+    'Transparent Glass with Nature Inside',
+    'Nature',
+    'Transparent glass with natural scenery',
+    {
+      backgroundType: 'nature-glass',
+      shape: 'rounded',
+      material: 'nature-glass',
+      bg: '#173C35',
+      panel: 'rgba(235,255,245,0.76)',
+      panel2: 'rgba(180,230,205,0.52)',
+      text: '#143D30',
+      muted: '#456D5C',
+      border: 'rgba(255,255,255,0.85)',
+      borderStrong: '#FFFFFF',
+      shadow: '#092B22',
+      gradient: ['#D9FFE9', '#75BFA0', '#16483A'],
+      glow: 'rgba(170,255,210,0.45)',
+      texture: 'nature',
+      lighting: 'filtered-sunlight',
+      depth: 4,
+    },
+  ),
+
+  makeTheme(
+    'rainbow-mesh',
+    'Mesh Black Metal with Rainbow Light Inside',
+    'Metal',
+    'Black metal with rainbow illumination',
+    {
+      backgroundType: 'rainbow-mesh',
+      shape: 'geometric',
+      material: 'rainbow-metal',
+      bg: '#090A0D',
+      panel: '#202126',
+      panel2: '#303137',
+      border: '#6A6575',
+      borderStrong: '#E0D9E9',
+      gradient: ['#34313F', '#18191E', '#07080B'],
+      glow: 'rgba(220,100,255,0.6)',
+      texture: 'metal-mesh',
+      lighting: 'rainbow-inner',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'britume-special',
+    'BRITUME Special',
+    'Luxury',
+    'Soft and luxurious BRITUME signature theme',
+    {
+      backgroundType: 'luxury',
+      shape: 'soft',
+      material: 'soft-luxury',
+      bg: '#F2EDE5',
+      panel: '#FFFCF7',
+      panel2: '#E8DED0',
+      text: '#493C32',
+      muted: '#897666',
+      border: '#E5D5BE',
+      borderStrong: '#C9A976',
+      shadow: '#B5A18A',
+      gradient: ['#FFFDF8', '#F0E5D4', '#D9C3A4'],
+      glow: 'rgba(220,190,135,0.35)',
+      dark: false,
+      texture: 'soft-satin',
+      lighting: 'warm-luxury',
+      depth: 4,
+    },
+  ),
+
+  makeTheme(
+    'classroom',
+    'Classroom',
+    'Education',
+    'Bright educational design',
+    {
+      backgroundType: 'classroom',
+      shape: 'square',
+      material: 'educational',
+      bg: '#E9F2FF',
+      panel: '#FFFFFF',
+      panel2: '#D6E7FF',
+      text: '#243C5A',
+      muted: '#647C9C',
+      border: '#C7DDF8',
+      borderStrong: '#82AEE0',
+      gradient: ['#FFFFFF', '#E5F0FF', '#C7DDF8'],
+      dark: false,
+      texture: 'paper',
+      lighting: 'bright',
+      depth: 2,
+    },
+  ),
+
+  makeTheme(
+    'unicorn',
+    'Unicorn',
+    'Fantasy',
+    'Magical pastel fantasy appearance',
+    {
+      backgroundType: 'fantasy',
+      shape: 'soft',
+      material: 'pastel-fantasy',
+      bg: '#F7E8FF',
+      panel: '#FFFFFF',
+      panel2: '#EBD7FF',
+      text: '#523B70',
+      muted: '#8C75A8',
+      border: '#F4D5FF',
+      borderStrong: '#CDA5F2',
+      shadow: '#C0A4D9',
+      gradient: ['#FFE6F8', '#E5D9FF', '#C8E7FF'],
+      glow: 'rgba(240,170,255,0.55)',
+      dark: false,
+      texture: 'sparkles',
+      lighting: 'rainbow-soft',
+      depth: 4,
+    },
+  ),
+
+  makeTheme(
+    'button',
+    'Button',
+    '3D',
+    'Raised dimensional button design',
+    {
+      backgroundType: 'button',
+      shape: 'pill',
+      material: 'button-3d',
+      bg: '#E4ECF7',
+      panel: '#FFFFFF',
+      panel2: '#C9D7EA',
+      text: '#263B56',
+      muted: '#6E829B',
+      border: '#FFFFFF',
+      borderStrong: '#B5C8E0',
+      shadow: '#8DA4C0',
+      gradient: ['#FFFFFF', '#E3ECF8', '#B7CBE2'],
+      dark: false,
+      texture: 'polished',
+      lighting: 'raised',
+      depth: 6,
+    },
+  ),
+
+  makeTheme(
+    'britume-flag',
+    'BRITUME 3D Flag Logo',
+    'Brand',
+    'Dimensional BRITUME flag identity',
+    {
+      backgroundType: 'flag',
+      shape: 'geometric',
+      material: 'brand-3d',
+      bg: '#101D36',
+      panel: '#243B61',
+      panel2: '#34547D',
+      border: '#6FB8FF',
+      borderStrong: '#FFFFFF',
+      gradient: ['#347BC1', '#1B3C69', '#101D36'],
+      glow: 'rgba(70,160,255,0.5)',
+      texture: 'fabric',
+      lighting: 'spotlight',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'wealthy-chair',
+    'Wealthy Man in Chair',
+    'Executive',
+    'Elegant executive interior',
+    {
+      backgroundType: 'executive',
+      shape: 'rounded',
+      material: 'executive-leather',
+      bg: '#17130F',
+      panel: '#35271C',
+      panel2: '#4A3727',
+      border: '#A9804D',
+      borderStrong: '#E6C58C',
+      gradient: ['#745234', '#342519', '#14100D'],
+      glow: 'rgba(210,165,95,0.3)',
+      texture: 'leather',
+      lighting: 'warm-spotlight',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'trader',
+    'Trader',
+    'Professional',
+    'Financial dashboard-inspired appearance',
+    {
+      backgroundType: 'trading',
+      shape: 'square',
+      material: 'digital-finance',
+      bg: '#071B19',
+      panel: '#12342D',
+      panel2: '#1B473B',
+      border: '#327C64',
+      borderStrong: '#63D9A0',
+      gradient: ['#246B50', '#12362D', '#071A17'],
+      glow: 'rgba(60,220,145,0.35)',
+      texture: 'digital-grid',
+      lighting: 'screen-glow',
+      depth: 3,
+    },
+  ),
+
+  makeTheme(
+    'successer',
+    'Successer',
+    'Achievement',
+    'Progress and achievement-inspired design',
+    {
+      backgroundType: 'achievement',
+      shape: 'geometric',
+      material: 'achievement-gold',
+      bg: '#261C0D',
+      panel: '#4C3716',
+      panel2: '#654A1B',
+      border: '#C69B3E',
+      borderStrong: '#FFE08A',
+      gradient: ['#F6D47B', '#76521C', '#241909'],
+      glow: 'rgba(255,205,75,0.45)',
+      texture: 'golden-pattern',
+      lighting: 'golden-glow',
+      depth: 5,
+    },
+  ),
+
+  // MY ADDITIONAL 15 THEMES
+
+  makeTheme(
+    'ocean-depth',
+    'Ocean Depth',
+    'Nature',
+    'Deep underwater atmosphere',
+    {
+      backgroundType: 'ocean',
+      shape: 'soft',
+      material: 'liquid-glass',
+      bg: '#073B55',
+      panel: '#12617C',
+      panel2: '#1C7E96',
+      border: '#65D7E8',
+      gradient: ['#51C7D5', '#126B87', '#073044'],
+      glow: 'rgba(75,225,255,0.4)',
+      texture: 'water',
+      lighting: 'underwater',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'emerald-royalty',
+    'Emerald Royalty',
+    'Luxury',
+    'Emerald green and royal gold',
+    {
+      backgroundType: 'luxury',
+      shape: 'geometric',
+      material: 'emerald',
+      bg: '#082A20',
+      panel: '#164936',
+      panel2: '#21634A',
+      border: '#B5D7A0',
+      borderStrong: '#E5D18A',
+      gradient: ['#4E9468', '#164632', '#08251C'],
+      glow: 'rgba(200,220,120,0.35)',
+      texture: 'polished-stone',
+      lighting: 'golden',
+    },
+  ),
+
+  makeTheme(
+    'cyber-neon',
+    'Cyber Neon',
+    'Futuristic',
+    'Neon futuristic environment',
+    {
+      backgroundType: 'cyber',
+      shape: 'geometric',
+      material: 'neon',
+      bg: '#0A0B20',
+      panel: '#1B1940',
+      panel2: '#29265A',
+      border: '#6D5CFF',
+      borderStrong: '#FF61D6',
+      gradient: ['#613D9C', '#211B49', '#09091D'],
+      glow: 'rgba(255,75,220,0.55)',
+      texture: 'digital',
+      lighting: 'neon',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'aurora-dreams',
+    'Aurora Dreams',
+    'Fantasy',
+    'Northern lights-inspired colours',
+    {
+      backgroundType: 'aurora',
+      shape: 'soft',
+      material: 'aurora',
+      bg: '#101E35',
+      panel: '#1C3B4A',
+      panel2: '#285A5B',
+      border: '#69DCC5',
+      gradient: ['#71D8C2', '#334D76', '#151A37'],
+      glow: 'rgba(90,255,210,0.4)',
+      texture: 'aurora',
+      lighting: 'flowing-light',
+      motion: 'slow',
+    },
+  ),
+
+  makeTheme(
+    'african-heritage',
+    'African Heritage',
+    'Culture',
+    'African-inspired geometric patterns',
+    {
+      backgroundType: 'african',
+      shape: 'geometric',
+      material: 'woven',
+      bg: '#3C2418',
+      panel: '#70432A',
+      panel2: '#915B35',
+      border: '#D99D55',
+      borderStrong: '#F1CF87',
+      gradient: ['#D99D55', '#774329', '#321D16'],
+      glow: 'rgba(230,165,75,0.3)',
+      texture: 'geometric-weave',
+      lighting: 'warm',
+    },
+  ),
+
+  makeTheme(
+    'holographic-world',
+    'Holographic World',
+    'Creative',
+    'Iridescent rainbow reflections',
+    {
+      backgroundType: 'holographic',
+      shape: 'mixed',
+      material: 'holographic',
+      bg: '#211B3B',
+      panel: '#42375E',
+      panel2: '#5D4B79',
+      border: '#D9C9FF',
+      gradient: ['#FFB8E6', '#A9DFFF', '#C6A5FF'],
+      glow: 'rgba(190,155,255,0.55)',
+      texture: 'iridescent',
+      lighting: 'rainbow',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'marble-palace',
+    'Marble Palace',
+    'Luxury',
+    'White marble architecture',
+    {
+      backgroundType: 'marble',
+      shape: 'rounded',
+      material: 'marble',
+      bg: '#E9E6E0',
+      panel: '#FFFFFF',
+      panel2: '#DAD5CA',
+      text: '#393630',
+      muted: '#777166',
+      border: '#D6CBB7',
+      borderStrong: '#BDA77F',
+      shadow: '#AAA294',
+      gradient: ['#FFFFFF', '#EEEAE2', '#D2C9B9'],
+      glow: 'rgba(215,185,125,0.3)',
+      dark: false,
+      texture: 'marble-veins',
+      lighting: 'architectural',
+    },
+  ),
+
+  makeTheme(
+    'sunset-paradise',
+    'Sunset Paradise',
+    'Nature',
+    'Warm sunset gradients',
+    {
+      backgroundType: 'sunset',
+      shape: 'soft',
+      material: 'sunset',
+      bg: '#421D3D',
+      panel: '#71365C',
+      panel2: '#96506B',
+      border: '#F2A477',
+      gradient: ['#FFBD76', '#CE647F', '#432044'],
+      glow: 'rgba(255,155,100,0.45)',
+      texture: 'sunset-clouds',
+      lighting: 'sunset',
+    },
+  ),
+
+  makeTheme(
+    'carbon-elite',
+    'Carbon Elite',
+    'Metal',
+    'Black carbon-fibre luxury',
+    {
+      backgroundType: 'carbon',
+      shape: 'geometric',
+      material: 'carbon-fibre',
+      bg: '#080A0D',
+      panel: '#20252B',
+      panel2: '#30373F',
+      border: '#606B76',
+      borderStrong: '#B6C1CC',
+      gradient: ['#59636D', '#252B31', '#080A0D'],
+      glow: 'rgba(180,200,220,0.22)',
+      texture: 'carbon-weave',
+      lighting: 'metallic',
+      depth: 5,
+    },
+  ),
+
+  makeTheme(
+    'enchanted-forest',
+    'Enchanted Forest',
+    'Nature',
+    'Magical glowing forest',
+    {
+      backgroundType: 'forest',
+      shape: 'soft',
+      material: 'forest',
+      bg: '#09291E',
+      panel: '#174B32',
+      panel2: '#246441',
+      border: '#70C58D',
+      gradient: ['#5AAB72', '#174A30', '#082219'],
+      glow: 'rgba(90,255,140,0.3)',
+      texture: 'leaves',
+      lighting: 'magical-green',
+      depth: 4,
+    },
+  ),
+
+  makeTheme(
+    'crystal-ice',
+    'Crystal Ice',
+    'Fantasy',
+    'Transparent frozen crystal surfaces',
+    {
+      backgroundType: 'ice',
+      shape: 'geometric',
+      material: 'ice-crystal',
+      bg: '#D9F2FF',
+      panel: '#F8FDFF',
+      panel2: '#B9DFF2',
+      text: '#25485E',
+      muted: '#64869A',
+      border: '#FFFFFF',
+      borderStrong: '#91CDE9',
+      shadow: '#8DB5CA',
+      gradient: ['#FFFFFF', '#D9F2FF', '#A5D4EC'],
+      glow: 'rgba(150,230,255,0.6)',
+      dark: false,
+      texture: 'ice-facets',
+      lighting: 'crystal-reflection',
+    },
+  ),
+
+  makeTheme(
+    'blossom-world',
+    'Blossom World',
+    'Nature',
+    'Soft cherry blossom-inspired appearance',
+    {
+      backgroundType: 'blossom',
+      shape: 'soft',
+      material: 'blossom',
+      bg: '#FCEAF2',
+      panel: '#FFFFFF',
+      panel2: '#F6D3E2',
+      text: '#673F56',
+      muted: '#9A7287',
+      border: '#F6C7DA',
+      borderStrong: '#E8A6C3',
+      shadow: '#D8A9BF',
+      gradient: ['#FFFFFF', '#FCE2ED', '#EFBBD4'],
+      glow: 'rgba(255,170,210,0.4)',
+      dark: false,
+      texture: 'petals',
+      lighting: 'soft-pink',
+    },
+  ),
+
+  makeTheme(
+    'retro-arcade',
+    'Retro Arcade',
+    'Gaming',
+    'Retro gaming-inspired neon surfaces',
+    {
+      backgroundType: 'arcade',
+      shape: 'square',
+      material: 'arcade',
+      bg: '#170D2D',
+      panel: '#342052',
+      panel2: '#492B6B',
+      border: '#FF66CE',
+      borderStrong: '#52DCFF',
+      gradient: ['#9B3C96', '#43205F', '#120B26'],
+      glow: 'rgba(255,70,205,0.5)',
+      texture: 'pixel-grid',
+      lighting: 'arcade-neon',
+      depth: 4,
+    },
+  ),
+
+  makeTheme(
+    'golden-desert',
+    'Golden Desert',
+    'Nature',
+    'Golden sand and warm light',
+    {
+      backgroundType: 'desert',
+      shape: 'soft',
+      material: 'sandstone',
+      bg: '#4A321B',
+      panel: '#8B6338',
+      panel2: '#B1844C',
+      border: '#E9C48A',
+      borderStrong: '#FFE2A8',
+      gradient: ['#F3D08B', '#B17D43', '#50341C'],
+      glow: 'rgba(255,200,110,0.35)',
+      texture: 'sandstone',
+      lighting: 'desert-sun',
+    },
+  ),
+
+  makeTheme(
+    'dark-matter',
+    'Dark Matter',
+    'Cosmic',
+    'Deep mysterious cosmic surfaces',
+    {
+      backgroundType: 'cosmic',
+      shape: 'geometric',
+      material: 'dark-cosmic',
+      bg: '#05050D',
+      panel: '#17142A',
+      panel2: '#25203E',
+      border: '#62508D',
+      borderStrong: '#9C80D6',
+      gradient: ['#40305E', '#19142C', '#05050D'],
+      glow: 'rgba(135,95,220,0.4)',
+      texture: 'dark-nebula',
+      lighting: 'deep-space',
+      depth: 5,
+    },
+  ),
 ];
 
+export const DEFAULT_THEME_ID = 'britume-special';
+
 export function getThemeStyle(id: string): ThemeStyle {
-  return THEME_STYLES.find(item => item.id === id)
-    ?? THEME_STYLES.find(item => item.id === 'clay')!;
+  return (
+    THEME_STYLES.find((item) => item.id === id) ??
+    THEME_STYLES.find((item) => item.id === DEFAULT_THEME_ID)!
+  );
 }
