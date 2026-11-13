@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,11 +16,7 @@ import { router } from 'expo-router';
 
 import { useAuth } from '../src/auth/AuthProvider';
 import { useAppTheme } from '../src/contexts/ThemeContext';
-import {
-  useLanguage,
-  supportedLanguages,
-  type Language,
-} from '../src/contexts/LanguageContext';
+import { useLanguage } from '../src/contexts/LanguageContext';
 import { theme as lightTheme } from '../src/lib/theme';
 
 const NOTIFICATIONS_STORAGE_KEY = '@britume_notifications_enabled';
@@ -36,9 +31,8 @@ export default function SettingsScreen() {
     selectedThemeStyle,
   } = useAppTheme();
 
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
 
-  const [languageModal, setLanguageModal] = useState(false);
   const [signOutModal, setSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
@@ -86,15 +80,6 @@ export default function SettingsScreen() {
       await setMode(value ? 'dark' : 'light');
     } catch {
       Alert.alert(t('settings'), t('themeSaveError'));
-    }
-  };
-
-  const changeLanguage = async (value: Language) => {
-    try {
-      await setLanguage(value);
-      setLanguageModal(false);
-    } catch {
-      Alert.alert(t('settings'), t('languageSaveError'));
     }
   };
 
@@ -376,18 +361,6 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        {/* LANGUAGE */}
-
-        <Section title="LANGUAGE">
-          <SettingRow
-            icon="globe-outline"
-            title={t('appLanguage')}
-            subtitle={language}
-            color="#20A878"
-            onPress={() => setLanguageModal(true)}
-          />
-        </Section>
-
         {/* INFORMATION */}
 
         <Section title="INFORMATION">
@@ -517,77 +490,6 @@ export default function SettingsScreen() {
                 {t('cancel')}
               </Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* LANGUAGE MODAL */}
-
-      <Modal
-        visible={languageModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLanguageModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeadingText}>
-                <Text style={styles.modalTitle}>
-                  {t('chooseLanguage')}
-                </Text>
-
-                <Text style={styles.modalSubtitle}>
-                  {t('chooseLanguageSubtitle')}
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={() => setLanguageModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Close language selection"
-                hitSlop={10}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={28}
-                  color={colors.muted}
-                />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              style={styles.languageList}
-              showsVerticalScrollIndicator={false}
-            >
-              {supportedLanguages.map((item) => (
-                <Pressable
-                  key={item}
-                  onPress={() => changeLanguage(item)}
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    selected: language === item,
-                  }}
-                  style={styles.languageOption}
-                >
-                  <Text style={styles.languageText}>
-                    {item}
-                  </Text>
-
-                  {language === item && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color={colors.cyan}
-                    />
-                  )}
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            <Text style={styles.languageNote}>
-              {t('languageSaved')}
-            </Text>
           </View>
         </View>
       </Modal>
@@ -790,16 +692,6 @@ function createStyles(colors: typeof lightTheme) {
       borderColor: colors.border,
       elevation: 12,
     },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 15,
-    },
-    modalHeadingText: {
-      flex: 1,
-      marginRight: 12,
-    },
     modalTitle: {
       color: colors.text,
       fontSize: 20,
@@ -851,29 +743,6 @@ function createStyles(colors: typeof lightTheme) {
       fontSize: 12,
       marginTop: 12,
       lineHeight: 18,
-    },
-    languageList: {
-      maxHeight: 360,
-    },
-    languageOption: {
-      minHeight: 52,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      paddingVertical: 12,
-    },
-    languageText: {
-      color: colors.text,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    languageNote: {
-      color: colors.muted,
-      fontSize: 11,
-      lineHeight: 17,
-      marginTop: 15,
     },
   });
 }
