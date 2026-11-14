@@ -11,6 +11,7 @@ import {
 
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+import { ThemeBackground } from '../../src/components/ThemeUI';
 
 type TabItem = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -157,12 +158,13 @@ export default function TabLayout() {
   const { theme } = useAppTheme();
 
   return (
-    <Tabs
+    <ThemeBackground>
+      <Tabs
       tabBar={() => <IconBar />}
       screenOptions={{
         headerShown: false,
         sceneStyle: {
-          backgroundColor: theme.bg,
+          backgroundColor: 'transparent',
         },
       }}
     >
@@ -177,7 +179,8 @@ export default function TabLayout() {
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
-    </Tabs>
+      </Tabs>
+    </ThemeBackground>
   );
 }
 
@@ -221,8 +224,8 @@ function createStyles(
       borderColor: theme.borderStrong,
       shadowColor: theme.shadow,
       shadowOffset: { width: 2, height: 3 },
-      shadowOpacity: 0.16,
-      shadowRadius: 5,
+      shadowOpacity: 0.28,
+      shadowRadius: 8,
       elevation: 3,
     },
 
@@ -242,8 +245,8 @@ function createStyles(
       borderColor: theme.panel,
       shadowColor: theme.blueDark,
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
+      shadowOpacity: 0.42,
+      shadowRadius: 11,
       elevation: 10,
     },
 

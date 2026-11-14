@@ -26,6 +26,8 @@ import {
   type UploadSource,
 } from '../../src/lib/mediaUpload';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const BUCKET = MEDIA_BUCKET;
 const MAX_FILES = 10;
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
@@ -222,7 +224,7 @@ async function createCompressedWebFile(
   });
 }
 
-export default function Create() {
+function Create() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
@@ -1155,3 +1157,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(Create);

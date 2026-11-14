@@ -34,6 +34,8 @@ import WalletRecoveryScreen from '../../src/components/wallet/WalletRecoveryScre
 
 import { walletSecurityService } from '../../src/lib/walletSecurityService';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const EMPTY_WALLET: WalletData = {
   balances: {
     purchased: 0,
@@ -98,7 +100,7 @@ function transactionIcon(
   return 'swap-horizontal-outline';
 }
 
-export default function WalletScreen() {
+function WalletScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
@@ -939,3 +941,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(WalletScreen);

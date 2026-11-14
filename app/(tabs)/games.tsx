@@ -17,6 +17,8 @@ import {
   type GameCategory,
 } from '../../src/games';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const CATEGORY_FILTERS: {
   label: string;
   value: 'all' | GameCategory;
@@ -49,7 +51,7 @@ const GAME_ROUTES: Record<string, string> = {
   'mystery-box': 'mystery-box',
 };
 
-export default function GamesScreen() {
+function GamesScreen() {
   const [activeFilter, setActiveFilter] = useState<
     'all' | GameCategory
   >('all');
@@ -617,3 +619,5 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 });
+
+export default withThemeBackground(GamesScreen);

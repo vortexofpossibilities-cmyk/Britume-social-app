@@ -27,6 +27,8 @@ import { ClayLogo } from '../../src/components/ClayUI';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 type AppTheme = ReturnType<typeof useAppTheme>['theme'];
 type ActiveMedia = { uri: string; type: 'image' | 'video' } | null;
 
@@ -90,7 +92,7 @@ function MediaVideo({ uri, style }: { uri: string; style: any }) {
   );
 }
 
-export default function HomeScreen() {
+function HomeScreen() {
   const { theme, isDark } = useAppTheme();
   const { t } = useLanguage();
   const { width } = useWindowDimensions();
@@ -2175,3 +2177,5 @@ function createStyles(theme: AppTheme) {
     },
   });
 }
+
+export default withThemeBackground(HomeScreen);

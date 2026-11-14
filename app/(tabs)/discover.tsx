@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 type Profile = {
   user_id: string;
   username: string | null;
@@ -82,7 +84,7 @@ function showDestructiveConfirmation(
   ]);
 }
 
-export default function DiscoverScreen() {
+function DiscoverScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -2419,3 +2421,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(DiscoverScreen);

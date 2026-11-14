@@ -14,7 +14,9 @@ import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 
-export default function MoreScreen() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function MoreScreen() {
   const { theme } = useAppTheme();
   const { t } = useLanguage();
 
@@ -396,3 +398,5 @@ function createStyles(
     },
   });
 }
+
+export default withThemeBackground(MoreScreen);

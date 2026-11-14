@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 type GameId = 'spin' | 'mystery' | 'daily' | 'challenges' | 'more';
 
 type Game = {
@@ -65,7 +67,7 @@ const games: Game[] = [
   },
 ];
 
-export default function RewardsScreen() {
+function RewardsScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -429,3 +431,5 @@ function createStyles(
     },
   });
         }
+
+export default withThemeBackground(RewardsScreen);

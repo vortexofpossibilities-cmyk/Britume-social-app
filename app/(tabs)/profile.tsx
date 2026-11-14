@@ -42,7 +42,9 @@ import {
 
 import { supabase } from '../../src/lib/supabase';
 
-export default function ProfileScreen() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function ProfileScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
   const { language } = useLanguage();
@@ -1127,3 +1129,5 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
     },
   });
 }
+
+export default withThemeBackground(ProfileScreen);
