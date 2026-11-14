@@ -11,6 +11,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useAppTheme } from '../src/contexts/ThemeContext';
 import { supabase } from '../src/lib/supabase';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 const MEDIA_BUCKET = 'britume-chat-media';
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
@@ -59,7 +61,7 @@ type Conversation = {
 };
 type SharedMedia = ChatMessage & { source: 'Private chat' | 'Group chat'; subtitle: string };
 
-export default function MessagesScreen() {
+function MessagesScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [myId, setMyId] = useState('');
@@ -1180,3 +1182,5 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
     primaryActionText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   });
 }
+
+export default withThemeBackground(MessagesScreen);

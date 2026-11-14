@@ -15,6 +15,8 @@ import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/auth/AuthProvider';
 import { theme } from '../src/lib/theme';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 type FilterType = 'All' | 'Likes' | 'Comments' | 'Followers' | 'Other';
 
 type NotificationItem = {
@@ -153,7 +155,7 @@ function getDestination(item: NotificationItem) {
   return '/(tabs)';
 }
 
-export default function NotificationsScreen() {
+function NotificationsScreen() {
   const { session } = useAuth();
 
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -1059,3 +1061,5 @@ const styles = StyleSheet.create({
     marginTop: 27,
   },
 });
+
+export default withThemeBackground(NotificationsScreen);

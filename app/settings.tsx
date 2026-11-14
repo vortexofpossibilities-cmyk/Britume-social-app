@@ -20,9 +20,11 @@ import { useAppTheme } from '../src/contexts/ThemeContext';
 import { useLanguage } from '../src/contexts/LanguageContext';
 import { theme as lightTheme } from '../src/lib/theme';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 const NOTIFICATIONS_STORAGE_KEY = '@britume_notifications_enabled';
 
-export default function SettingsScreen() {
+function SettingsScreen() {
   const { signOut } = useAuth();
 
   const {
@@ -876,3 +878,5 @@ function createStyles(colors: typeof lightTheme) {
     },
   });
 }
+
+export default withThemeBackground(SettingsScreen);

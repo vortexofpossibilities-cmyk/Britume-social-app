@@ -16,13 +16,15 @@ import { router } from 'expo-router';
 import { useAppTheme } from '../src/contexts/ThemeContext';
 import { askBritumeAI } from '../src/lib/britumeAI';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 type Message = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
 };
 
-export default function BritumeAIScreen() {
+function BritumeAIScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -616,3 +618,5 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
     },
   });
       }
+
+export default withThemeBackground(BritumeAIScreen);

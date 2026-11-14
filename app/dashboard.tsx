@@ -13,6 +13,8 @@ import { useAppTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/auth/AuthProvider';
 import { supabase } from '../src/lib/supabase';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 type DashboardStats = {
   walletPoints: number;
   rewardsEarned: number | null;
@@ -21,7 +23,7 @@ type DashboardStats = {
 
 type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
 
-export default function UserDashboardScreen() {
+function UserDashboardScreen() {
   const { theme } = useAppTheme();
   const { session } = useAuth();
   const user = session?.user;
@@ -539,3 +541,5 @@ function createStyles(theme: ThemeColors) {
     },
   });
 }
+
+export default withThemeBackground(UserDashboardScreen);

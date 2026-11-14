@@ -15,6 +15,8 @@ import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/auth/AuthProvider';
 import { useAppTheme } from '../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 type AdminStats = {
   users: number | null;
   pendingRecoveries: number | null;
@@ -66,7 +68,7 @@ const adminSections = [
   },
 ];
 
-export default function PersonalDashboardScreen() {
+function PersonalDashboardScreen() {
   const { theme } = useAppTheme();
   const { session, loading: authLoading, signOut } = useAuth();
 
@@ -543,3 +545,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(PersonalDashboardScreen);

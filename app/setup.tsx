@@ -3,7 +3,9 @@ import { ScrollView, Text } from 'react-native';
 import { Page, Heading, Copy, Panel } from '../src/components/UI';
 import { theme } from '../src/lib/theme';
 
-export default function Setup() {
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
+function Setup() {
   return <Page>
     <ScrollView>
       <Text style={{ color: theme.cyan, fontSize: 14, letterSpacing: 4, fontWeight: '900', marginBottom: 18 }}>BRITUME</Text>
@@ -19,3 +21,5 @@ export default function Setup() {
     </ScrollView>
   </Page>;
 }
+
+export default withThemeBackground(Setup);

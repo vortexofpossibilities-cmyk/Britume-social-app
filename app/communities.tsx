@@ -23,7 +23,9 @@ import {
   type Community,
 } from '../src/lib/communities';
 
-export default function CommunitiesScreen() {
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
+function CommunitiesScreen() {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
@@ -659,3 +661,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+
+export default withThemeBackground(CommunitiesScreen);

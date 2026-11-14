@@ -23,7 +23,9 @@ import {
 } from '../src/lib/profile';
 import { theme } from '../src/lib/theme';
 
-export default function ProfileEditScreen() {
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
+function ProfileEditScreen() {
   const { session } = useAuth();
 
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
@@ -403,3 +405,5 @@ const styles = StyleSheet.create({
     color: theme.muted,
   },
 });
+
+export default withThemeBackground(ProfileEditScreen);

@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchPublicPosts, type FeedPost } from '../src/lib/posts';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 function ReelVideo({ uri }: { uri: string }) {
   if (Platform.OS === 'web') {
     return React.createElement('video' as any, {
@@ -43,7 +45,7 @@ function ReelVideo({ uri }: { uri: string }) {
   );
 }
 
-export default function VideosScreen() {
+function VideosScreen() {
   const { height } = useWindowDimensions();
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -348,3 +350,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+export default withThemeBackground(VideosScreen);

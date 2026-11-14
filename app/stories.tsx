@@ -34,6 +34,8 @@ import {
   type UploadSource,
 } from '../src/lib/mediaUpload';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 const BUCKET = MEDIA_BUCKET;
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 48 * 1024 * 1024;
@@ -90,7 +92,7 @@ const stylesVideo = StyleSheet.create({
   },
 });
 
-export default function StoriesScreen() {
+function StoriesScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
@@ -1104,3 +1106,5 @@ function createStyles(theme: any) {
     iconColor: theme.cyan,
   });
 }
+
+export default withThemeBackground(StoriesScreen);

@@ -23,6 +23,8 @@ import { router } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { useAppTheme } from '../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 type PendingCampaign = {
   id: string;
   advertiser_id: string;
@@ -45,7 +47,7 @@ type PendingCampaign = {
   created_at: string;
 };
 
-export default function AdminAdvertisementsScreen() {
+function AdminAdvertisementsScreen() {
   const { theme } = useAppTheme();
 
   const styles = useMemo(
@@ -1005,3 +1007,5 @@ function createStyles(
     },
   });
 }
+
+export default withThemeBackground(AdminAdvertisementsScreen);

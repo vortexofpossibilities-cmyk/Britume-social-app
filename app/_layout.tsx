@@ -11,12 +11,12 @@ import {
 import { Stack, router } from 'expo-router';
 
 import { AuthProvider } from '../src/auth/AuthProvider';
-import { ThemeProvider, useAppTheme } from '../src/contexts/ThemeContext';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { LanguageProvider } from '../src/contexts/LanguageContext';
+import { ThemeBackground } from '../src/components/ThemeUI';
 
 function FloatingBritumeAI() {
   const { width, height } = useWindowDimensions();
-  const { theme } = useAppTheme();
 
   const buttonSize = 58;
   const edgePadding = 5;
@@ -111,18 +111,18 @@ function FloatingBritumeAI() {
       ]}
     >
       <Pressable
-        style={[styles.aiButton, { backgroundColor: theme.panel, borderColor: theme.accent, shadowColor: theme.accent }]}
+        style={styles.aiButton}
         onPress={() => router.push('/ai')}
         accessibilityRole="button"
         accessibilityLabel="Open BRITUME AI assistant"
         hitSlop={8}
       >
-        <View style={[styles.eye, { backgroundColor: theme.accent }]}>
-          <View style={[styles.pupil, { backgroundColor: theme.panel }]} />
+        <View style={styles.eye}>
+          <View style={styles.pupil} />
         </View>
 
-        <View style={[styles.eye, { backgroundColor: theme.accent }]}>
-          <View style={[styles.pupil, { backgroundColor: theme.panel }]} />
+        <View style={styles.eye}>
+          <View style={styles.pupil} />
         </View>
       </Pressable>
     </Animated.View>
@@ -130,16 +130,14 @@ function FloatingBritumeAI() {
 }
 
 function RootNavigator() {
-  const { theme } = useAppTheme();
-
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+    <ThemeBackground style={styles.root}>
       <Stack
         screenOptions={{
           headerShown: false,
           animation: 'fade',
           contentStyle: {
-            backgroundColor: theme.bg,
+            backgroundColor: 'transparent',
           },
         }}
       >
@@ -154,7 +152,7 @@ function RootNavigator() {
       <View pointerEvents="box-none" style={styles.aiOverlay}>
         <FloatingBritumeAI />
       </View>
-    </View>
+    </ThemeBackground>
   );
 }
 

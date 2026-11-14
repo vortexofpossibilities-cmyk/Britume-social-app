@@ -10,9 +10,37 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../src/contexts/ThemeContext';
-import type { ThemeStyle } from '../src/theme/themeDefinitions';
 
-type ThemeItem = ThemeStyle;
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
+type ThemeItem = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  material: string;
+  bg: string;
+  panel: string;
+  panel2: string;
+  panel3: string;
+  text: string;
+  muted: string;
+  border: string;
+  borderStrong: string;
+  shadow: string;
+  highlight: string;
+  gradient: readonly string[];
+  radius: number;
+  borderWidth: number;
+  glow: string;
+  dark: boolean;
+  backgroundType?: string;
+  shape?: string;
+  texture?: string;
+  lighting?: string;
+  depth?: string;
+  motion?: string;
+};
 
 const FILTERS = ['All', '3D', 'Nature', 'Luxury', 'Creative', 'Special'];
 
@@ -63,7 +91,7 @@ function getFilterCategory(item: ThemeItem) {
   return '3D';
 }
 
-export default function ThemeStudioScreen() {
+function ThemeStudioScreen() {
   const {
     theme,
     selectedTheme,
@@ -82,15 +110,15 @@ export default function ThemeStudioScreen() {
 
   const previewTheme = useMemo(() => {
     return (
-      availableThemes.find((item) => item.id === previewId) ??
+      availableThemes.find((item: ThemeItem) => item.id === previewId) ??
       selectedThemeStyle
-    );
+    ) as ThemeItem;
   }, [availableThemes, previewId, selectedThemeStyle]);
 
   const filteredThemes = useMemo(() => {
     if (activeFilter === 'All') return availableThemes;
 
-    return availableThemes.filter((item) => {
+    return availableThemes.filter((item: ThemeItem) => {
       return getFilterCategory(item) === activeFilter;
     });
   }, [availableThemes, activeFilter]);
@@ -510,7 +538,7 @@ export default function ThemeStudioScreen() {
 
         {/* THEME CATALOGUE */}
         <View style={styles.themeGrid}>
-          {filteredThemes.map((item) => {
+          {filteredThemes.map((item: ThemeItem) => {
             const isSelected = selectedTheme === item.id;
             const isPreviewing = previewId === item.id;
 
@@ -1072,3 +1100,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(ThemeStudioScreen);

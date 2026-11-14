@@ -1,7 +1,9 @@
 import React from 'react';
 import { FeaturePage } from '../src/components/FeaturePage';
 
-export default function BritumeFeaturesScreen() {
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
+function BritumeFeaturesScreen() {
   return (
     <FeaturePage
       title="BRITUME Features"
@@ -68,3 +70,5 @@ export default function BritumeFeaturesScreen() {
     />
   );
 }
+
+export default withThemeBackground(BritumeFeaturesScreen);

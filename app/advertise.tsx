@@ -26,6 +26,8 @@ import {
   type AdCreativeType,
 } from '../src/lib/advertising';
 
+import { withThemeBackground } from '../src/components/ThemeScreen';
+
 const CATEGORIES: AdCategory[] = [
   'education',
   'technology',
@@ -52,7 +54,7 @@ function formatAmount(value: number | string | null) {
   });
 }
 
-export default function AdvertiseScreen() {
+function AdvertiseScreen() {
   const { session } = useAuth();
   const { theme } = useAppTheme();
 
@@ -984,3 +986,5 @@ function createStyles(theme: any) {
     },
   });
 }
+
+export default withThemeBackground(AdvertiseScreen);
