@@ -33,7 +33,9 @@ import {
   type CommunityPostComment,
 } from '../../../src/lib/communityPosts';
 
-export default function CommunityPostScreen() {
+import { withThemeBackground } from '../../../src/components/ThemeScreen';
+
+function CommunityPostScreen() {
   const params = useLocalSearchParams<{
     id: string;
     communityId?: string;
@@ -630,3 +632,5 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 });
+
+export default withThemeBackground(CommunityPostScreen);
