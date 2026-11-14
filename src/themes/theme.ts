@@ -65,18 +65,18 @@ export const theme = {
   // Tier 6 shared clay styles
   clayShadow: {
     shadowColor: '#789BB9',
-    shadowOffset: { width: 7, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 8, height: 10 },
+    shadowOpacity: 0.30,
+    shadowRadius: 16,
+    elevation: 10,
   },
 
   clayRaised: {
     shadowColor: '#789BB9',
-    shadowOffset: { width: 5, height: 6 },
-    shadowOpacity: 0.20,
-    shadowRadius: 9,
-    elevation: 6,
+    shadowOffset: { width: 6, height: 7 },
+    shadowOpacity: 0.27,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   clayPressedStyle: {
