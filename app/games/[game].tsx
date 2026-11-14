@@ -21,6 +21,34 @@ const TRIVIA = [
   { q: 'What is the largest ocean?', a: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], c: 'Pacific' },
   { q: 'Which instrument measures temperature?', a: ['Barometer', 'Thermometer', 'Compass', 'Ruler'], c: 'Thermometer' },
 ];
+const CLASSROOM_MATHS = [
+  { q: 'What is 25% of 80?', a: ['10', '15', '20', '25'], c: '20' },
+  { q: 'A bus travels 120 km in 2 hours. What is its average speed?', a: ['40 km/h', '50 km/h', '60 km/h', '80 km/h'], c: '60 km/h' },
+  { q: 'What is 3/4 expressed as a percentage?', a: ['25%', '50%', '75%', '80%'], c: '75%' },
+  { q: 'Solve: 9 × 7 − 13', a: ['40', '48', '50', '56'], c: '50' },
+  { q: 'A rectangle is 8 cm long and 5 cm wide. What is its area?', a: ['13 cm²', '26 cm²', '40 cm²', '80 cm²'], c: '40 cm²' },
+];
+const DETECTIVE = [
+  { q: 'A library book was returned on Monday. The receipt shows it was borrowed Friday. Which clue is most useful?', a: ['The weather', 'The checkout record', 'The colour of the cover', 'The library logo'], c: 'The checkout record' },
+  { q: 'A room is locked, but the window is open and footprints lead outside. What should you inspect next?', a: ['The footprints', 'The wall paint', 'The clock brand', 'The furniture price'], c: 'The footprints' },
+  { q: 'Two witnesses give different times. What is the fairest next step?', a: ['Choose the louder witness', 'Check an independent timestamp', 'Guess', 'Ignore both'], c: 'Check an independent timestamp' },
+  { q: 'A missing item appears in an inventory log after the reported loss. What should you do?', a: ['Check the log details', 'Accuse someone immediately', 'Delete the log', 'Stop investigating'], c: 'Check the log details' },
+  { q: 'Which makes a conclusion strongest?', a: ['A rumour', 'One guess', 'Several consistent verified clues', 'A dramatic story'], c: 'Several consistent verified clues' },
+];
+const RESTAURANT_CHOICES = [
+  { q: 'Lunch demand is rising. What should you do first?', options: [{ t: 'Plan stock using recent orders', p: 20 }, { t: 'Order randomly', p: 0 }, { t: 'Remove popular meals', p: 5 }] },
+  { q: 'Customers wait too long for meals.', options: [{ t: 'Improve kitchen workflow', p: 20 }, { t: 'Ignore the queue', p: 0 }, { t: 'Stop taking feedback', p: 0 }] },
+  { q: 'Food costs are increasing.', options: [{ t: 'Compare suppliers and reduce waste', p: 20 }, { t: 'Waste more ingredients', p: 0 }, { t: 'Stop tracking costs', p: 0 }] },
+  { q: 'A staff member needs support.', options: [{ t: 'Provide training and clear tasks', p: 20 }, { t: 'Give no instructions', p: 0 }, { t: 'Blame the whole team', p: 0 }] },
+  { q: 'The restaurant has a good week.', options: [{ t: 'Save a reserve and improve carefully', p: 20 }, { t: 'Spend all earnings', p: 0 }, { t: 'Stop planning', p: 0 }] },
+];
+const MARKET_CHOICES = [
+  { q: 'Customers want more of a product than you have.', options: [{ t: 'Review demand and restock carefully', p: 20 }, { t: 'Raise prices without checking', p: 5 }, { t: 'Ignore customers', p: 0 }] },
+  { q: 'A competitor lowers prices.', options: [{ t: 'Compare value, costs and customer needs', p: 20 }, { t: 'Copy blindly', p: 5 }, { t: 'Close immediately', p: 0 }] },
+  { q: 'You have limited starting capital.', options: [{ t: 'Set a budget and test a small batch', p: 20 }, { t: 'Spend everything on one item', p: 0 }, { t: 'Avoid recording expenses', p: 0 }] },
+  { q: 'Some stock is not selling.', options: [{ t: 'Study the cause and adjust stock', p: 20 }, { t: 'Keep ordering more', p: 0 }, { t: 'Hide the stock records', p: 0 }] },
+  { q: 'Sales are strong this month.', options: [{ t: 'Keep reserves and plan sustainable growth', p: 20 }, { t: 'Assume sales will always rise', p: 0 }, { t: 'Stop checking the market', p: 0 }] },
+];
 const SCIENCE = [
   { q: 'What force pulls objects towards Earth?', a: ['Friction', 'Gravity', 'Magnetism', 'Tension'], c: 'Gravity' },
   { q: 'What is the chemical symbol for water?', a: ['CO₂', 'O₂', 'H₂O', 'NaCl'], c: 'H₂O' },
@@ -127,7 +155,7 @@ function IndividualGameScreen() {
     else { setRound(v => v + 1); setFeedback(result === 'too-low' ? 'Too low — try a higher number.' : 'Too high — try a lower number.'); if (round >= 9) finish(0, 10); }
     setGuess('');
   };
-  const currentQuestions = gameId === 'science-battle' ? SCIENCE : gameId === 'geography-quiz' ? GEO : TRIVIA;
+  const currentQuestions = gameId === 'science-battle' ? SCIENCE : gameId === 'geography-quiz' ? GEO : gameId === 'detective-battle' ? DETECTIVE : gameId === 'maths-classroom' ? CLASSROOM_MATHS : TRIVIA;
   const currentQuestion = gameId === 'math-duel' ? QUESTIONS[round] : currentQuestions[round];
   const answerQuestion = (selected: string) => {
     const correct = gameId === 'math-duel' ? selected === QUESTIONS[round].correct : selected === currentQuestions[round].c;
@@ -190,14 +218,14 @@ function IndividualGameScreen() {
     switch (gameId) {
       case 'number-guess': return <View style={styles.panel}><Text style={styles.panelTitle}>Find the hidden number</Text><Text style={styles.copy}>The robot has chosen a number from 1 to 100. Use the clues to find it.</Text><TextInput value={guess} onChangeText={setGuess} keyboardType="number-pad" maxLength={3} placeholder="Your guess" placeholderTextColor="#9BAAC0" style={styles.input}/><Pressable style={styles.primary} onPress={submitGuess}><Text style={styles.primaryText}>CHECK GUESS</Text></Pressable><Text style={styles.hint}>{feedback || `Attempts used: ${round}`}</Text></View>;
       case 'math-duel': return <View style={styles.panel}><View style={styles.hud}><Text style={styles.hudText}>QUESTION {round + 1}/3</Text><Text style={styles.timer}>⏱ {seconds}s</Text></View><Text style={styles.panelTitle}>{QUESTIONS[round]?.q}</Text>{QUESTIONS[round]?.a.map(a => <Pressable key={a} style={styles.answer} onPress={() => answerQuestion(a)}><Text style={styles.answerText}>{a}</Text></Pressable>)}<Text style={styles.hint}>{feedback}</Text></View>;
-      case 'trivia': case 'science-battle': case 'geography-quiz': return <View style={styles.panel}><View style={styles.hud}><Text style={styles.hudText}>ROUND {round + 1}/5</Text><Text style={styles.timer}>YOU {score} · BOT {robotScore}</Text></View><Text style={styles.panelTitle}>{currentQuestion?.q}</Text>{currentQuestion?.a.map(a => <Pressable key={a} style={styles.answer} onPress={() => answerQuestion(a)}><Text style={styles.answerText}>{a}</Text></Pressable>)}</View>;
+      case 'trivia': case 'science-battle': case 'geography-quiz': case 'detective-battle': case 'maths-classroom': return <View style={styles.panel}><View style={styles.hud}><Text style={styles.hudText}>ROUND {round + 1}/5</Text><Text style={styles.timer}>YOU {score} · BOT {robotScore}</Text></View><Text style={styles.panelTitle}>{currentQuestion?.q}</Text>{currentQuestion?.a.map(a => <Pressable key={a} style={styles.answer} onPress={() => answerQuestion(a)}><Text style={styles.answerText}>{a}</Text></Pressable>)}</View>;
       case 'memory-match': return <View style={styles.panel}><Text style={styles.panelTitle}>Find all eight pairs</Text><Text style={styles.copy}>Matched: {matched.length / 2}/8</Text><View style={styles.memoryGrid}>{cards.map((card, i) => <Pressable key={i} onPress={() => revealCard(i)} style={[styles.memoryCard, (revealed.includes(i) || matched.includes(i)) && styles.memoryOpen]}><Text style={styles.memoryText}>{revealed.includes(i) || matched.includes(i) ? card : '?'}</Text></Pressable>)}</View><Text style={styles.hint}>{feedback}</Text></View>;
       case 'obstacle-dash': return <View style={styles.panel}><Text style={styles.panelTitle}>Stage {round + 1} of 10</Text><Text style={styles.copy}>Choose a lane that does not contain the obstacle.</Text><Text style={styles.obstacle}>{OBSTACLES[hazards[round] ?? 0]}</Text><View style={styles.laneRow}>{LANES.map((l, i) => <Pressable key={l} onPress={() => chooseLane(i)} style={styles.laneButton}><Text style={styles.laneText}>{l}</Text></Pressable>)}</View><Text style={styles.hint}>{feedback}</Text></View>;
       case 'ice-bridge': return <View style={styles.panel}><Text style={styles.panelTitle}>Cross the ice bridge</Text><Text style={styles.copy}>Step {round + 1} of 8. Choose the safe tile.</Text><View style={styles.iceRow}>{[0,1,2].map(i => <Pressable key={i} onPress={() => chooseIce(i)} style={styles.iceTile}><Text style={{fontSize:26}}>🧊</Text><Text style={styles.iceLabel}>TILE {i + 1}</Text></Pressable>)}</View><Text style={styles.hint}>{feedback}</Text></View>;
-      case 'business-tycoon': case 'city-builder': {
-        const decisions = gameId === 'city-builder' ? CITY_CHOICES : BUSINESS_CHOICES;
+      case 'business-tycoon': case 'city-builder': case 'restaurant-empire': case 'market-master': {
+        const decisions = gameId === 'city-builder' ? CITY_CHOICES : gameId === 'restaurant-empire' ? RESTAURANT_CHOICES : gameId === 'market-master' ? MARKET_CHOICES : BUSINESS_CHOICES;
         const item = decisions[businessIndex];
-        return <View style={styles.panel}><View style={styles.hud}><Text style={styles.hudText}>DECISION {businessIndex + 1}/5</Text><Text style={styles.timer}>BUDGET {resourceScore}</Text></View><Text style={styles.panelTitle}>{item.q}</Text>{item.options.map((option, i) => <Pressable key={i} style={styles.answer} onPress={() => chooseBusiness(option.p, gameId === 'city-builder')}><Text style={styles.answerText}>{option.t}</Text></Pressable>)}<Text style={styles.hint}>Make choices that help your {gameId === 'city-builder' ? 'community' : 'business'} grow.</Text></View>;
+        return <View style={styles.panel}><View style={styles.hud}><Text style={styles.hudText}>DECISION {businessIndex + 1}/5</Text><Text style={styles.timer}>BUDGET {resourceScore}</Text></View><Text style={styles.panelTitle}>{item.q}</Text>{item.options.map((option, i) => <Pressable key={i} style={styles.answer} onPress={() => chooseBusiness(option.p, gameId === 'city-builder')}><Text style={styles.answerText}>{option.t}</Text></Pressable>)}<Text style={styles.hint}>Make thoughtful decisions and manage your resources.</Text></View>;
       }
       case 'word-scramble': return <View style={styles.panel}><Text style={styles.panelTitle}>Unscramble this word</Text><Text style={styles.scramble}>{scrambled.w.split('').reverse().join('  ')}</Text><Text style={styles.copy}>Clue: {scrambled.s}</Text><TextInput value={answer} onChangeText={setAnswer} autoCapitalize="characters" placeholder="Type your answer" placeholderTextColor="#9BAAC0" style={styles.input}/><Pressable style={styles.primary} onPress={submitWord}><Text style={styles.primaryText}>SUBMIT WORD</Text></Pressable><Text style={styles.hint}>{feedback}</Text></View>;
       case 'race-rush': return <View style={styles.panel}><Text style={styles.panelTitle}>Lane Racer · Stage {round + 1}/10</Text><Text style={styles.copy}>Choose a clear lane. Avoid the traffic obstacle.</Text><Text style={styles.obstacle}>{['🚙','🚚','🚌'][hazards[round] ?? 0]}</Text><View style={styles.laneRow}>{LANES.map((l,i)=><Pressable key={l} onPress={() => { if (i === hazards[round]) finish(score, robotScore + 50); else if (round >= 9) finish(score + 100, robotScore + 60); else { setScore(v=>v+10); setRound(v=>v+1); setFeedback('Clean pass! +10'); } }} style={styles.laneButton}><Text style={styles.laneText}>{l}</Text></Pressable>)}</View><Text style={styles.hint}>{feedback || 'Collect points by choosing a clear lane.'}</Text></View>;
