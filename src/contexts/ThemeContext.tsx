@@ -365,26 +365,28 @@ export function ThemeProvider({
       : lightTheme;
 
     const material = selectedThemeStyle;
-    // The display mode takes precedence over a material theme's saved
-    // light/dark palette while retaining its accent, shape and effects.
-    const useMaterialPalette = material.dark === (mode === 'dark');
-    const palette = useMaterialPalette ? material : {
-      ...material,
-      bg: base.bg,
-      panel: base.panel,
-      panel2: base.panel2,
-      panel3: base.panel3,
-      text: base.text,
-      muted: base.muted,
-      border: base.border,
-      borderStrong: base.borderStrong,
-      shadow: base.shadow,
-    };
 
     const accent =
       ACCENT_COLOURS.find(
         (item) => item.id === accentColour,
       )?.value ?? lightTheme.blue;
+
+    // Display mode changes the actual surfaces, not only the status bar.
+    // Keep the selected material's accent/highlight while switching the
+    // main palette to a readable dark or light clay surface set.
+    const palette = mode === 'dark'
+      ? {
+          bg: '#0B1728', panel: '#14263B', panel2: '#1D3550',
+          panel3: '#102137', text: '#F4F8FF', muted: '#B3C6DC',
+          border: '#35506D', borderStrong: '#57789B',
+          shadow: '#050C15', gradient: ['#213D5C', '#14263B', '#0B1728'] as [string, string, string],
+        }
+      : {
+          bg: material.bg, panel: material.panel, panel2: material.panel2,
+          panel3: material.panel3, text: material.text, muted: material.muted,
+          border: material.border, borderStrong: material.borderStrong,
+          shadow: material.shadow, gradient: material.gradient,
+        };
 
     const glass = palette.panel;
     const glassLight = palette.panel2;
@@ -392,7 +394,7 @@ export function ThemeProvider({
 
     const clay = palette.panel;
     const clayBlue = palette.panel2;
-    const clayPurple = material.gradient[0];
+    const clayPurple = palette.gradient[0];
     const clayPressed = palette.panel3;
 
     const glowBlue = material.glow;
@@ -450,14 +452,14 @@ export function ThemeProvider({
 
       // Brand aliases
       oilBlue: accent,
-      oilGrey: palette.muted,
+      oilGrey: material.muted,
       oilYellow: material.highlight,
 
       // Material theme metadata
       materialStyle: material,
       material: material.material,
 
-      backgroundGradient: material.gradient,
+      backgroundGradient: palette.gradient,
       backgroundType: material.backgroundType,
 
       shape: material.shape,
