@@ -26,7 +26,9 @@ import {
 
 import { theme } from '../../src/lib/theme';
 
-export default function PublicProfileScreen() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
 
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
@@ -548,3 +550,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+export default withThemeBackground(PublicProfileScreen);
