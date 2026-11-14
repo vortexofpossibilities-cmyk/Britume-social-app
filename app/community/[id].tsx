@@ -29,7 +29,9 @@ import {
 
 import { supabase } from '../../src/lib/supabase';
 
-export default function CommunityFeedScreen() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function CommunityFeedScreen() {
   const params = useLocalSearchParams<{
     id: string;
     name?: string;
@@ -738,3 +740,5 @@ const styles = StyleSheet.create({
     height: 8,
   },
 });
+
+export default withThemeBackground(CommunityFeedScreen);

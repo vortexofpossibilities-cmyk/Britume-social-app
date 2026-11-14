@@ -31,6 +31,8 @@ import {
   type UploadSource,
 } from '../../src/lib/mediaUpload';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 type SelectedMedia = {
   uri: string;
   name: string;
@@ -43,7 +45,7 @@ type SelectedMedia = {
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 48 * 1024 * 1024;
 
-export default function CreateCommunityPostScreen() {
+function CreateCommunityPostScreen() {
   const params = useLocalSearchParams<{
     communityId: string;
     communityName?: string;
@@ -751,3 +753,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+export default withThemeBackground(CreateCommunityPostScreen);
