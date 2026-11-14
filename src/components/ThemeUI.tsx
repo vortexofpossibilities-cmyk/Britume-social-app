@@ -101,11 +101,10 @@ export function ThemeSurface({
       borderWidth: variant === 'flat' ? 0 : theme.cardBorderWidth,
       borderColor: variant === 'glass' ? theme.glassBorder : theme.border,
       shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: Math.max(2, theme.depth + 2) },
-      shadowOpacity: Math.min(0.28, 0.08 + theme.depth * 0.025),
-      shadowRadius: Math.max(3, theme.depth * 2),
-      elevation: Math.max(1, Math.round(theme.depth)),
-      overflow: 'hidden',
+      shadowOffset: { width: 0, height: Math.max(4, theme.depth + 3) },
+      shadowOpacity: Math.min(0.34, 0.14 + theme.depth * 0.025),
+      shadowRadius: Math.max(6, theme.depth * 2.2),
+      elevation: Math.max(3, Math.round(theme.depth + 1)),
     }, style]}>
       <View pointerEvents="none" style={{
         position: 'absolute', top: 0, left: 12, right: 12, height: 2,
@@ -143,11 +142,10 @@ export function ThemeTile({
       borderWidth: selected ? Math.max(2, theme.cardBorderWidth) : theme.cardBorderWidth,
       borderColor: selected ? theme.accent : theme.border,
       shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: Math.max(2, theme.depth + 1) },
-      shadowOpacity: Math.min(0.25, 0.07 + theme.depth * 0.02),
-      shadowRadius: Math.max(3, theme.depth * 1.7),
-      elevation: Math.max(1, Math.round(theme.depth)),
-      overflow: 'hidden',
+      shadowOffset: { width: 0, height: Math.max(4, theme.depth + 2) },
+      shadowOpacity: Math.min(0.32, 0.12 + theme.depth * 0.025),
+      shadowRadius: Math.max(6, theme.depth * 2),
+      elevation: Math.max(3, Math.round(theme.depth + 1)),
     }, style]}>
       <View pointerEvents="none" style={{
         position: 'absolute', top: 0, left: 8, right: 8, height: 2,
@@ -191,9 +189,9 @@ export function ThemeButton({
         opacity: disabled ? 0.55 : pressed ? 0.82 : 1,
         shadowColor: theme.shadow,
         shadowOffset: { width: 0, height: pressed ? 1 : Math.max(2, theme.depth) },
-        shadowOpacity: 0.22,
-        shadowRadius: Math.max(2, theme.depth),
-        elevation: pressed ? 1 : Math.max(1, Math.round(theme.depth)),
+        shadowOpacity: pressed ? 0.10 : 0.30,
+        shadowRadius: pressed ? 2 : Math.max(6, theme.depth * 1.8),
+        elevation: pressed ? 1 : Math.max(3, Math.round(theme.depth + 1)),
       }, style]}
     >
       <Text style={[{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }, textStyle]}>

@@ -52,10 +52,10 @@ export function ClayButton({ title, onPress, icon, color, style }: ClayButtonPro
         opacity: pressed ? 0.86 : 1,
         transform: [{ scale: pressed ? 0.97 : 1 }],
         shadowColor: theme.shadow,
-        shadowOffset: { width: 0, height: Math.max(2, theme.depth) },
-        shadowOpacity: 0.24,
-        shadowRadius: Math.max(3, theme.depth * 2),
-        elevation: Math.max(1, Math.round(theme.depth)),
+        shadowOffset: { width: 0, height: pressed ? 1 : Math.max(4, theme.depth + 2) },
+        shadowOpacity: pressed ? 0.10 : 0.32,
+        shadowRadius: pressed ? 2 : Math.max(6, theme.depth * 2.2),
+        elevation: pressed ? 1 : Math.max(4, Math.round(theme.depth + 1)),
       }, style]}
     >
       {icon ? <Ionicons name={icon} size={21} color="#FFFFFF" /> : null}
@@ -83,10 +83,10 @@ export function ClayIcon({ name, size = 25, color }: ClayIconProps) {
       borderWidth: theme.cardBorderWidth,
       borderColor: theme.border,
       shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: Math.max(2, theme.depth) },
-      shadowOpacity: 0.22,
-      shadowRadius: Math.max(3, theme.depth * 2),
-      elevation: Math.max(1, Math.round(theme.depth)),
+      shadowOffset: { width: 0, height: Math.max(4, theme.depth + 2) },
+      shadowOpacity: 0.30,
+      shadowRadius: Math.max(6, theme.depth * 2.2),
+      elevation: Math.max(4, Math.round(theme.depth + 1)),
     }}>
       <Ionicons name={name} size={size} color={color ?? theme.accent} />
     </View>
