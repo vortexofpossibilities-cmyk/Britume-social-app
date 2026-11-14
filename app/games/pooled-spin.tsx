@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const COLOUR = {
   background: '#071B16',
   card: '#102B23',
@@ -50,7 +52,7 @@ const MAILS = [
   { id: 3, label: 'Mail 3', amount: 49 },
 ];
 
-export default function PooledSpinScreen() {
+function PooledSpinScreen() {
   const rotation = useRef(new Animated.Value(0)).current;
 
   const [spinning, setSpinning] = useState(false);
@@ -695,3 +697,5 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 });
+
+export default withThemeBackground(PooledSpinScreen);

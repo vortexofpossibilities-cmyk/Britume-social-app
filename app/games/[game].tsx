@@ -24,7 +24,9 @@ import {
   type GameSession,
 } from '../../src/games';
 
-export default function IndividualGameScreen() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function IndividualGameScreen() {
   const params = useLocalSearchParams<{ game: string }>();
   const slug = Array.isArray(params.game)
     ? params.game[0]
@@ -550,3 +552,5 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 });
+
+export default withThemeBackground(IndividualGameScreen);
