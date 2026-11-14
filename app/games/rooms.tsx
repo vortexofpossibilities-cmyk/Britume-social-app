@@ -126,11 +126,12 @@ function RoomsScreen() {
         <Text style={styles.roomStatus}>{room.status.replace('_', ' ').toUpperCase()}</Text>
         <Text style={styles.detail}>Players joined: {playerCount} / {room.max_players}</Text>
         {room.status === 'waiting' && <Text style={styles.waiting}>Waiting for another player to join…</Text>}
-        {room.status === 'ready' && <Text style={styles.waiting}>Opponent connected. Live match gameplay still needs its next server-sync layer.</Text>}
+        {room.status === 'ready' && <Text style={styles.waiting}>Opponent connected. Guess the Number is ready for live play.</Text>}
+        {(room.status === 'ready' || room.status === 'playing') && room.game_id === 'number-guess' && <Pressable style={styles.joinButton} onPress={() => router.push(`/games/live/${room.id}` as never)}><Text style={styles.joinButtonText}>OPEN LIVE MATCH</Text></Pressable>}
         <Pressable disabled={busy} style={styles.leaveButton} onPress={() => void exitRoom()}><Text style={styles.leaveText}>LEAVE ROOM</Text></Pressable>
       </View>}
 
-      <View style={styles.notice}><Ionicons name="shield-checkmark-outline" color="#F4C76B" size={19}/><Text style={styles.noticeText}>This stage connects room creation, joining, membership and live room-status updates. It does not yet synchronize game moves or verify final scores.</Text></View>
+      <View style={styles.notice}><Ionicons name="shield-checkmark-outline" color="#F4C76B" size={19}/><Text style={styles.noticeText}>Guess the Number now has a server-controlled live duel. Other games will receive live multiplayer support in later updates.</Text></View>
       {!user && !authLoading && <Text style={styles.signInHint}>Sign in to use online rooms.</Text>}
     </ScrollView>
   </View>;
