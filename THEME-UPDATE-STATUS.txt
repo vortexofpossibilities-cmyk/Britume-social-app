@@ -1,0 +1,11 @@
+BRITUME THEME UPDATE — WORKING BUILD, NOT FINAL
+
+This archive is based on the uploaded BRITUME project ZIP.
+
+Changes made in this working pass:
+- src/contexts/ThemeContext.tsx: light/dark display mode now takes precedence over a selected material theme's opposite-mode surface palette, while retaining the selected theme's accent, gradient, shape and effects.
+- src/components/UI.tsx: shared Page, Heading, Copy, Panel, Action, Field and Busy components now read colours and shape values from useAppTheme instead of fixed palette constants.
+- app/_layout.tsx: the floating BRITUME AI control now uses active theme colours.
+
+IMPORTANT:
+This is not the finished 44-screen theme integration. A number of screens still contain fixed colours and have not yet been connected to the shared theme tokens. Dependency installation timed out in this environment, so TypeScript/build verification could not be completed. Do not treat this archive as deployment-ready.
