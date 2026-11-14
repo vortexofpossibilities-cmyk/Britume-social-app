@@ -96,7 +96,7 @@ async function getFileSize(uri: string): Promise<number> {
 async function compressImageInBrowser(
   uri: string,
   originalType: string,
-): Promise<{ uri: string; name: string; mimeType: string; size: number }> {
+): Promise<{ uri: string; name: string; mimeType: string; size: number; file?: File }> {
   const response = await fetch(uri);
   if (!response.ok) {
     throw new Error('The browser could not read the selected image. Please select it again.');
@@ -118,6 +118,7 @@ async function compressImageInBrowser(
       name: `britume-${Date.now()}.${originalType === 'image/png' ? 'png' : originalType === 'image/webp' ? 'webp' : 'jpg'}`,
       mimeType: originalType || 'image/jpeg',
       size: originalBlob.size,
+      file: new File([originalBlob], `britume-${Date.now()}.${originalType === 'image/png' ? 'png' : originalType === 'image/webp' ? 'webp' : 'jpg'}`, { type: originalType || 'image/jpeg' }),
     };
   };
 
@@ -153,6 +154,7 @@ async function compressImageInBrowser(
       name: `britume-${Date.now()}.jpg`,
       mimeType: 'image/jpeg',
       size: compressedBlob.size,
+      file: new File([compressedBlob], `britume-${Date.now()}.jpg`, { type: 'image/jpeg' }),
     };
   } catch (error) {
     if (error instanceof Error && error.message.includes('larger than 15 MB')) {
@@ -172,6 +174,7 @@ export async function compressImage(
   name: string;
   mimeType: string;
   size: number;
+  file?: File;
 }> {
   if (!uri) {
     throw new Error('No image was selected.');
