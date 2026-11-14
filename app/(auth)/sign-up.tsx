@@ -16,7 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 
-export default function SignUp() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function SignUp() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -477,3 +479,5 @@ const styles = StyleSheet.create({
     marginTop: 19,
   },
 });
+
+export default withThemeBackground(SignUp);

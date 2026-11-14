@@ -17,7 +17,9 @@ import { Link, router } from 'expo-router';
 
 import { supabase } from '../../src/lib/supabase';
 
-export default function SignIn() {
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
+function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -463,3 +465,5 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
 });
+
+export default withThemeBackground(SignIn);
