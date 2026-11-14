@@ -38,7 +38,7 @@ type ThemeItem = {
   shape?: string;
   texture?: string;
   lighting?: string;
-  depth?: string;
+  depth: number;
   motion?: string;
 };
 
