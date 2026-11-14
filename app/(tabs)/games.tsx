@@ -38,17 +38,20 @@ const CATEGORY_LABELS: Record<GameCategory, string> = {
 };
 
 const GAME_ROUTES: Record<string, string> = {
-  'pooled-spin': 'pooled-spin',
-  trivia: 'trivia',
-  'last-standing': 'last-one-standing',
-  'daily-challenge': 'daily-challenge',
-  'prediction-pot': 'prediction-pot',
-  'greedy-split': 'greedy-split',
-  'lowest-bid': 'lowest-unique-bid',
   'number-guess': 'number-guess',
-  rocket: 'crash-rocket',
-  minefield: 'minefield',
-  'mystery-box': 'mystery-box',
+  'math-duel': 'math-duel',
+  trivia: 'trivia',
+  'memory-match': 'memory-match',
+  'obstacle-dash': 'obstacle-dash',
+  'ice-bridge': 'ice-bridge',
+  'business-tycoon': 'business-tycoon',
+  'word-scramble': 'word-scramble',
+  'race-rush': 'race-rush',
+  'arena-tactics': 'arena-tactics',
+  'city-builder': 'city-builder',
+  'science-battle': 'science-battle',
+  'geography-quiz': 'geography-quiz',
+  'greedy-split': 'greedy-split',
 };
 
 function GamesScreen() {
@@ -80,7 +83,7 @@ function GamesScreen() {
     <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor="#071B17"
+        backgroundColor="#07152D"
       />
 
       <ScrollView
@@ -109,23 +112,36 @@ function GamesScreen() {
           </View>
         </View>
 
+        <View style={styles.quickLinks}>
+          <Pressable style={styles.quickLink} onPress={() => router.push('/games/rooms' as any)}>
+            <Ionicons name="people-outline" size={19} color="#F4C76B" />
+            <Text style={styles.quickLinkText}>Match Types</Text>
+            <Ionicons name="chevron-forward" size={15} color="#B8C6D9" />
+          </Pressable>
+          <Pressable style={styles.quickLink} onPress={() => router.push('/games/competitions' as any)}>
+            <Ionicons name="trophy-outline" size={19} color="#F4C76B" />
+            <Text style={styles.quickLinkText}>Competitions</Text>
+            <Ionicons name="chevron-forward" size={15} color="#B8C6D9" />
+          </Pressable>
+        </View>
+
         <View style={styles.modeCard}>
           <View style={styles.modeTop}>
             <View style={styles.modeIcon}>
               <Ionicons
                 name="game-controller-outline"
                 size={22}
-                color="#34D399"
+                color="#F4C76B"
               />
             </View>
 
             <View style={styles.modeTextContainer}>
               <Text style={styles.modeTitle}>
-                Free Play Preview
+                Games Arena · Free Play
               </Text>
 
               <Text style={styles.modeSubtitle}>
-                Explore the games while we prepare the gaming backend.
+                Play skill, memory, racing, business and educational challenges.
               </Text>
             </View>
 
@@ -142,11 +158,11 @@ function GamesScreen() {
             <Ionicons
               name="information-circle-outline"
               size={17}
-              color="#A7F3D0"
+              color="#F7D98F"
             />
 
             <Text style={styles.modeNote}>
-              Practice only. Paid entries and cash prizes are not enabled.
+              Free demo play only. Scores have no cash value.
             </Text>
           </View>
         </View>
@@ -232,7 +248,7 @@ function GamesScreen() {
                   <Ionicons
                     name="chevron-forward"
                     size={19}
-                    color="#78918A"
+                    color="#A9B9CD"
                   />
                 </View>
 
@@ -286,7 +302,7 @@ function GamesScreen() {
                           : 'time-outline'
                       }
                       size={14}
-                      color={ready ? '#071B17' : '#A7C0B6'}
+                      color={ready ? '#07152D' : '#B7C7DA'}
                     />
                   </View>
                 </View>
@@ -299,14 +315,13 @@ function GamesScreen() {
           <Ionicons
             name="shield-checkmark-outline"
             size={18}
-            color="#34D399"
+            color="#F4C76B"
           />
 
           <Text style={styles.footerText}>
-            BRITUME gaming features are being prepared.
-            Practice mode is free. Any future competition
-            features will require appropriate backend,
-            security and legal checks.
+            Playable practice games are available now. Online multiplayer,
+            scheduled tournaments and live leaderboards still need
+            secure server integration. Demo scores are not money.
           </Text>
         </View>
       </ScrollView>
@@ -317,7 +332,7 @@ function GamesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#071B17',
+    backgroundColor: '#07152D',
   },
 
   scrollContent: {
@@ -334,7 +349,7 @@ const styles = StyleSheet.create({
   },
 
   brand: {
-    color: '#34D399',
+    color: '#F4C76B',
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 3,
@@ -348,7 +363,7 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    color: '#A3B8B0',
+    color: '#B8C6D9',
     fontSize: 13,
     marginTop: 5,
   },
@@ -357,17 +372,42 @@ const styles = StyleSheet.create({
     width: 53,
     height: 53,
     borderRadius: 17,
-    backgroundColor: '#123D32',
+    backgroundColor: '#17365C',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  quickLinks: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  quickLink: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    paddingHorizontal: 11,
+    backgroundColor: '#102747',
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#315078',
+  },
+  quickLinkText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    flex: 1,
+  },
+
   modeCard: {
-    backgroundColor: '#10352B',
+    backgroundColor: '#102747',
     borderRadius: 17,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#1D5946',
+    borderColor: '#315078',
     marginBottom: 27,
   },
 
@@ -381,7 +421,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: '#164C3A',
+    backgroundColor: '#1B3B62',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -397,28 +437,28 @@ const styles = StyleSheet.create({
   },
 
   modeSubtitle: {
-    color: '#B5D4C8',
+    color: '#C0CDDF',
     fontSize: 11,
     marginTop: 4,
     lineHeight: 16,
   },
 
   freeBadge: {
-    backgroundColor: '#065F46',
+    backgroundColor: '#17365C',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 7,
   },
 
   freeBadgeText: {
-    color: '#A7F3D0',
+    color: '#F7D98F',
     fontSize: 10,
     fontWeight: '900',
   },
 
   modeDivider: {
     height: 1,
-    backgroundColor: '#28614F',
+    backgroundColor: '#315078',
     marginVertical: 13,
   },
 
@@ -429,7 +469,7 @@ const styles = StyleSheet.create({
   },
 
   modeNote: {
-    color: '#A7F3D0',
+    color: '#F7D98F',
     fontSize: 11,
     flex: 1,
   },
@@ -448,13 +488,13 @@ const styles = StyleSheet.create({
   },
 
   sectionSubtitle: {
-    color: '#91AAA1',
+    color: '#B8C6D9',
     fontSize: 12,
     marginTop: 4,
   },
 
   gameCount: {
-    color: '#34D399',
+    color: '#F4C76B',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
@@ -469,24 +509,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 20,
-    backgroundColor: '#102B24',
+    backgroundColor: '#102747',
     borderWidth: 1,
-    borderColor: '#204438',
+    borderColor: '#315078',
   },
 
   filterButtonActive: {
-    backgroundColor: '#34D399',
-    borderColor: '#34D399',
+    backgroundColor: '#F4C76B',
+    borderColor: '#F4C76B',
   },
 
   filterText: {
-    color: '#A7C0B6',
+    color: '#B7C7DA',
     fontSize: 12,
     fontWeight: '700',
   },
 
   filterTextActive: {
-    color: '#071B17',
+    color: '#07152D',
   },
 
   gameGrid: {
@@ -498,11 +538,11 @@ const styles = StyleSheet.create({
 
   gameCard: {
     width: '48%',
-    backgroundColor: '#102B24',
+    backgroundColor: '#102747',
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#204438',
+    borderColor: '#315078',
     minHeight: 207,
   },
 
@@ -531,7 +571,7 @@ const styles = StyleSheet.create({
   },
 
   category: {
-    color: '#34D399',
+    color: '#F4C76B',
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 1,
@@ -579,7 +619,7 @@ const styles = StyleSheet.create({
   },
 
   playButton: {
-    backgroundColor: '#34D399',
+    backgroundColor: '#F4C76B',
     paddingHorizontal: 9,
     paddingVertical: 7,
     borderRadius: 8,
@@ -589,7 +629,7 @@ const styles = StyleSheet.create({
   },
 
   playButtonText: {
-    color: '#071B17',
+    color: '#07152D',
     fontSize: 9,
     fontWeight: '900',
   },
@@ -599,14 +639,14 @@ const styles = StyleSheet.create({
   },
 
   comingButtonText: {
-    color: '#A7C0B6',
+    color: '#B7C7DA',
   },
 
   footer: {
     flexDirection: 'row',
     gap: 9,
     alignItems: 'flex-start',
-    backgroundColor: '#102B24',
+    backgroundColor: '#102747',
     borderRadius: 13,
     padding: 13,
     marginTop: 22,
@@ -614,7 +654,7 @@ const styles = StyleSheet.create({
 
   footerText: {
     flex: 1,
-    color: '#A7C0B6',
+    color: '#B7C7DA',
     fontSize: 11,
     lineHeight: 17,
   },
