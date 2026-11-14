@@ -1,22 +1,16 @@
-
 import React from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
   type TextInputProps,
   type ViewProps,
 } from 'react-native';
+import { useAppTheme } from '../contexts/ThemeContext';
 
-import { theme as C } from '../lib/theme';
-
-type ChildrenProps = {
-  children: React.ReactNode;
-};
-
+type ChildrenProps = { children: React.ReactNode };
 type ActionProps = {
   title: string;
   onPress: () => void;
@@ -25,173 +19,54 @@ type ActionProps = {
 };
 
 export function Page({ children, style, ...props }: ViewProps) {
-  return (
-    <View {...props} style={[styles.page, style]}>
-      {children}
-    </View>
-  );
+  const { theme } = useAppTheme();
+  return <View {...props} style={[{ flex: 1, backgroundColor: theme.bg, padding: 20 }, style]}>{children}</View>;
 }
 
 export function Heading({ children }: ChildrenProps) {
-  return <Text style={styles.heading}>{children}</Text>;
+  const { theme } = useAppTheme();
+  return <Text style={{ color: theme.text, fontSize: 25, fontWeight: '800', marginBottom: 8 }}>{children}</Text>;
 }
 
 export function Copy({ children }: ChildrenProps) {
-  return <Text style={styles.copy}>{children}</Text>;
+  const { theme } = useAppTheme();
+  return <Text style={{ color: theme.muted, fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{children}</Text>;
 }
 
 export function Panel({ children }: ChildrenProps) {
-  return (
-    <View style={styles.panel}>
-      {children}
-    </View>
-  );
+  const { theme } = useAppTheme();
+  return <View style={{ backgroundColor: theme.panel, borderColor: theme.border, borderWidth: theme.cardBorderWidth, borderRadius: theme.cardRadius, padding: 16, marginVertical: 8 }}>{children}</View>;
 }
 
-export function Action({
-  title,
-  onPress,
-  secondary = false,
-  disabled = false,
-}: ActionProps) {
+export function Action({ title, onPress, secondary = false, disabled = false }: ActionProps) {
+  const { theme } = useAppTheme();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled }}
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.action,
-        secondary && styles.secondary,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-      ]}
-    >
-      <Text
-        style={[
-          styles.actionText,
-          secondary && styles.secondaryText,
-        ]}
-      >
-        {title}
-      </Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={title}
+      accessibilityState={{ disabled }} onPress={onPress} disabled={disabled}
+      style={({ pressed }) => ({ backgroundColor: secondary ? theme.panel2 : theme.accent,
+        borderColor: theme.border, borderWidth: secondary ? 1 : 0,
+        borderRadius: theme.cardRadius, paddingVertical: 14, paddingHorizontal: 16,
+        alignItems: 'center', marginTop: 12, opacity: disabled ? 0.55 : pressed ? 0.8 : 1 })}>
+      <Text style={{ color: secondary ? theme.text : '#FFFFFF', fontWeight: '800', fontSize: 14 }}>{title}</Text>
     </Pressable>
   );
 }
 
-type FieldProps = TextInputProps & {
-  label: string;
-};
-
+type FieldProps = TextInputProps & { label: string };
 export function Field({ label, ...props }: FieldProps) {
+  const { theme } = useAppTheme();
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-
-      <TextInput
-        {...props}
-        accessibilityLabel={label}
-        placeholderTextColor={C.muted}
-        style={[
-          styles.input,
-          props.multiline && styles.multiline,
-          props.style,
-        ]}
-      />
+    <View style={{ marginTop: 12, marginBottom: 3 }}>
+      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginBottom: 7 }}>{label}</Text>
+      <TextInput {...props} accessibilityLabel={label} placeholderTextColor={theme.muted}
+        style={[{ color: theme.text, backgroundColor: theme.panel, borderColor: theme.border,
+          borderWidth: 1, borderRadius: theme.cardRadius, paddingHorizontal: 14,
+          paddingVertical: 13, fontSize: 14 }, props.multiline && { minHeight: 120, textAlignVertical: 'top' }, props.style]} />
     </View>
   );
 }
 
 export function Busy() {
-  return (
-    <ActivityIndicator
-      accessibilityLabel="Loading"
-      color={C.cyan}
-      size="large"
-      style={styles.busy}
-    />
-  );
+  const { theme } = useAppTheme();
+  return <ActivityIndicator accessibilityLabel="Loading" color={theme.accent} size="large" style={{ marginVertical: 24 }} />;
 }
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: C.bg,
-    padding: 20,
-  },
-  heading: {
-    color: C.text,
-    fontSize: 25,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  copy: {
-    color: C.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 12,
-  },
-  panel: {
-    backgroundColor: C.panel,
-    borderColor: C.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 8,
-  },
-  action: {
-    backgroundColor: C.cyan,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  secondary: {
-    backgroundColor: C.panel2,
-    borderColor: C.border,
-    borderWidth: 1,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-  actionText: {
-    color: '#081018',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  secondaryText: {
-    color: C.text,
-  },
-  field: {
-    marginTop: 12,
-    marginBottom: 3,
-  },
-  label: {
-    color: C.text,
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 7,
-  },
-  input: {
-    color: C.text,
-    backgroundColor: C.panel,
-    borderColor: C.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 14,
-  },
-  multiline: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  busy: {
-    marginVertical: 24,
-  },
-});
