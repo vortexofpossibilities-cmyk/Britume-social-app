@@ -52,6 +52,10 @@ const GAME_ROUTES: Record<string, string> = {
   'science-battle': 'science-battle',
   'geography-quiz': 'geography-quiz',
   'greedy-split': 'greedy-split',
+  'restaurant-empire': 'restaurant-empire',
+  'market-master': 'market-master',
+  'detective-battle': 'detective-battle',
+  'maths-classroom': 'maths-classroom',
 };
 
 function GamesScreen() {
