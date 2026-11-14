@@ -522,12 +522,13 @@ function Create() {
           uploadSize = compressed.size;
 
           if (Platform.OS === 'web') {
-            uploadSource = await createCompressedWebFile(
+            // Use the Blob-backed File created during compression. Avoid fetching
+            // a temporary blob: URL, which can fail in some Android browsers.
+            uploadSource = compressed.file || await createCompressedWebFile(
               compressed.uri,
               compressed.name,
               compressed.mimeType,
             );
-
             uploadSize = (uploadSource as File).size;
           } else {
             uploadSource = {
