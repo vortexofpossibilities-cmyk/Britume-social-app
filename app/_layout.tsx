@@ -16,6 +16,7 @@ import { LanguageProvider } from '../src/contexts/LanguageContext';
 
 function FloatingBritumeAI() {
   const { width, height } = useWindowDimensions();
+  const { theme } = useAppTheme();
 
   const buttonSize = 58;
   const edgePadding = 5;
@@ -110,18 +111,18 @@ function FloatingBritumeAI() {
       ]}
     >
       <Pressable
-        style={styles.aiButton}
+        style={[styles.aiButton, { backgroundColor: theme.panel, borderColor: theme.accent, shadowColor: theme.accent }]}
         onPress={() => router.push('/ai')}
         accessibilityRole="button"
         accessibilityLabel="Open BRITUME AI assistant"
         hitSlop={8}
       >
-        <View style={styles.eye}>
-          <View style={styles.pupil} />
+        <View style={[styles.eye, { backgroundColor: theme.accent }]}>
+          <View style={[styles.pupil, { backgroundColor: theme.panel }]} />
         </View>
 
-        <View style={styles.eye}>
-          <View style={styles.pupil} />
+        <View style={[styles.eye, { backgroundColor: theme.accent }]}>
+          <View style={[styles.pupil, { backgroundColor: theme.panel }]} />
         </View>
       </Pressable>
     </Animated.View>
