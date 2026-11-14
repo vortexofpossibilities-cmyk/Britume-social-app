@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const challenges = [
   {
     id: 'post',
@@ -43,7 +45,7 @@ const challenges = [
 
 type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
 
-export default function ChallengesScreen() {
+function ChallengesScreen() {
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
 
@@ -313,3 +315,5 @@ function createStyles(theme: ThemeColors) {
     },
   });
 }
+
+export default withThemeBackground(ChallengesScreen);

@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const boxes = [
   {
     id: 'bronze',
@@ -36,7 +38,7 @@ const boxes = [
 
 type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
 
-export default function MysteryBoxScreen() {
+function MysteryBoxScreen() {
   const { theme } = useAppTheme();
 
   const [selected, setSelected] = useState('bronze');
@@ -371,3 +373,5 @@ function createStyles(theme: ThemeColors) {
     },
   });
             }
+
+export default withThemeBackground(MysteryBoxScreen);

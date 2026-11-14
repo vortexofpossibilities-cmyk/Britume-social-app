@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const rewards = [
   { day: 'Day 1', points: 2 },
   { day: 'Day 2', points: 3 },
@@ -22,7 +24,7 @@ const rewards = [
 
 type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
 
-export default function DailyRewardsScreen() {
+function DailyRewardsScreen() {
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
 
@@ -287,3 +289,5 @@ function createStyles(theme: ThemeColors) {
     },
   });
 }
+
+export default withThemeBackground(DailyRewardsScreen);

@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../src/contexts/ThemeContext';
 
+import { withThemeBackground } from '../../src/components/ThemeScreen';
+
 const prizes = [
   '5 pts',
   '10 pts',
@@ -39,7 +41,7 @@ const costs = [20, 40, 60, 100];
 
 type ThemeColors = ReturnType<typeof useAppTheme>['theme'];
 
-export default function SpinWheelScreen() {
+function SpinWheelScreen() {
   const { theme } = useAppTheme();
 
   const [selectedCost, setSelectedCost] = useState(20);
@@ -494,3 +496,5 @@ function createStyles(theme: ThemeColors) {
     },
   });
             }
+
+export default withThemeBackground(SpinWheelScreen);
