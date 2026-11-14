@@ -365,20 +365,35 @@ export function ThemeProvider({
       : lightTheme;
 
     const material = selectedThemeStyle;
+    // The display mode takes precedence over a material theme's saved
+    // light/dark palette while retaining its accent, shape and effects.
+    const useMaterialPalette = material.dark === (mode === 'dark');
+    const palette = useMaterialPalette ? material : {
+      ...material,
+      bg: base.bg,
+      panel: base.panel,
+      panel2: base.panel2,
+      panel3: base.panel3,
+      text: base.text,
+      muted: base.muted,
+      border: base.border,
+      borderStrong: base.borderStrong,
+      shadow: base.shadow,
+    };
 
     const accent =
       ACCENT_COLOURS.find(
         (item) => item.id === accentColour,
       )?.value ?? lightTheme.blue;
 
-    const glass = material.panel;
-    const glassLight = material.panel2;
-    const glassBorder = material.border;
+    const glass = palette.panel;
+    const glassLight = palette.panel2;
+    const glassBorder = palette.border;
 
-    const clay = material.panel;
-    const clayBlue = material.panel2;
+    const clay = palette.panel;
+    const clayBlue = palette.panel2;
     const clayPurple = material.gradient[0];
-    const clayPressed = material.panel3;
+    const clayPressed = palette.panel3;
 
     const glowBlue = material.glow;
     const glowPurple = material.glow;
@@ -388,14 +403,14 @@ export function ThemeProvider({
       ...base,
 
       // Main surfaces
-      bg: material.bg,
-      panel: material.panel,
-      panel2: material.panel2,
-      panel3: material.panel3,
+      bg: palette.bg,
+      panel: palette.panel,
+      panel2: palette.panel2,
+      panel3: palette.panel3,
 
       // Text
-      text: material.text,
-      muted: material.muted,
+      text: palette.text,
+      muted: palette.muted,
 
       // Brand and accent
       cyan: accent,
@@ -410,9 +425,9 @@ export function ThemeProvider({
       yellow: material.highlight,
 
       // Borders and shadows
-      border: material.border,
-      borderStrong: material.borderStrong,
-      shadow: material.shadow,
+      border: palette.border,
+      borderStrong: palette.borderStrong,
+      shadow: palette.shadow,
       shadowDark: material.shadow,
       shadowLight: material.highlight,
 
@@ -435,7 +450,7 @@ export function ThemeProvider({
 
       // Brand aliases
       oilBlue: accent,
-      oilGrey: material.muted,
+      oilGrey: palette.muted,
       oilYellow: material.highlight,
 
       // Material theme metadata
