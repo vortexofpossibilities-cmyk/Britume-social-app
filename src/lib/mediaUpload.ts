@@ -31,22 +31,27 @@ export type UploadProgress = (
   totalBytes: number,
 ) => void;
 
-function getProjectId(): string {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+function getProjectUrl(): string {
+  const rawUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
 
-  if (!url) {
+  if (!rawUrl) {
     throw new Error('Supabase URL is not configured.');
   }
 
-  const match = url.match(
-    /^https:\/\/([a-z0-9-]+)\.supabase\.co\/?$/i,
-  );
+  // Match the URL normalisation used by src/lib/supabase.ts.
+  // This also accepts a value accidentally saved with /rest/v1/.
+  const projectUrl = rawUrl
+    .replace(/\/rest\/v1\/?$/i, '')
+    .replace(/\/+$/, '');
 
-  if (!match) {
-    throw new Error('Your Supabase project URL is invalid.');
+  if (
+    !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(projectUrl) ||
+    projectUrl.includes('YOUR_PROJECT')
+  ) {
+    throw new Error('Your Supabase project URL is invalid. Check EXPO_PUBLIC_SUPABASE_URL in your build settings.');
   }
 
-  return match[1];
+  return projectUrl;
 }
 
 function getImageType(uri: string, suppliedType?: string) {
@@ -93,79 +98,6 @@ async function getFileSize(uri: string): Promise<number> {
   return file.size;
 }
 
-async function compressImageInBrowser(
-  uri: string,
-  originalType: string,
-): Promise<{ uri: string; name: string; mimeType: string; size: number; file?: File }> {
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error('The browser could not read the selected image. Please select it again.');
-  }
-
-  const originalBlob = await response.blob();
-  if (!originalBlob.size) {
-    throw new Error('The selected image is empty. Please select it again.');
-  }
-
-  // If the browser does not provide the image APIs needed for compression,
-  // allow a small original image to upload rather than failing the whole post.
-  const useOriginal = async () => {
-    if (originalBlob.size > MEDIA_LIMITS.image) {
-      throw new Error('This browser could not compress the image, and the original is larger than 15 MB. Try a smaller image or another browser.');
-    }
-    return {
-      uri,
-      name: `britume-${Date.now()}.${originalType === 'image/png' ? 'png' : originalType === 'image/webp' ? 'webp' : 'jpg'}`,
-      mimeType: originalType || 'image/jpeg',
-      size: originalBlob.size,
-      file: new File([originalBlob], `britume-${Date.now()}.${originalType === 'image/png' ? 'png' : originalType === 'image/webp' ? 'webp' : 'jpg'}`, { type: originalType || 'image/jpeg' }),
-    };
-  };
-
-  if (typeof createImageBitmap !== 'function') {
-    return useOriginal();
-  }
-
-  let bitmap: ImageBitmap | null = null;
-  try {
-    bitmap = await createImageBitmap(originalBlob);
-    const maxWidth = 2048;
-    const scale = Math.min(1, maxWidth / bitmap.width);
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    if (!context) return useOriginal();
-    context.drawImage(bitmap, 0, 0, width, height);
-
-    const compressedBlob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.78);
-    });
-    if (!compressedBlob || !compressedBlob.size) return useOriginal();
-    if (compressedBlob.size > MEDIA_LIMITS.image) {
-      throw new Error('The compressed image is still larger than 15 MB. Please choose a smaller image.');
-    }
-
-    const objectUrl = URL.createObjectURL(compressedBlob);
-    return {
-      uri: objectUrl,
-      name: `britume-${Date.now()}.jpg`,
-      mimeType: 'image/jpeg',
-      size: compressedBlob.size,
-      file: new File([compressedBlob], `britume-${Date.now()}.jpg`, { type: 'image/jpeg' }),
-    };
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('larger than 15 MB')) {
-      throw error;
-    }
-    return useOriginal();
-  } finally {
-    bitmap?.close();
-  }
-}
-
 export async function compressImage(
   uri: string,
   suppliedMimeType?: string,
@@ -174,7 +106,6 @@ export async function compressImage(
   name: string;
   mimeType: string;
   size: number;
-  file?: File;
 }> {
   if (!uri) {
     throw new Error('No image was selected.');
@@ -197,10 +128,6 @@ export async function compressImage(
       mimeType: 'image/gif',
       size,
     };
-  }
-
-  if (Platform.OS === 'web') {
-    return compressImageInBrowser(uri, originalType);
   }
 
   let result;
@@ -315,7 +242,7 @@ export async function uploadMediaResumable(
     return;
   }
 
-  const projectId = getProjectId();
+  const projectUrl = getProjectUrl();
 
   const webSource = source as File;
 
@@ -334,7 +261,7 @@ export async function uploadMediaResumable(
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(webSource, {
       endpoint:
-        `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
+        `${projectUrl}/storage/v1/upload/resumable`,
 
       retryDelays: [0, 3000, 5000, 10000, 20000],
 
