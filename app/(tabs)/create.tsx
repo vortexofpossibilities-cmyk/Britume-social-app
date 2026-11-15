@@ -507,45 +507,53 @@ function Create() {
         let uploadSize = item.size;
 
         if (item.mediaType === 'image') {
-          stage = `Compressing image ${index + 1} of ${media.length}`;
-
-          setStatus(stage);
-          setStatusType('info');
-
-          const compressed = await compressImage(
-            item.uri,
-            item.mimeType,
-          );
-
-          uploadMimeType = compressed.mimeType;
-          uploadName = compressed.name;
-          uploadSize = compressed.size;
-
           if (Platform.OS === 'web') {
-            // Use the Blob-backed File created during compression. Avoid fetching
-            // a temporary blob: URL, which can fail in some Android browsers.
-            uploadSource = compressed.file || await createCompressedWebFile(
-              compressed.uri,
-              compressed.name,
-              compressed.mimeType,
-            );
-            uploadSize = (uploadSource as File).size;
+            // On web, Expo ImageManipulator returns a temporary URI that may
+            // not be fetchable on GitHub Pages / Android Chrome. Upload the
+            // original browser File directly instead of fetching that URI.
+            stage = `Preparing image ${index + 1} of ${media.length}`;
+            setStatus(stage);
+            setStatusType('info');
+
+            if (!item.webFile || !item.webFile.size) {
+              throw new Error(
+                `The browser file is unavailable for ${item.name}. Please select it again.`,
+              );
+            }
+
+            uploadSource = item.webFile;
+            uploadSize = item.webFile.size;
+
+            if (uploadSize > MAX_IMAGE_SIZE) {
+              throw new Error(
+                `${item.name} is larger than 15 MB. Please choose an image under 15 MB.`,
+              );
+            }
           } else {
+            stage = `Compressing image ${index + 1} of ${media.length}`;
+            setStatus(stage);
+            setStatusType('info');
+
+            const compressed = await compressImage(
+              item.uri,
+              item.mimeType,
+            );
+
+            uploadMimeType = compressed.mimeType;
+            uploadName = compressed.name;
+            uploadSize = compressed.size;
             uploadSource = {
               uri: compressed.uri,
               name: compressed.name,
               type: compressed.mimeType,
               size: compressed.size,
             };
-          }
 
-          if (
-            !uploadSize ||
-            uploadSize > MAX_IMAGE_SIZE
-          ) {
-            throw new Error(
-              `${item.name} is still larger than 15 MB after compression.`,
-            );
+            if (!uploadSize || uploadSize > MAX_IMAGE_SIZE) {
+              throw new Error(
+                `${item.name} is still larger than 15 MB after compression.`,
+              );
+            }
           }
         } else {
           if (
