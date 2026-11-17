@@ -1,3 +1,4 @@
+
 import * as tus from 'tus-js-client';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { File as ExpoFile } from 'expo-file-system';
@@ -38,8 +39,6 @@ function getProjectUrl(): string {
     throw new Error('Supabase URL is not configured.');
   }
 
-  // Match the URL normalisation used by src/lib/supabase.ts.
-  // This also accepts a value accidentally saved with /rest/v1/.
   const projectUrl = rawUrl
     .replace(/\/rest\/v1\/?$/i, '')
     .replace(/\/+$/, '');
@@ -48,10 +47,29 @@ function getProjectUrl(): string {
     !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(projectUrl) ||
     projectUrl.includes('YOUR_PROJECT')
   ) {
-    throw new Error('Your Supabase project URL is invalid. Check EXPO_PUBLIC_SUPABASE_URL in your build settings.');
+    throw new Error(
+      'Your Supabase project URL is invalid. Check EXPO_PUBLIC_SUPABASE_URL in your build settings.',
+    );
   }
 
   return projectUrl;
+}
+
+/**
+ * Supabase resumable uploads use the dedicated Storage hostname.
+ */
+function getStorageUploadEndpoint(): string {
+  const projectUrl = getProjectUrl();
+
+  const projectId = projectUrl
+    .replace(/^https:\/\//i, '')
+    .replace(/\.supabase\.co$/i, '');
+
+  if (!projectId) {
+    throw new Error('Could not identify your Supabase project.');
+  }
+
+  return `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`;
 }
 
 function getImageType(uri: string, suppliedType?: string) {
@@ -117,9 +135,7 @@ export async function compressImage(
     const size = await getFileSize(uri);
 
     if (!size || size > MEDIA_LIMITS.image) {
-      throw new Error(
-        'This GIF must be 15 MB or smaller.',
-      );
+      throw new Error('This GIF must be 15 MB or smaller.');
     }
 
     return {
@@ -186,10 +202,12 @@ export async function uploadMediaResumable(
   } = await client.auth.getSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error(
-      'Please sign in again before uploading.',
-    );
+    throw new Error('Please sign in again before uploading.');
   }
+
+  // ==========================================
+  // ANDROID / NATIVE UPLOAD
+  // ==========================================
 
   if (Platform.OS !== 'web') {
     const uri = (source as { uri: string }).uri;
@@ -242,7 +260,11 @@ export async function uploadMediaResumable(
     return;
   }
 
-  const projectUrl = getProjectUrl();
+  // ==========================================
+  // WEB / TUS RESUMABLE UPLOAD
+  // ==========================================
+
+  const storageEndpoint = getStorageUploadEndpoint();
 
   const webSource = source as File;
 
@@ -260,8 +282,7 @@ export async function uploadMediaResumable(
 
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(webSource, {
-      endpoint:
-        `${projectUrl}/storage/v1/upload/resumable`,
+      endpoint: storageEndpoint,
 
       retryDelays: [0, 3000, 5000, 10000, 20000],
 
@@ -291,11 +312,10 @@ export async function uploadMediaResumable(
       },
 
       onProgress(uploadedBytes, totalBytes) {
-        const percent = totalBytes > 0
-          ? Math.round(
-              (uploadedBytes / totalBytes) * 100,
-            )
-          : 0;
+        const percent =
+          totalBytes > 0
+            ? Math.round((uploadedBytes / totalBytes) * 100)
+            : 0;
 
         onProgress?.(
           percent,
