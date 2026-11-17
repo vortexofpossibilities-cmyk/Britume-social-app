@@ -1,12 +1,6 @@
-// src/lib/communityPosts.ts
-
 import { supabase, supabaseConfigured } from './supabase';
 
-export type CommunityPostType =
-  | 'text'
-  | 'photo'
-  | 'video'
-  | 'link';
+export type CommunityPostType = 'text' | 'photo' | 'video' | 'link';
 
 export type CommunityPost = {
   id: string;
@@ -54,37 +48,29 @@ export type CommunityPostComment = {
 };
 
 const MEDIA_BUCKET = 'britume-media';
+const MAX_POST_LENGTH = 10000;
+const MAX_COMMENT_LENGTH = 3000;
 
 function getClient() {
   if (!supabaseConfigured || !supabase) {
     throw new Error(
-      'BRITUME is not connected to Supabase. Check your environment variables.'
+      'BRITUME is not connected to Supabase. Check your environment variables.',
     );
   }
-
   return supabase;
 }
 
 async function getCurrentUserId(): Promise<string> {
   const client = getClient();
   const { data, error } = await client.auth.getUser();
-
-  if (error || !data.user) {
-    throw new Error('Please sign in to continue.');
-  }
-
+  if (error || !data.user) throw new Error('Please sign in to continue.');
   return data.user.id;
 }
 
-// =====================================================
-// FETCH COMMUNITY POSTS
-// =====================================================
-
-export async function fetchCommunityPosts(
-  communityId: string
-): Promise<CommunityPost[]> {
+export async function fetchCommunityPosts(communityId: string): Promise<CommunityPost[]> {
   const client = getClient();
   const userId = await getCurrentUserId();
+  if (!communityId?.trim()) throw new Error('Invalid community.');
 
   const { data: posts, error } = await client
     .from('community_posts')
@@ -96,8 +82,8 @@ export async function fetchCommunityPosts(
   if (error) throw error;
   if (!posts?.length) return [];
 
-  const postIds = posts.map((post) => post.id);
-  const userIds = [...new Set(posts.map((post) => post.user_id))];
+  const postIds = posts.map(post => post.id);
+  const userIds = [...new Set(posts.map(post => post.user_id))];
 
   const [
     { data: media, error: mediaError },
@@ -105,79 +91,47 @@ export async function fetchCommunityPosts(
     { data: comments, error: commentsError },
     { data: profiles, error: profilesError },
   ] = await Promise.all([
-    client
-      .from('community_post_media')
-      .select('*')
-      .in('post_id', postIds)
-      .order('position', { ascending: true }),
-
-    client
-      .from('community_post_likes')
-      .select('post_id, user_id')
-      .in('post_id', postIds),
-
-    client
-      .from('community_post_comments')
-      .select('post_id')
-      .in('post_id', postIds),
-
-    client
-      .from('profiles')
-      .select('user_id, display_name, username')
-      .in('user_id', userIds),
+    client.from('community_post_media').select('*').in('post_id', postIds).order('position', { ascending: true }),
+    client.from('community_post_likes').select('post_id, user_id').in('post_id', postIds),
+    client.from('community_post_comments').select('post_id').in('post_id', postIds),
+    client.from('profiles').select('user_id, display_name, username').in('user_id', userIds),
   ]);
 
   if (mediaError) throw mediaError;
   if (likesError) throw likesError;
   if (commentsError) throw commentsError;
+  if (profilesError) throw profilesError;
 
-  const profileMap = new Map(
-    (profilesError ? [] : profiles || []).map((profile) => [
-      profile.user_id,
-      profile,
-    ])
-  );
+  const profileMap = new Map((profiles || []).map(profile => [profile.user_id, profile]));
 
   const mediaWithUrls: CommunityPostMedia[] = await Promise.all(
-    (media || []).map(async (item) => {
-      const { data } = await client.storage
+    (media || []).map(async item => {
+      const { data, error: signedError } = await client.storage
         .from(MEDIA_BUCKET)
         .createSignedUrl(item.storage_path, 60 * 60);
 
-      return {
-        ...item,
-        url: data?.signedUrl || null,
-      };
-    })
+      if (signedError) {
+        console.warn('Could not create community media URL:', signedError.message);
+      }
+
+      return { ...item, url: data?.signedUrl || null };
+    }),
   );
 
-  return posts.map((post) => {
-    const postLikes = (likes || []).filter(
-      (like) => like.post_id === post.id
-    );
-
-    const postComments = (comments || []).filter(
-      (comment) => comment.post_id === post.id
-    );
+  return posts.map(post => {
+    const postLikes = (likes || []).filter(like => like.post_id === post.id);
+    const postComments = (comments || []).filter(comment => comment.post_id === post.id);
 
     return {
       ...post,
       author: profileMap.get(post.user_id) || null,
-      media: mediaWithUrls.filter(
-        (item) => item.post_id === post.id
-      ),
+      media: mediaWithUrls.filter(item => item.post_id === post.id),
       like_count: postLikes.length,
       comment_count: postComments.length,
-      is_liked: postLikes.some(
-        (like) => like.user_id === userId
-      ),
+      is_liked: postLikes.some(like => like.user_id === userId),
     };
   });
 }
-
-// =====================================================
-// CREATE COMMUNITY POST
-// =====================================================
 
 export async function createCommunityPost(input: {
   communityId: string;
@@ -188,25 +142,22 @@ export async function createCommunityPost(input: {
 }) {
   const client = getClient();
   const userId = await getCurrentUserId();
-
   const content = input.content?.trim() || null;
   const linkUrl = input.linkUrl?.trim() || null;
   const postType = input.postType || 'text';
 
+  if (!input.communityId?.trim()) throw new Error('Invalid community.');
   if (!content && !linkUrl && postType !== 'photo' && postType !== 'video') {
     throw new Error('Please add text, a link, or media to your post.');
   }
-
-  if (content && content.length > 10000) {
-    throw new Error('Your post is too long. Maximum is 10,000 characters.');
+  if (content && content.length > MAX_POST_LENGTH) {
+    throw new Error(`Your post is too long. Maximum is ${MAX_POST_LENGTH.toLocaleString()} characters.`);
   }
 
   if (linkUrl) {
     try {
       const parsed = new URL(linkUrl);
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        throw new Error();
-      }
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
     } catch {
       throw new Error('Please enter a valid website link.');
     }
@@ -220,10 +171,7 @@ export async function createCommunityPost(input: {
     .maybeSingle();
 
   if (membershipError) throw membershipError;
-
-  if (!membership) {
-    throw new Error('Join this community before publishing.');
-  }
+  if (!membership) throw new Error('Join this community before publishing.');
 
   const { data, error } = await client
     .from('community_posts')
@@ -239,14 +187,8 @@ export async function createCommunityPost(input: {
     .single();
 
   if (error) throw error;
-
   return data;
 }
-
-// =====================================================
-// ADD MEDIA RECORD TO A COMMUNITY POST
-// Upload the file first, then call this function.
-// =====================================================
 
 export async function addCommunityPostMedia(input: {
   postId: string;
@@ -257,10 +199,7 @@ export async function addCommunityPostMedia(input: {
 }) {
   const client = getClient();
   const userId = await getCurrentUserId();
-
-  if (!input.storagePath.trim()) {
-    throw new Error('Media storage path is required.');
-  }
+  if (!input.storagePath.trim()) throw new Error('Media storage path is required.');
 
   const { data, error } = await client
     .from('community_post_media')
@@ -276,16 +215,29 @@ export async function addCommunityPostMedia(input: {
     .single();
 
   if (error) throw error;
-
   return data;
 }
 
-// =====================================================
-// DELETE COMMUNITY POST
-// =====================================================
-
-export async function deleteCommunityPost(postId: string) {
+export async function deleteCommunityPost(postId: string): Promise<boolean> {
   const client = getClient();
+
+  const { data: media, error: mediaError } = await client
+    .from('community_post_media')
+    .select('storage_path')
+    .eq('post_id', postId);
+
+  if (mediaError) throw mediaError;
+
+  const paths = (media || []).map(item => item.storage_path).filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await client.storage
+      .from(MEDIA_BUCKET)
+      .remove(paths);
+
+    if (storageError) {
+      throw new Error(`Could not remove post media: ${storageError.message}`);
+    }
+  }
 
   const { error } = await client
     .from('community_posts')
@@ -293,17 +245,10 @@ export async function deleteCommunityPost(postId: string) {
     .eq('id', postId);
 
   if (error) throw error;
-
   return true;
 }
 
-// =====================================================
-// LIKE / UNLIKE COMMUNITY POST
-// =====================================================
-
-export async function toggleCommunityPostLike(
-  postId: string
-): Promise<boolean> {
+export async function toggleCommunityPostLike(postId: string): Promise<boolean> {
   const client = getClient();
   const userId = await getCurrentUserId();
 
@@ -322,31 +267,18 @@ export async function toggleCommunityPostLike(
       .delete()
       .eq('post_id', postId)
       .eq('user_id', userId);
-
     if (error) throw error;
-
     return false;
   }
 
   const { error } = await client
     .from('community_post_likes')
-    .insert({
-      post_id: postId,
-      user_id: userId,
-    });
-
+    .insert({ post_id: postId, user_id: userId });
   if (error) throw error;
-
   return true;
 }
 
-// =====================================================
-// FETCH COMMUNITY POST COMMENTS
-// =====================================================
-
-export async function fetchCommunityPostComments(
-  postId: string
-): Promise<CommunityPostComment[]> {
+export async function fetchCommunityPostComments(postId: string): Promise<CommunityPostComment[]> {
   const client = getClient();
 
   const { data: comments, error } = await client
@@ -358,29 +290,20 @@ export async function fetchCommunityPostComments(
   if (error) throw error;
   if (!comments?.length) return [];
 
-  const userIds = [...new Set(comments.map((item) => item.user_id))];
-
+  const userIds = [...new Set(comments.map(item => item.user_id))];
   const { data: profiles, error: profileError } = await client
     .from('profiles')
     .select('user_id, display_name, username')
     .in('user_id', userIds);
 
-  const profileMap = new Map(
-    (profileError ? [] : profiles || []).map((profile) => [
-      profile.user_id,
-      profile,
-    ])
-  );
+  if (profileError) throw profileError;
 
-  return comments.map((comment) => ({
+  const profileMap = new Map((profiles || []).map(profile => [profile.user_id, profile]));
+  return comments.map(comment => ({
     ...comment,
     author: profileMap.get(comment.user_id) || null,
   }));
 }
-
-// =====================================================
-// CREATE COMMUNITY POST COMMENT
-// =====================================================
 
 export async function createCommunityPostComment(input: {
   postId: string;
@@ -388,54 +311,33 @@ export async function createCommunityPostComment(input: {
 }) {
   const client = getClient();
   const userId = await getCurrentUserId();
-
   const content = input.content.trim();
 
-  if (!content) {
-    throw new Error('Please write a comment.');
-  }
-
-  if (content.length > 2000) {
-    throw new Error('Comments cannot exceed 2,000 characters.');
+  if (!content) throw new Error('Please write a comment.');
+  if (content.length > MAX_COMMENT_LENGTH) {
+    throw new Error('Comments cannot exceed 3,000 characters.');
   }
 
   const { data, error } = await client
     .from('community_post_comments')
-    .insert({
-      post_id: input.postId,
-      user_id: userId,
-      content,
-    })
+    .insert({ post_id: input.postId, user_id: userId, content })
     .select('*')
     .single();
 
   if (error) throw error;
-
   return data;
 }
 
-// =====================================================
-// DELETE COMMUNITY POST COMMENT
-// =====================================================
-
-export async function deleteCommunityPostComment(
-  commentId: string
-) {
+export async function deleteCommunityPostComment(commentId: string): Promise<boolean> {
   const client = getClient();
-
   const { error } = await client
     .from('community_post_comments')
     .delete()
     .eq('id', commentId);
 
   if (error) throw error;
-
   return true;
 }
-
-// =====================================================
-// UPDATE COMMUNITY POST
-// =====================================================
 
 export async function updateCommunityPost(input: {
   postId: string;
@@ -443,16 +345,19 @@ export async function updateCommunityPost(input: {
   linkUrl?: string | null;
 }) {
   const client = getClient();
-
   const content = input.content.trim() || null;
   const linkUrl = input.linkUrl?.trim() || null;
 
-  if (!content && !linkUrl) {
-    throw new Error('A post cannot be completely empty.');
-  }
+  if (!content && !linkUrl) throw new Error('A post cannot be completely empty.');
+  if (content && content.length > MAX_POST_LENGTH) throw new Error('Your post is too long.');
 
-  if (content && content.length > 10000) {
-    throw new Error('Your post is too long.');
+  if (linkUrl) {
+    try {
+      const parsed = new URL(linkUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+    } catch {
+      throw new Error('Please enter a valid website link.');
+    }
   }
 
   const { data, error } = await client
@@ -467,13 +372,8 @@ export async function updateCommunityPost(input: {
     .single();
 
   if (error) throw error;
-
   return data;
 }
-
-// =====================================================
-// FETCH COMMUNITY POST COUNTS
-// =====================================================
 
 export async function fetchCommunityPostCounts(postId: string) {
   const client = getClient();
@@ -482,22 +382,12 @@ export async function fetchCommunityPostCounts(postId: string) {
     { count: likes, error: likesError },
     { count: comments, error: commentsError },
   ] = await Promise.all([
-    client
-      .from('community_post_likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', postId),
-
-    client
-      .from('community_post_comments')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', postId),
+    client.from('community_post_likes').select('*', { count: 'exact', head: true }).eq('post_id', postId),
+    client.from('community_post_comments').select('*', { count: 'exact', head: true }).eq('post_id', postId),
   ]);
 
   if (likesError) throw likesError;
   if (commentsError) throw commentsError;
 
-  return {
-    likes: likes || 0,
-    comments: comments || 0,
-  };
-    }
+  return { likes: likes || 0, comments: comments || 0 };
+}
