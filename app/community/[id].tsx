@@ -27,6 +27,7 @@ import {
   type CommunityPost,
 } from '../../src/lib/communityPosts';
 import { supabase } from '../../src/lib/supabase';
+import { blockUser } from '../../src/lib/postModeration';
 import { withThemeBackground } from '../../src/components/ThemeScreen';
 
 function CommunityVideo({ uri }: { uri: string }) {
@@ -60,6 +61,7 @@ function CommunityFeedScreen() {
   const [isOwner, setIsOwner] = useState(false);
   const [membershipBusy, setMembershipBusy] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [hiddenPostIds, setHiddenPostIds] = useState<string[]>([]);
 
   const loadFeed = useCallback(async () => {
     if (!communityId) {
@@ -155,6 +157,33 @@ function CommunityFeedScreen() {
     );
   };
 
+  const handlePostOptions = (post: CommunityPost) => {
+    const options: any[] = [
+      { text: 'Hide this post', onPress: () => setHiddenPostIds(previous => [...previous, post.id]) },
+      ...(currentUserId && currentUserId !== post.user_id ? [{
+        text: 'Block this user', style: 'destructive', onPress: () => {
+          Alert.alert('Block user?', 'You will no longer see content from this account.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Block', style: 'destructive', onPress: async () => {
+              try {
+                await blockUser(currentUserId, post.user_id);
+                setPosts(previous => previous.filter(item => item.user_id !== post.user_id));
+                Alert.alert('User blocked', 'This account has been blocked.');
+              } catch (error: any) {
+                Alert.alert('Could not block user', error?.message || 'Please try again.');
+              }
+            } },
+          ]);
+        },
+      }] : []),
+      ...(currentUserId === post.user_id ? [{
+        text: 'Delete my post', style: 'destructive', onPress: () => handleDelete(post),
+      }] : []),
+      { text: 'Cancel', style: 'cancel' },
+    ];
+    Alert.alert('Post options', 'Choose what you want to do with this post.', options);
+  };
+
   const openLink = async (url: string) => {
     try {
       await Linking.openURL(url);
@@ -165,6 +194,7 @@ function CommunityFeedScreen() {
 
   const renderPost = ({ item }: { item: CommunityPost }) => {
     const isAuthor = currentUserId === item.user_id;
+    if (hiddenPostIds.includes(item.id)) return null;
 
     return (
       <View style={styles.postCard}>
@@ -185,11 +215,9 @@ function CommunityFeedScreen() {
             </Text>
             <Text style={styles.postDate}>{new Date(item.created_at).toLocaleString()}</Text>
           </View>
-          {isAuthor && (
-            <Pressable onPress={() => handleDelete(item)} accessibilityLabel="Delete your post">
-              <Ionicons name="ellipsis-horizontal" size={23} color="#777777" />
-            </Pressable>
-          )}
+          <Pressable onPress={() => handlePostOptions(item)} accessibilityLabel={isAuthor ? 'Post options, including delete' : 'Post options'}>
+            <Ionicons name="ellipsis-horizontal" size={23} color="#777777" />
+          </Pressable>
         </View>
 
         {!!item.content && <Text style={styles.postContent}>{item.content}</Text>}
@@ -233,6 +261,10 @@ function CommunityFeedScreen() {
             <Text style={styles.actionText}>{item.comment_count}</Text>
           </Pressable>
 
+          <Pressable style={styles.fullViewButton} onPress={() => openComments(item)}>
+            <Ionicons name="expand-outline" size={16} color="#6759D8" />
+            <Text style={styles.fullViewText}>Full view</Text>
+          </Pressable>
           <View style={styles.postType}>
             <Text style={styles.postTypeText}>{item.post_type}</Text>
           </View>
@@ -369,6 +401,8 @@ const styles = StyleSheet.create({
   postActions: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEEEF2', paddingTop: 12, gap: 22 },
   actionButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionText: { color: '#555555', fontSize: 13 },
+  fullViewButton: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: '#F0EEFF' },
+  fullViewText: { color: '#6759D8', fontSize: 12, fontWeight: '800' },
   postType: { marginLeft: 'auto', backgroundColor: '#F0F0F5', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
   postTypeText: { color: '#777777', fontSize: 10, textTransform: 'capitalize' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 65 },
