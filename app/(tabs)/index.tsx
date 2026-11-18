@@ -31,6 +31,7 @@ import { withThemeBackground } from '../../src/components/ThemeScreen';
 
 type AppTheme = ReturnType<typeof useAppTheme>['theme'];
 type ActiveMedia = { uri: string; type: 'image' | 'video' } | null;
+type StoryIcon = { user_id: string; display_name: string; avatar_url: string | null };
 
 type Interaction = {
   liked: boolean;
@@ -111,6 +112,7 @@ function HomeScreen() {
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [storyIcons, setStoryIcons] = useState<StoryIcon[]>([]);
   const [search, setSearch] = useState('');
   const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
   const [blurredPostIds, setBlurredPostIds] = useState<string[]>([]);
@@ -155,11 +157,52 @@ function HomeScreen() {
 
       const homePosts = freshPosts.filter(post =>
         post.post_type !== 'reel' &&
+        post.post_type !== ('story' as typeof post.post_type) &&
         !restrictions.hiddenPostIds.includes(post.id) &&
         !restrictions.blockedUserIds.includes(post.user_id)
       );
 
       setPosts(homePosts);
+
+      try {
+        if (supabase && currentUserId) {
+          const { data: activeStories, error: storiesError } = await supabase
+            .from('stories')
+            .select('user_id')
+            .gt('expires_at', new Date().toISOString());
+          if (storiesError) throw storiesError;
+          const storyUserIds = [...new Set((activeStories || []).map(row => row.user_id))];
+          if (storyUserIds.length) {
+            const { data: storyProfiles, error: profilesError } = await supabase
+              .from('profiles')
+              .select('user_id,display_name,username,avatar_path')
+              .in('user_id', storyUserIds);
+            if (profilesError) throw profilesError;
+            const icons = await Promise.all((storyProfiles || []).map(async profile => {
+              let avatarUrl: string | null = null;
+              if (profile.avatar_path) {
+                const { data: signed } = await supabase!.storage
+                  .from('britume-media')
+                  .createSignedUrl(profile.avatar_path, 60 * 60);
+                avatarUrl = signed?.signedUrl || null;
+              }
+              return {
+                user_id: profile.user_id,
+                display_name: profile.display_name || profile.username || 'BRITUME member',
+                avatar_url: avatarUrl,
+              };
+            }));
+            setStoryIcons(icons);
+          } else {
+            setStoryIcons([]);
+          }
+        } else {
+          setStoryIcons([]);
+        }
+      } catch (storyError) {
+        console.warn('BRITUME story icons:', storyError);
+        setStoryIcons([]);
+      }
 
       try {
         const freshCommunities = await withTimeout(fetchCommunities());
@@ -764,6 +807,26 @@ function HomeScreen() {
             {t('yourStory')}
           </Text>
         </Pressable>
+        {storyIcons.filter(story => story.user_id !== userId).map(story => (
+          <Pressable
+            key={story.user_id}
+            style={styles.storyCircleItem}
+            onPress={() => router.push('/stories')}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${story.display_name}'s story`}
+          >
+            <View style={styles.storyCircleOuter}>
+              <View style={styles.storyCircleInner}>
+                {story.avatar_url ? (
+                  <Image source={{ uri: story.avatar_url }} style={styles.storyAvatarImage} />
+                ) : (
+                  <Ionicons name="person" size={25} color={theme.cyan} />
+                )}
+              </View>
+            </View>
+            <Text style={styles.storyCircleLabel} numberOfLines={1}>{story.display_name}</Text>
+          </Pressable>
+        ))}
       </ScrollView>
 
       <View style={styles.sectionHeading}>
@@ -1592,6 +1655,7 @@ function createStyles(theme: AppTheme) {
       ...raisedShadow,
     },
 
+    storyAvatarImage: { width: 50, height: 50, borderRadius: 25 },
     storyCircleInner: {
       width: 52,
       height: 52,

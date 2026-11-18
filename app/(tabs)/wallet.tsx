@@ -524,6 +524,18 @@ function WalletScreen() {
               </Text>
             </View>
 
+            <View style={styles.walletGuideCard}>
+              <View style={styles.cardHeading}>
+                <Ionicons name="information-circle-outline" size={22} color={theme.cyan} />
+                <Text style={styles.guideTitle}>How your BRITUME wallet works</Text>
+              </View>
+              <Text style={styles.guideText}>• Purchased points are points you have bought.</Text>
+              <Text style={styles.guideText}>• Earned points are rewards credited to your account.</Text>
+              <Text style={styles.guideText}>• Promotional points are bonus points and may have separate rules.</Text>
+              <Text style={styles.guideText}>• Game Coins are separate virtual coins for games, not wallet points or cash.</Text>
+              <Text style={styles.guideNotice}>This screen currently displays your point balances and transaction history. USD, deposits, withdrawals and point transfers are not enabled here yet. Do not treat the USD preview as real money.</Text>
+            </View>
+
             <Text style={styles.sectionTitle}>
               Your point categories
             </Text>
@@ -809,6 +821,10 @@ function createStyles(theme: any) {
       fontSize: 12,
       marginTop: 5,
     },
+    walletGuideCard: { backgroundColor: theme.panel, borderColor: theme.border, borderWidth: 1, borderRadius: 16, padding: 15, marginTop: 16, marginBottom: 18 },
+    guideTitle: { color: theme.text, fontSize: 15, fontWeight: '800', marginLeft: 8, flex: 1 },
+    guideText: { color: theme.text, fontSize: 13, lineHeight: 20, marginTop: 7 },
+    guideNotice: { color: theme.muted, fontSize: 12, lineHeight: 18, marginTop: 11 },
     sectionTitle: {
       color: theme.text,
       fontSize: 18,
