@@ -27,15 +27,20 @@ import {
 import { theme } from '../../src/lib/theme';
 
 import { withThemeBackground } from '../../src/components/ThemeScreen';
+import { useAuth } from '../../src/auth/AuthProvider';
+import { supabase } from '../../src/lib/supabase';
+import { MEDIA_BUCKET } from '../../src/lib/mediaUpload';
 
 function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
+  const { session } = useAuth();
 
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!username || typeof username !== 'string') {
@@ -51,6 +56,14 @@ function PublicProfileScreen() {
 
       const result = await fetchPublicProfileByUsername(username);
       setProfile(result);
+      if (result?.avatar_path && supabase) {
+        const { data: avatarData, error: avatarError } = await supabase.storage
+          .from(MEDIA_BUCKET)
+          .createSignedUrl(result.avatar_path, 60 * 60);
+        setAvatarUrl(!avatarError ? avatarData?.signedUrl ?? null : null);
+      } else {
+        setAvatarUrl(null);
+      }
 
       if (!result || result.is_public === false) {
         setPosts([]);
@@ -177,8 +190,25 @@ function PublicProfileScreen() {
       </View>
 
       <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={43} color={theme.cyan} />
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={43} color={theme.cyan} />
+            )}
+          </View>
+          {session?.user?.id === profile.user_id && (
+            <Pressable
+              style={styles.avatarAddButton}
+              onPress={() => router.push('/(tabs)/profile' as never)}
+              accessibilityRole="button"
+              accessibilityLabel={profile.avatar_path ? 'Change profile photo' : 'Add profile photo'}
+            >
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Text style={styles.avatarAddText}>{profile.avatar_path ? 'Change' : 'Add photo'}</Text>
+            </Pressable>
+          )}
         </View>
 
         <Text style={styles.name}>{displayName}</Text>
@@ -359,6 +389,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
   },
+  avatarWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  avatarImage: { width: 105, height: 105, borderRadius: 53 },
+  avatarAddButton: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, backgroundColor: theme.cyan, borderRadius: 18, paddingHorizontal: 11, paddingVertical: 6 },
+  avatarAddText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   avatar: {
     width: 105,
     height: 105,
