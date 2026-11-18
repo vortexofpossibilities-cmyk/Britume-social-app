@@ -26,9 +26,12 @@ import {
 } from '../src/lib/communities';
 
 import { withThemeBackground } from '../src/components/ThemeScreen';
+import { supabase } from '../src/lib/supabase';
+import { blockUser } from '../src/lib/postModeration';
 
 function CommunitiesScreen() {
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [hiddenCommunityIds, setHiddenCommunityIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -190,7 +193,31 @@ function CommunitiesScreen() {
     });
   };
 
+  const showCommunityOptions = (community: Community) => {
+    const actions: any[] = [
+      { text: 'Hide community', onPress: () => setHiddenCommunityIds(previous => [...previous, community.id]) },
+    ];
+    if (!community.is_owner) actions.push({
+      text: 'Block community owner', style: 'destructive', onPress: async () => {
+        try {
+          if (!supabase) throw new Error('BRITUME is not connected to Supabase.');
+          const { data, error } = await supabase.auth.getUser();
+          if (error || !data.user) throw new Error('Please sign in to block an account.');
+          await blockUser(data.user.id, community.owner_id);
+          setHiddenCommunityIds(previous => [...previous, community.id]);
+          Alert.alert('Account blocked', 'The community owner has been blocked.');
+        } catch (error: any) {
+          Alert.alert('Could not block account', error?.message || 'Please try again.');
+        }
+      },
+    });
+    if (community.is_owner) actions.push({ text: 'Delete community', style: 'destructive', onPress: () => removeCommunity(community) });
+    actions.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert('Community options', community.name, actions);
+  };
+
   const renderCommunity = ({ item }: { item: Community }) => {
+    if (hiddenCommunityIds.includes(item.id)) return null;
     const isJoining = joiningId === item.id;
     const isDeleting = deletingId === item.id;
 
@@ -208,6 +235,10 @@ function CommunitiesScreen() {
           <Text style={styles.memberCount}>
             {item.member_count} {item.member_count === 1 ? 'member' : 'members'}
           </Text>
+          <Pressable style={styles.communityMoreButton} onPress={event => { event.stopPropagation(); showCommunityOptions(item); }} accessibilityLabel="Community options">
+            <Ionicons name="ellipsis-horizontal" size={20} color="#6759D8" />
+            <Text style={styles.communityMoreText}>More</Text>
+          </Pressable>
 
           <View style={styles.cardActions}>
             {item.is_owner ? (
@@ -472,6 +503,8 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingBottom: 35, flexGrow: 1 },
   communityCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginBottom: 12, flexDirection: 'row', borderWidth: 1, borderColor: '#EAEAF0' },
   communityIcon: { width: 53, height: 53, borderRadius: 15, backgroundColor: '#EFEDFF', alignItems: 'center', justifyContent: 'center', marginRight: 13 },
+  communityMoreButton: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 7, paddingVertical: 3 },
+  communityMoreText: { color: '#6759D8', fontSize: 11, fontWeight: '800' },
   communityInfo: { flex: 1 },
   communityName: { color: '#222222', fontSize: 16, fontWeight: '800' },
   communityDescription: { color: '#777777', fontSize: 12, lineHeight: 18, marginTop: 5 },

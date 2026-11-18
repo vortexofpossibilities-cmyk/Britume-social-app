@@ -49,7 +49,7 @@ type PickedFile = {
   mimeType: string;
   size?: number;
   file?: Blob;
-  kind: 'image' | 'video' | 'file';
+  kind: 'image' | 'video' | 'file' | 'voice';
 };
 type Conversation = {
   id: string;
@@ -88,6 +88,10 @@ function MessagesScreen() {
   const [chatLoading, setChatLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<BlobPart[]>([]);
   const [messageText, setMessageText] = useState('');
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -100,6 +104,14 @@ function MessagesScreen() {
 
   const channelRef = useRef<any>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    mediaStreamRef.current = null;
+  }, []);
 
   const displayName = (person: Profile) =>
     person.display_name || person.username || 'BRITUME member';
@@ -631,7 +643,58 @@ function MessagesScreen() {
     }
   };
 
+  const stopVoiceRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    setIsRecordingVoice(false);
+  };
+
+  const startVoiceRecording = async () => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      Alert.alert('Voice recording unavailable', 'Voice recording is currently supported in the BRITUME web app on browsers that allow microphone access.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      recordingChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        stream.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+        setIsRecordingVoice(false);
+        Alert.alert('Recording failed', 'The microphone recording could not be completed.');
+      };
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(recordingChunksRef.current, { type: mimeType });
+        stream.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        if (blob.size > 0) {
+          const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
+          const name = `voice-${Date.now()}.${extension}`;
+          const voiceFile = new File([blob], name, { type: mimeType });
+          void uploadPickedFile({ uri: URL.createObjectURL(blob), name, mimeType, size: blob.size, file: voiceFile, kind: 'voice' });
+        }
+        recordingChunksRef.current = [];
+      };
+      recorder.start();
+      setIsRecordingVoice(true);
+    } catch (error: any) {
+      Alert.alert('Microphone permission needed', error?.message || 'Allow microphone access to record a voice message.');
+    }
+  };
+
   const closeChat = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    mediaStreamRef.current = null;
+    setIsRecordingVoice(false);
     if (typingTimerRef.current) {
       clearTimeout(typingTimerRef.current); typingTimerRef.current = null;
     }
@@ -697,6 +760,7 @@ function MessagesScreen() {
     const url = message.attachment_url;
     const isImage = message.message_type === 'image' || message.attachment_mime_type?.startsWith('image/');
     const isVideo = message.message_type === 'video' || message.attachment_mime_type?.startsWith('video/');
+    const isVoice = message.message_type === 'voice' || message.attachment_mime_type?.startsWith('audio/');
     if (isImage && url) {
       return <Pressable onPress={() => void Linking.openURL(url)}>
         <Image source={{ uri: url }} resizeMode="cover" style={styles.attachmentImage} />
@@ -705,14 +769,14 @@ function MessagesScreen() {
     return (
       <Pressable style={styles.attachmentCard} disabled={!url}
         onPress={() => url && void Linking.openURL(url)}>
-        <Ionicons name={isVideo ? 'videocam' : 'document-attach'} size={25}
+        <Ionicons name={isVoice ? 'mic' : isVideo ? 'videocam' : 'document-attach'} size={25}
           color={mine ? '#FFFFFF' : theme.cyan} />
         <View style={styles.attachmentInfo}>
           <Text numberOfLines={2} style={[styles.attachmentName, mine && styles.myMessageContent]}>
-            {message.attachment_name || (isVideo ? 'Video' : 'Attachment')}
+            {message.attachment_name || (isVoice ? 'Voice message' : isVideo ? 'Video' : 'Attachment')}
           </Text>
           <Text style={[styles.attachmentHint, mine && styles.myMessageTime]}>
-            {isVideo ? 'Tap to open video' : 'Tap to open file'}
+            {isVoice ? 'Tap to play voice message' : isVideo ? 'Tap to open video' : 'Tap to open file'}
           </Text>
         </View>
         <Ionicons name="open-outline" size={17} color={mine ? '#FFFFFF' : theme.cyan} />
@@ -794,7 +858,7 @@ function MessagesScreen() {
           </View>
           <View style={styles.searchBox}>
             <Ionicons name="search-outline" size={21} color={theme.muted} />
-            <TextInput value={search} onChangeText={setSearch} placeholder="Search by name or username..."
+            <TextInput value={search} onChangeText={value => { setSearch(value); if (!value.trim()) setProfiles([]); }} placeholder="Search by name or username..."
               placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search"
               onSubmitEditing={() => void searchPeople()} autoCapitalize="none" />
             <Pressable style={styles.searchButton} onPress={() => void searchPeople()}>
@@ -802,7 +866,7 @@ function MessagesScreen() {
                 : <Ionicons name="search" size={19} color="#FFFFFF" />}
             </Pressable>
           </View>
-          {profiles.length > 0 && <View style={styles.resultsArea}>
+          {search.trim().length > 0 && profiles.length > 0 && <View style={styles.resultsArea}>
             <Text style={styles.smallHeading}>Search results</Text>
             {profiles.map(person => <PersonResult key={person.user_id} person={person} />)}
           </View>}
@@ -989,6 +1053,13 @@ function MessagesScreen() {
               placeholder="Write a message..." placeholderTextColor={theme.muted}
               style={styles.composerInput} multiline maxLength={5000}
               editable={!chatLoading && !sending && !uploading} />
+            <Pressable style={[styles.attachButton, isRecordingVoice && styles.recordingButton]}
+              disabled={uploading || chatLoading || !conversationId}
+              onPress={() => isRecordingVoice ? stopVoiceRecording() : void startVoiceRecording()}
+              accessibilityLabel={isRecordingVoice ? 'Stop voice recording' : 'Record voice message'}>
+              <Ionicons name={isRecordingVoice ? 'stop-circle' : 'mic-outline'} size={22}
+                color={isRecordingVoice ? '#FFFFFF' : theme.cyan} />
+            </Pressable>
             <Pressable style={[styles.sendButton, (!messageText.trim() || sending || chatLoading) && styles.sendButtonDisabled]}
               disabled={!messageText.trim() || sending || chatLoading || uploading || !conversationId}
               onPress={() => void sendMessage()}>
@@ -1151,6 +1222,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['theme']) {
     myMessageTime: { color: '#E7FAFF' },
     composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 10, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 24 : 12, backgroundColor: theme.panel, borderTopWidth: 1, borderTopColor: theme.border },
     attachButton: { width: 43, height: 45, borderRadius: 15, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    recordingButton: { backgroundColor: '#D83B55', borderColor: '#D83B55' },
     composerInput: { flex: 1, minHeight: 45, maxHeight: 120, borderRadius: 17, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, color: theme.text, fontSize: 14, paddingHorizontal: 14, paddingVertical: 11 },
     sendButton: { width: 45, height: 45, borderRadius: 16, backgroundColor: theme.cyan, alignItems: 'center', justifyContent: 'center' },
     sendButtonDisabled: { opacity: 0.45 },
