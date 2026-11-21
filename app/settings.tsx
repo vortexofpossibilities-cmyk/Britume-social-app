@@ -29,8 +29,6 @@ function SettingsScreen() {
 
   const {
     theme: colors,
-    isDark,
-    setMode,
     selectedThemeStyle,
   } = useAppTheme();
 
@@ -73,14 +71,6 @@ function SettingsScreen() {
       active = false;
     };
   }, []);
-
-  const changeTheme = async (value: boolean) => {
-    try {
-      await setMode(value ? 'dark' : 'light');
-    } catch {
-      Alert.alert(t('settings'), t('themeSaveError'));
-    }
-  };
 
   const changeNotifications = async (value: boolean) => {
     const previousValue = notificationsEnabled;
@@ -329,24 +319,11 @@ function SettingsScreen() {
 
         <Section title="APPEARANCE">
           <SettingRow
-            icon={isDark ? 'moon' : 'sunny-outline'}
-            title={t('darkMode')}
-            subtitle={
-              isDark ? t('darkSelected') : t('lightSelected')
-            }
-            color={colors.purple}
-            trailing={
-              <Switch
-                value={isDark}
-                onValueChange={changeTheme}
-                accessibilityLabel="Enable or disable dark mode"
-                trackColor={{
-                  false: '#C8D9EA',
-                  true: colors.cyan,
-                }}
-                thumbColor="#FFFFFF"
-              />
-            }
+            icon="moon"
+            title="Official BRITUME appearance"
+            subtitle="Deep recessed surfaces with electric-blue neon and metallic-gold edges"
+            color={colors.cyan}
+            trailing={<Ionicons name="checkmark-circle" size={22} color={colors.gold} />}
           />
 
           <View style={styles.separator} />
@@ -380,7 +357,7 @@ function SettingsScreen() {
               </Text>
 
               <Text style={styles.themeStudioSubtitle}>
-                Explore 30 unique 3D-inspired visual experiences.
+                View the single official BRITUME visual identity.
               </Text>
 
               <View style={styles.themeStudioMeta}>
@@ -390,7 +367,7 @@ function SettingsScreen() {
                   color={colors.gold}
                 />
                 <Text style={styles.themeStudioMetaText}>
-                  All themes free
+                  Official theme
                 </Text>
               </View>
 

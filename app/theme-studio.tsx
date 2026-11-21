@@ -42,7 +42,7 @@ type ThemeItem = {
   motion?: string;
 };
 
-const FILTERS = ['All', '3D', 'Nature', 'Luxury', 'Creative', 'Special'];
+const FILTERS = ['Official'];
 
 function getFilterCategory(item: ThemeItem) {
   const value = `${item.name} ${item.category} ${item.id}`.toLowerCase();
@@ -101,7 +101,7 @@ function ThemeStudioScreen() {
   } = useAppTheme();
 
   const [previewId, setPreviewId] = useState(selectedTheme);
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [activeFilter, setActiveFilter] = useState('Official');
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
@@ -116,7 +116,7 @@ function ThemeStudioScreen() {
   }, [availableThemes, previewId, selectedThemeStyle]);
 
   const filteredThemes = useMemo(() => {
-    if (activeFilter === 'All') return availableThemes;
+    if (activeFilter === 'Official') return availableThemes;
 
     return availableThemes.filter((item: ThemeItem) => {
       return getFilterCategory(item) === activeFilter;
@@ -198,12 +198,12 @@ function ThemeStudioScreen() {
           </View>
 
           <Text style={styles.introTitle}>
-            Your world. Your design.
+            One identity. One BRITUME.
           </Text>
 
           <Text style={styles.introDescription}>
-            Choose a new visual experience. Change the atmosphere,
-            backgrounds, surfaces, colours and shapes of BRITUME.
+            BRITUME has one official visual identity: deep recessed surfaces,
+            electric-blue neon edges, metallic-gold highlights and your crowned B logo.
           </Text>
 
           <View style={styles.freeLabel}>
@@ -213,7 +213,7 @@ function ThemeStudioScreen() {
               color={theme.success}
             />
             <Text style={styles.freeLabelText}>
-              All 30 themes are free
+              One official BRITUME theme
             </Text>
           </View>
         </View>
@@ -499,7 +499,7 @@ function ThemeStudioScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Explore Themes</Text>
           <Text style={styles.sectionCaption}>
-            {availableThemes.length} designs
+            Official appearance
           </Text>
         </View>
 
@@ -677,7 +677,7 @@ function ThemeStudioScreen() {
               color={theme.muted}
             />
             <Text style={styles.emptyText}>
-              No themes in this category yet.
+              BRITUME's official appearance is active.
             </Text>
           </View>
         )}
