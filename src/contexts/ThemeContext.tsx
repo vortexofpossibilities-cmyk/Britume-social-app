@@ -163,6 +163,7 @@ const darkTheme: typeof lightTheme = {
 // --------------------------------------------------
 
 const DEFAULT_ACCENT: AccentColourId = 'blue';
+const OFFICIAL_ACCENT: AccentColour = { id: 'blue', name: 'BRITUME Electric Blue', value: '#087BFF' };
 
 function isValidAccent(
   value: string | null,
@@ -187,7 +188,7 @@ export function ThemeProvider({
 }: {
   children: ReactNode;
 }) {
-  const [mode, setModeState] = useState<ThemeMode>('light');
+  const [mode, setModeState] = useState<ThemeMode>('dark');
 
   const [selectedTheme, setSelectedThemeState] =
     useState<string>(DEFAULT_THEME_ID);
@@ -218,25 +219,17 @@ export function ThemeProvider({
 
         if (!active) return;
 
-        setModeState(
-          savedMode === 'true' ? 'dark' : 'light',
-        );
+        // BRITUME now has one official appearance. Legacy theme preferences
+        // are intentionally ignored so old installations migrate cleanly.
+        setModeState('dark');
 
         const validTheme = THEME_STYLES.some(
           (item) => item.id === savedMaterialTheme,
         );
 
-        setSelectedThemeState(
-          validTheme && savedMaterialTheme
-            ? savedMaterialTheme
-            : DEFAULT_THEME_ID,
-        );
+        setSelectedThemeState(DEFAULT_THEME_ID);
 
-        setAccentColourState(
-          isValidAccent(savedAccent)
-            ? savedAccent
-            : DEFAULT_ACCENT,
-        );
+        setAccentColourState(DEFAULT_ACCENT);
 
         if (!validTheme) {
           await AsyncStorage.setItem(
@@ -267,54 +260,30 @@ export function ThemeProvider({
   // LIGHT / DARK MODE
   // ------------------------------------------------
 
-  const setMode = async (nextMode: ThemeMode) => {
-    setModeState(nextMode);
-
+  const setMode = async (_nextMode: ThemeMode) => {
+    // The BRITUME brand uses one dark official theme.
+    setModeState('dark');
     try {
-      await AsyncStorage.setItem(
-        THEME_MODE_STORAGE_KEY,
-        String(nextMode === 'dark'),
-      );
+      await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, 'true');
     } catch (error) {
-      console.warn(
-        'Could not save BRITUME display mode:',
-        error,
-      );
+      console.warn('Could not save BRITUME display mode:', error);
     }
   };
 
   const toggleTheme = async () => {
-    await setMode(mode === 'dark' ? 'light' : 'dark');
+    await setMode('dark');
   };
 
   // ------------------------------------------------
   // SELECTED MATERIAL THEME
   // ------------------------------------------------
 
-  const setSelectedTheme = async (themeId: string) => {
-    const selected = THEME_STYLES.find(
-      (item) => item.id === themeId,
-    );
-
-    if (!selected) {
-      console.warn(
-        `BRITUME theme "${themeId}" was not found.`,
-      );
-      return;
-    }
-
-    setSelectedThemeState(selected.id);
-
+  const setSelectedTheme = async (_themeId: string) => {
+    setSelectedThemeState(DEFAULT_THEME_ID);
     try {
-      await AsyncStorage.setItem(
-        MATERIAL_THEME_STORAGE_KEY,
-        selected.id,
-      );
+      await AsyncStorage.setItem(MATERIAL_THEME_STORAGE_KEY, DEFAULT_THEME_ID);
     } catch (error) {
-      console.warn(
-        'Could not save BRITUME theme:',
-        error,
-      );
+      console.warn('Could not save BRITUME theme:', error);
     }
   };
 
@@ -322,27 +291,12 @@ export function ThemeProvider({
   // ACCENT COLOUR
   // ------------------------------------------------
 
-  const setAccentColour = async (
-    colour: AccentColourId,
-  ) => {
-    const validColour = ACCENT_COLOURS.find(
-      (item) => item.id === colour,
-    );
-
-    if (!validColour) return;
-
-    setAccentColourState(colour);
-
+  const setAccentColour = async (_colour: AccentColourId) => {
+    setAccentColourState(DEFAULT_ACCENT);
     try {
-      await AsyncStorage.setItem(
-        ACCENT_COLOUR_STORAGE_KEY,
-        colour,
-      );
+      await AsyncStorage.setItem(ACCENT_COLOUR_STORAGE_KEY, DEFAULT_ACCENT);
     } catch (error) {
-      console.warn(
-        'Could not save BRITUME accent colour:',
-        error,
-      );
+      console.warn('Could not save BRITUME accent colour:', error);
     }
   };
 
@@ -360,33 +314,19 @@ export function ThemeProvider({
   // ------------------------------------------------
 
   const activeTheme = useMemo<ExtendedTheme>(() => {
-    const base = mode === 'dark'
-      ? darkTheme
-      : lightTheme;
-
-    const material = selectedThemeStyle;
-
-    const accent =
-      ACCENT_COLOURS.find(
-        (item) => item.id === accentColour,
-      )?.value ?? lightTheme.blue;
+    const base = darkTheme;
+    const material = getThemeStyle(DEFAULT_THEME_ID);
+    const accent = '#087BFF';
 
     // Display mode changes the actual surfaces, not only the status bar.
     // Keep the selected material's accent/highlight while switching the
     // main palette to a readable dark or light clay surface set.
-    const palette = mode === 'dark'
-      ? {
-          bg: '#0B1728', panel: '#14263B', panel2: '#1D3550',
-          panel3: '#102137', text: '#F4F8FF', muted: '#B3C6DC',
-          border: '#35506D', borderStrong: '#57789B',
-          shadow: '#050C15', gradient: ['#213D5C', '#14263B', '#0B1728'] as [string, string, string],
-        }
-      : {
-          bg: material.bg, panel: material.panel, panel2: material.panel2,
-          panel3: material.panel3, text: material.text, muted: material.muted,
-          border: material.border, borderStrong: material.borderStrong,
-          shadow: material.shadow, gradient: material.gradient,
-        };
+    const palette = {
+      bg: '#050914', panel: '#0B1425', panel2: '#101E34',
+      panel3: '#071020', text: '#F5F8FF', muted: '#AABBD3',
+      border: 'rgba(31,125,255,0.52)', borderStrong: '#D9A83E',
+      shadow: '#02050B', gradient: ['#13294A', '#0B1425', '#050914'] as [string, string, string],
+    };
 
     const glass = palette.panel;
     const glassLight = palette.panel2;
@@ -397,9 +337,9 @@ export function ThemeProvider({
     const clayPurple = palette.gradient[0];
     const clayPressed = palette.panel3;
 
-    const glowBlue = material.glow;
-    const glowPurple = material.glow;
-    const glowGold = material.glow;
+    const glowBlue = 'rgba(8,123,255,0.68)';
+    const glowPurple = 'rgba(8,123,255,0.28)';
+    const glowGold = 'rgba(217,168,62,0.48)';
 
     return {
       ...base,
@@ -422,9 +362,9 @@ export function ThemeProvider({
       accent,
 
       // Theme-specific highlights
-      highlight: material.highlight,
-      gold: material.highlight,
-      yellow: material.highlight,
+      highlight: '#F1C66B',
+      gold: '#D9A83E',
+      yellow: '#F1C66B',
 
       // Borders and shadows
       border: palette.border,
@@ -445,7 +385,7 @@ export function ThemeProvider({
       clayPressed,
 
       // Glow system
-      glow: material.glow,
+      glow: 'rgba(8,123,255,0.68)',
       glowBlue,
       glowPurple,
       glowGold,
@@ -453,7 +393,7 @@ export function ThemeProvider({
       // Brand aliases
       oilBlue: accent,
       oilGrey: material.muted,
-      oilYellow: material.highlight,
+      oilYellow: '#D9A83E',
 
       // Material theme metadata
       materialStyle: material,
@@ -484,15 +424,15 @@ export function ThemeProvider({
   const value = useMemo<ThemeContextType>(
     () => ({
       mode,
-      isDark: mode === 'dark',
+      isDark: true,
       theme: activeTheme,
 
       selectedTheme,
       selectedThemeStyle,
 
       accentColour,
-      availableThemes: THEME_STYLES,
-      availableAccentColours: ACCENT_COLOURS,
+      availableThemes: [getThemeStyle(DEFAULT_THEME_ID)],
+      availableAccentColours: [OFFICIAL_ACCENT],
 
       setMode,
       toggleTheme,
