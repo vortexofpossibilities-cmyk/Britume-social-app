@@ -46,12 +46,6 @@ const items: TabItem[] = [
     key: 'home',
   },
   {
-    icon: 'game-controller-outline',
-    route: '/(tabs)/games',
-    activePath: '/games',
-    key: 'games',
-  },
-  {
     icon: 'wallet-outline',
     route: '/(tabs)/wallet',
     activePath: '/wallet',
@@ -88,9 +82,7 @@ function IconBar() {
           const label =
             item.key === 'wallet'
               ? 'Wallet'
-              : item.key === 'games'
-                  ? 'Games'
-                  : t(item.key);
+              : t(item.key);
 
           const active =
             item.key === 'home'
@@ -213,11 +205,11 @@ function createStyles(
       backgroundColor: theme.panel2,
       borderWidth: 1,
       borderColor: theme.borderStrong,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 2, height: 3 },
-      shadowOpacity: 0.28,
-      shadowRadius: 8,
-      elevation: 3,
+      shadowColor: '#02050B',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.14,
+      shadowRadius: 2,
+      elevation: 0,
     },
 
     pressedIcon: {
@@ -228,17 +220,17 @@ function createStyles(
       width: 43,
       height: 53,
       borderRadius: 17,
-      backgroundColor: theme.cyan,
+      backgroundColor: theme.panel3,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: -23,
-      borderWidth: 4,
-      borderColor: theme.panel,
-      shadowColor: theme.blueDark,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.42,
-      shadowRadius: 11,
-      elevation: 10,
+      marginTop: -8,
+      borderWidth: 1.5,
+      borderColor: theme.cyan,
+      shadowColor: '#02050B',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.18,
+      shadowRadius: 2,
+      elevation: 0,
     },
 
     pressedCreate: {
