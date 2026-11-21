@@ -46,3 +46,7 @@ The `app/` folder also contains dedicated route foundations for Stories, Communi
 
 ## Feature screens
 The `app/` folder also contains dedicated route foundations for Stories, Communities, Messages, Notifications, BRITUME AI, Studio, Games, Competitions, Dashboard, and Privacy & Safety. These are not all backend-connected yet. See `FEATURE-STATUS.md` and `BUILD-NEXT.md`.
+
+## Current implementation status
+
+This repository is an evolving project foundation, not a completed production social platform. See `BRITUME-IMPLEMENTATION-STATUS.md` for the exact changes in this working copy and the features that remain unfinished. Do not deploy it as a finished release until dependencies, TypeScript, web/Android builds, Supabase security and end-to-end feature tests pass.

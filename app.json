@@ -24,14 +24,14 @@
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#07152d"
+        "backgroundColor": "#050914"
       }
     },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#07152d"
+      "backgroundColor": "#050914"
     },
     "extra": {
       "eas": {
