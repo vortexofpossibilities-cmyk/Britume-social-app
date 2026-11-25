@@ -692,6 +692,32 @@ function HomeScreen() {
 
   const Header = (
     <View>
+      {/* Search is now the first and most prominent element, inspired by the
+          clarity of Google Search while retaining BRITUME's own identity. */}
+      <View style={styles.searchBox}>
+        <Ionicons name="search-outline" size={22} color={theme.cyan} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('searchPlaceholder')}
+          placeholderTextColor={theme.muted}
+          style={styles.searchInput}
+          returnKeyType="search"
+          accessibilityLabel="Search BRITUME"
+        />
+        {search.length > 0 ? (
+          <Pressable
+            onPress={() => setSearch('')}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={10}
+          >
+            <Ionicons name="close-circle" size={20} color={theme.muted} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Brand and utility actions move below search into a lighter toolbar. */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -700,65 +726,40 @@ function HomeScreen() {
           onPress={() => router.push('/(tabs)/profile')}
         >
           <View style={styles.logoHolder}>
-            <ClayLogo size={52} />
+            <ClayLogo size={38} />
           </View>
           <View style={styles.brandText}>
             <Text style={styles.brandName}>BRITUME</Text>
             <Text style={styles.tagline}>{t('tagline')}</Text>
-            <Text style={styles.byline}>by brilliant mere</Text>
           </View>
         </Pressable>
 
         <Pressable
           style={styles.topButton}
           onPress={() => router.push('/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
         >
-          <Ionicons
-            name="notifications-outline"
-            size={23}
-            color={theme.cyan}
-          />
+          <Ionicons name="notifications-outline" size={21} color={theme.cyan} />
         </Pressable>
-
         <Pressable
           style={styles.topButton}
           onPress={() => router.push('/(tabs)/more')}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
         >
-          <Ionicons name="menu" size={26} color={theme.cyan} />
+          <Ionicons name="menu" size={24} color={theme.cyan} />
         </Pressable>
-      </View>
-
-      <View style={styles.searchBox}>
-        <Ionicons
-          name="search-outline"
-          size={22}
-          color={theme.cyan}
-        />
-
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t('searchPlaceholder')}
-          placeholderTextColor={theme.muted}
-          style={styles.searchInput}
-          returnKeyType="search"
-        />
-
       </View>
 
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>{t('stories')}</Text>
-
         <Pressable
           style={styles.seeAll}
           onPress={() => router.push('/stories')}
         >
           <Text style={styles.seeAllText}>{t('seeAll')}</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={17}
-            color={theme.cyan}
-          />
+          <Ionicons name="chevron-forward" size={16} color={theme.cyan} />
         </Pressable>
       </View>
 
@@ -766,6 +767,7 @@ function HomeScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.storiesScroll}
+        contentContainerStyle={styles.storiesContent}
       >
         <Pressable
           style={styles.storyCircleItem}
@@ -773,25 +775,13 @@ function HomeScreen() {
         >
           <View style={styles.storyCircleOuter}>
             <View style={styles.storyCircleInner}>
-              <Ionicons
-                name="person"
-                size={25}
-                color={theme.cyan}
-              />
+              <Ionicons name="person" size={23} color={theme.cyan} />
             </View>
-
             <View style={styles.storyAddBadge}>
-              <Ionicons
-                name="add"
-                size={16}
-                color={theme.text}
-              />
+              <Ionicons name="add" size={15} color={theme.text} />
             </View>
           </View>
-
-          <Text style={styles.storyCircleLabel}>
-            {t('yourStory')}
-          </Text>
+          <Text style={styles.storyCircleLabel}>{t('yourStory')}</Text>
         </Pressable>
         {storyIcons.filter(story => story.user_id !== userId).map(story => (
           <Pressable
@@ -806,7 +796,7 @@ function HomeScreen() {
                 {story.avatar_url ? (
                   <Image source={{ uri: story.avatar_url }} style={styles.storyAvatarImage} />
                 ) : (
-                  <Ionicons name="person" size={25} color={theme.cyan} />
+                  <Ionicons name="person" size={23} color={theme.cyan} />
                 )}
               </View>
             </View>
@@ -815,14 +805,24 @@ function HomeScreen() {
         ))}
       </ScrollView>
 
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>{t('posts')}</Text>
+      <View style={styles.feedHeading}>
+        <View>
+          <Text style={styles.sectionTitle}>{t('posts')}</Text>
+          <Text style={styles.feedSubtitle}>Discover what's happening</Text>
+        </View>
+        <Pressable
+          style={styles.feedRefreshButton}
+          onPress={() => void loadPosts(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh feed"
+        >
+          <Ionicons name="refresh-outline" size={19} color={theme.cyan} />
+        </Pressable>
       </View>
 
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
-
           <Pressable onPress={() => void loadPosts()}>
             <Text style={styles.retryText}>{t('tryAgain')}</Text>
           </Pressable>
@@ -1501,8 +1501,8 @@ function createStyles(theme: AppTheme) {
     },
 
     content: {
-      paddingHorizontal: 12,
-      paddingTop: 13,
+      paddingHorizontal: 16,
+      paddingTop: 12,
       paddingBottom: 45,
     },
 
@@ -1523,7 +1523,8 @@ function createStyles(theme: AppTheme) {
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 19,
+      marginBottom: 22,
+      paddingHorizontal: 2,
     },
 
     brandIdentity: {
@@ -1543,9 +1544,9 @@ function createStyles(theme: AppTheme) {
 
     brandName: {
       color: theme.blueDark ?? theme.text,
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '900',
-      letterSpacing: 1.2,
+      letterSpacing: 1.05,
     },
 
     tagline: {
@@ -1576,36 +1577,64 @@ function createStyles(theme: AppTheme) {
     searchBox: {
       flexDirection: 'row',
       alignItems: 'center',
+      minHeight: 58,
       backgroundColor: surface,
-      borderRadius: cardRadius,
-      borderWidth: cardBorderWidth,
+      borderRadius: 30,
+      borderWidth: 1,
       borderColor: border,
-      paddingHorizontal: 15,
-      marginBottom: 24,
+      paddingHorizontal: 18,
+      marginBottom: 18,
       ...raisedShadow,
     },
 
     searchInput: {
       flex: 1,
       color: theme.text,
-      paddingHorizontal: 11,
-      paddingVertical: 15,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: '500',
     },
 
     sectionHeading: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 13,
-      marginTop: 5,
+      marginBottom: 12,
+      marginTop: 3,
+    },
+
+    feedHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      marginBottom: 14,
+      paddingHorizontal: 2,
+    },
+
+    feedSubtitle: {
+      color: softText,
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 3,
+    },
+
+    feedRefreshButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: surface,
+      borderWidth: 1,
+      borderColor: border,
     },
 
     sectionTitle: {
       color: theme.text,
-      fontSize: 20,
-      fontWeight: '900',
+      fontSize: 18,
+      fontWeight: '800',
     },
 
     seeAll: {
@@ -1627,19 +1656,23 @@ function createStyles(theme: AppTheme) {
     },
 
     storiesScroll: {
-      marginBottom: 19,
+      marginBottom: 13,
+    },
+
+    storiesContent: {
+      paddingRight: 8,
     },
 
     storyCircleItem: {
-      width: 76,
+      width: 70,
       alignItems: 'center',
-      marginRight: 13,
+      marginRight: 12,
     },
 
     storyCircleOuter: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
       borderWidth: 2.5,
       borderColor: border,
       alignItems: 'center',
@@ -1648,11 +1681,11 @@ function createStyles(theme: AppTheme) {
       ...raisedShadow,
     },
 
-    storyAvatarImage: { width: 50, height: 50, borderRadius: 25 },
+    storyAvatarImage: { width: 46, height: 46, borderRadius: 23 },
     storyCircleInner: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 46,
+      height: 46,
+      borderRadius: 23,
       backgroundColor: raised,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1674,9 +1707,9 @@ function createStyles(theme: AppTheme) {
 
     storyCircleLabel: {
       color: theme.text,
-      fontSize: 11,
-      fontWeight: '800',
-      marginTop: 7,
+      fontSize: 10,
+      fontWeight: '700',
+      marginTop: 6,
     },
 
     postCard: {
