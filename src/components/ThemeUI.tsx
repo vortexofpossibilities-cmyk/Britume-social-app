@@ -182,7 +182,7 @@ export function ThemeButton({
         transform: [{ scale: pressed ? 0.985 : 1 }],
       }, style]}
     >
-      <Text style={[{ color: '#FFFFFF', fontWeight: '750', fontSize: 15, letterSpacing: 0.15 }, textStyle]}>
+      <Text style={[{ color: '#FFFFFF', fontWeight: '700', fontSize: 15, letterSpacing: 0.15 }, textStyle]}>
         {title}
       </Text>
     </Pressable>
