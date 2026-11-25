@@ -30,6 +30,8 @@ function SettingsScreen() {
   const {
     theme: colors,
     selectedThemeStyle,
+    mode,
+    setMode,
   } = useAppTheme();
 
   const { t } = useLanguage();
@@ -319,11 +321,19 @@ function SettingsScreen() {
 
         <Section title="APPEARANCE">
           <SettingRow
-            icon="moon"
-            title="Official BRITUME appearance"
-            subtitle="Deep recessed surfaces with electric-blue neon and metallic-gold edges"
+            icon={mode === 'dark' ? 'moon' : 'sunny'}
+            title="Dark mode"
+            subtitle={mode === 'dark' ? 'Deep blue clay surfaces are active' : 'Soft daylight clay surfaces are active'}
             color={colors.cyan}
-            trailing={<Ionicons name="checkmark-circle" size={22} color={colors.gold} />}
+            trailing={(
+              <Switch
+                value={mode === 'dark'}
+                onValueChange={(enabled) => { void setMode(enabled ? 'dark' : 'light'); }}
+                trackColor={{ false: colors.border, true: colors.blue }}
+                thumbColor={mode === 'dark' ? '#FFFFFF' : '#F8FAFF'}
+                accessibilityLabel="Toggle BRITUME dark mode"
+              />
+            )}
           />
 
           <View style={styles.separator} />
