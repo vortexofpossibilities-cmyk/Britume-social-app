@@ -219,9 +219,9 @@ export function ThemeProvider({
 
         if (!active) return;
 
-        // BRITUME now has one official appearance. Legacy theme preferences
-        // are intentionally ignored so old installations migrate cleanly.
-        setModeState('dark');
+        // Restore the user's saved appearance. Support the older boolean
+        // storage values as well as the newer explicit mode names.
+        setModeState(savedMode === 'light' || savedMode === 'false' ? 'light' : 'dark');
 
         const validTheme = THEME_STYLES.some(
           (item) => item.id === savedMaterialTheme,
@@ -260,18 +260,17 @@ export function ThemeProvider({
   // LIGHT / DARK MODE
   // ------------------------------------------------
 
-  const setMode = async (_nextMode: ThemeMode) => {
-    // The BRITUME brand uses one dark official theme.
-    setModeState('dark');
+  const setMode = async (nextMode: ThemeMode) => {
+    setModeState(nextMode);
     try {
-      await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, 'true');
+      await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, nextMode);
     } catch (error) {
       console.warn('Could not save BRITUME display mode:', error);
     }
   };
 
   const toggleTheme = async () => {
-    await setMode('dark');
+    await setMode(mode === 'dark' ? 'light' : 'dark');
   };
 
   // ------------------------------------------------
@@ -314,19 +313,25 @@ export function ThemeProvider({
   // ------------------------------------------------
 
   const activeTheme = useMemo<ExtendedTheme>(() => {
-    const base = darkTheme;
+    const base = mode === 'dark' ? darkTheme : lightTheme;
     const material = getThemeStyle(DEFAULT_THEME_ID);
     const accent = '#087BFF';
 
-    // Display mode changes the actual surfaces, not only the status bar.
-    // Keep the selected material's accent/highlight while switching the
-    // main palette to a readable dark or light clay surface set.
-    const palette = {
-      bg: '#050914', panel: '#0B1425', panel2: '#101E34',
-      panel3: '#071020', text: '#F5F8FF', muted: '#AABBD3',
-      border: 'rgba(31,125,255,0.52)', borderStrong: '#D9A83E',
-      shadow: '#02050B', gradient: ['#13294A', '#0B1425', '#050914'] as [string, string, string],
-    };
+    // Deep sculpted clay surfaces in both modes, with a softer daylight
+    // palette for light mode and high-contrast recessed shadows for dark.
+    const palette = mode === 'dark'
+      ? {
+          bg: '#050914', panel: '#0B1425', panel2: '#13243B',
+          panel3: '#071020', text: '#F5F8FF', muted: '#AABBD3',
+          border: 'rgba(31,125,255,0.42)', borderStrong: '#D9A83E',
+          shadow: '#02050B', gradient: ['#17345A', '#0B1425', '#050914'] as [string, string, string],
+        }
+      : {
+          bg: '#E8EEF7', panel: '#F4F7FC', panel2: '#E3EAF5',
+          panel3: '#DCE5F1', text: '#17263D', muted: '#61738C',
+          border: 'rgba(8,91,190,0.20)', borderStrong: '#A97822',
+          shadow: '#AAB8CB', gradient: ['#FFFFFF', '#E8EEF7', '#DCE6F2'] as [string, string, string],
+        };
 
     const glass = palette.panel;
     const glassLight = palette.panel2;
@@ -337,9 +342,9 @@ export function ThemeProvider({
     const clayPurple = palette.gradient[0];
     const clayPressed = palette.panel3;
 
-    const glowBlue = 'rgba(8,123,255,0.68)';
-    const glowPurple = 'rgba(8,123,255,0.28)';
-    const glowGold = 'rgba(217,168,62,0.48)';
+    const glowBlue = mode === 'dark' ? 'rgba(8,123,255,0.48)' : 'rgba(8,123,255,0.22)';
+    const glowPurple = mode === 'dark' ? 'rgba(8,123,255,0.20)' : 'rgba(8,123,255,0.10)';
+    const glowGold = mode === 'dark' ? 'rgba(217,168,62,0.38)' : 'rgba(169,120,34,0.20)';
 
     return {
       ...base,
@@ -362,9 +367,9 @@ export function ThemeProvider({
       accent,
 
       // Theme-specific highlights
-      highlight: '#F1C66B',
-      gold: '#D9A83E',
-      yellow: '#F1C66B',
+      highlight: mode === 'dark' ? '#F1C66B' : '#A97822',
+      gold: mode === 'dark' ? '#D9A83E' : '#A97822',
+      yellow: mode === 'dark' ? '#F1C66B' : '#B88935',
 
       // Borders and shadows
       border: palette.border,
@@ -378,14 +383,41 @@ export function ThemeProvider({
       glassLight,
       glassBorder,
 
-      // Claymorphism surfaces
+      // Claymorphism surfaces and deliberately deep, sculpted shadows.
       clay,
       clayBlue,
       clayPurple,
       clayPressed,
+      clayShadow: {
+        shadowColor: mode === 'dark' ? '#000000' : '#9AA9BC',
+        shadowOffset: { width: 5, height: 6 },
+        shadowOpacity: mode === 'dark' ? 0.42 : 0.28,
+        shadowRadius: 10,
+        elevation: 6,
+        borderWidth: 1,
+        borderColor: palette.border,
+      },
+      clayRaised: {
+        shadowColor: mode === 'dark' ? '#000000' : '#9AA9BC',
+        shadowOffset: { width: 7, height: 8 },
+        shadowOpacity: mode === 'dark' ? 0.48 : 0.30,
+        shadowRadius: 13,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: palette.border,
+      },
+      clayPressedStyle: {
+        shadowColor: mode === 'dark' ? '#000000' : '#9AA9BC',
+        shadowOffset: { width: 1, height: 2 },
+        shadowOpacity: mode === 'dark' ? 0.30 : 0.18,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: palette.borderStrong,
+      },
 
       // Glow system
-      glow: 'rgba(8,123,255,0.68)',
+      glow: glowBlue,
       glowBlue,
       glowPurple,
       glowGold,
@@ -393,7 +425,7 @@ export function ThemeProvider({
       // Brand aliases
       oilBlue: accent,
       oilGrey: material.muted,
-      oilYellow: '#D9A83E',
+      oilYellow: mode === 'dark' ? '#D9A83E' : '#A97822',
 
       // Material theme metadata
       materialStyle: material,
@@ -424,7 +456,7 @@ export function ThemeProvider({
   const value = useMemo<ThemeContextType>(
     () => ({
       mode,
-      isDark: true,
+      isDark: mode === 'dark',
       theme: activeTheme,
 
       selectedTheme,
