@@ -101,10 +101,10 @@ export function ThemeSurface({
       borderWidth: variant === 'flat' ? 0 : 1,
       borderColor: variant === 'glass' ? theme.glassBorder : theme.border,
       shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 18,
-      elevation: 3,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: theme.bg === '#050914' ? 0.34 : 0.22,
+      shadowRadius: 16,
+      elevation: 7,
     }, style]}>
       {children}
     </View>
@@ -137,6 +137,11 @@ export function ThemeTile({
       borderRadius: tileRadius,
       borderWidth: selected ? 1.5 : 1,
       borderColor: selected ? theme.accent : theme.border,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 5, height: 6 },
+      shadowOpacity: 0.24,
+      shadowRadius: 9,
+      elevation: 5,
     }, style]}>
       {children}
     </View>
@@ -178,6 +183,11 @@ export function ThemeButton({
         backgroundColor: disabled ? theme.panel2 : theme.accent,
         borderWidth: 1,
         borderColor: disabled ? theme.border : theme.accent,
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.22,
+        shadowRadius: 8,
+        elevation: 4,
         opacity: disabled ? 0.5 : pressed ? 0.88 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
       }, style]}
