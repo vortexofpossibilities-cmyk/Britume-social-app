@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
   Modal, Platform, Pressable, RefreshControl, ScrollView, Share,
@@ -133,27 +134,71 @@ function HomeScreen() {
   );
 
   const loadPosts = useCallback(async (refresh = false) => {
-    refresh ? setRefreshing(true) : setLoading(true);
+    const FEED_CACHE_KEY = 'britume:home-feed:v2';
+    let hadCachedContent = false;
+    let cachedCommunities: Community[] = [];
+
+    if (!refresh) {
+      // Render the last successful feed immediately; never make the first
+      // screen paint wait for a slow or unavailable connection.
+      try {
+        const cached = await AsyncStorage.getItem(FEED_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached) as {
+            posts?: FeedPost[];
+            communities?: Community[];
+            savedAt?: number;
+          };
+          if (Array.isArray(parsed.posts) && Array.isArray(parsed.communities)) {
+            setPosts(parsed.posts);
+            cachedCommunities = parsed.communities;
+            // Membership flags are refreshed from the signed-in account below.
+            setCommunities(parsed.communities.map(item => ({
+              ...item, is_member: false, is_owner: false,
+            })));
+            hadCachedContent = true;
+            setLoading(false);
+            setError('');
+          }
+        }
+      } catch (cacheError) {
+        console.warn('BRITUME feed cache could not be read:', cacheError);
+      }
+    }
+
+    if (refresh) setRefreshing(true);
+    else if (!hadCachedContent) setLoading(true);
     setError('');
 
     try {
-      let currentUserId: string | null = null;
-
-      try {
-        if (supabase) {
-          const { data } = await withTimeout(supabase.auth.getUser(), 10000);
-          currentUserId = data.user?.id ?? null;
+      // Run independent requests together to reduce total wait time.
+      const authPromise = (async () => {
+        try {
+          if (!supabase) return null;
+          const { data } = await withTimeout(supabase.auth.getUser(), 7000);
+          return data.user?.id ?? null;
+        } catch (authError) {
+          console.warn('BRITUME authentication:', authError);
+          return null;
         }
-      } catch (authError) {
-        console.warn('BRITUME authentication:', authError);
-      }
+      })();
+      const postsPromise = withTimeout(fetchPublicPosts(), 12000);
+      const communitiesPromise = withTimeout(fetchCommunities(), 12000)
+        .catch(e => {
+          console.warn('BRITUME communities:', e);
+          return null;
+        });
 
+      const [currentUserId, freshPosts, freshCommunities] = await Promise.all([
+        authPromise, postsPromise, communitiesPromise,
+      ]);
       setUserId(currentUserId);
 
-      const freshPosts = await withTimeout(fetchPublicPosts());
-
       const restrictions = currentUserId
-        ? await withTimeout(fetchPostRestrictions(currentUserId))
+        ? await withTimeout(fetchPostRestrictions(currentUserId), 7000).catch(e => {
+            console.warn('BRITUME post restrictions:', e);
+            return { hiddenPostIds: [], blockedUserIds: [] };
+          })
         : { hiddenPostIds: [], blockedUserIds: [] };
 
       const homePosts = freshPosts.filter(post =>
@@ -164,30 +209,35 @@ function HomeScreen() {
       );
 
       setPosts(homePosts);
-
-
-      try {
-        const freshCommunities = await withTimeout(fetchCommunities());
+      if (freshCommunities) {
         setCommunities(shuffleArray(freshCommunities));
-      } catch (e) {
-        console.error('BRITUME communities:', e);
-        setCommunities([]);
       }
 
+      // Persist public feed content so the next launch works on weak networks.
+      // Do not cache account-specific like/save state or membership flags.
       try {
-        const result = await withTimeout(fetchPostInteractions(
-          homePosts.map(post => post.id),
-          currentUserId ?? undefined,
-        ));
-
-        setInteractions(result);
-      } catch (e) {
-        console.error('BRITUME interactions:', e);
-        setInteractions({});
+        const cacheCommunities = (freshCommunities ?? cachedCommunities).map(item => ({
+          ...item, is_member: false, is_owner: false,
+        }));
+        await AsyncStorage.setItem(FEED_CACHE_KEY, JSON.stringify({
+          posts: homePosts,
+          communities: cacheCommunities,
+          savedAt: Date.now(),
+        }));
+      } catch (cacheError) {
+        console.warn('BRITUME feed cache could not be saved:', cacheError);
       }
+
+      // Interactions are non-blocking: show the feed first, hydrate counts after.
+      void fetchPostInteractions(
+        homePosts.map(post => post.id), currentUserId ?? undefined,
+      ).then(setInteractions).catch(e => {
+        console.warn('BRITUME interactions:', e);
+      });
     } catch (e) {
       console.error('BRITUME feed:', e);
-      setError(errorMessage(e));
+      if (!hadCachedContent) setError(errorMessage(e));
+      else setError('Showing saved posts. Reconnecting when your network is available.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -1097,6 +1147,11 @@ function HomeScreen() {
             </View>
           }
           renderItem={renderFeedRow}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={40}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
         />
       )}
 
