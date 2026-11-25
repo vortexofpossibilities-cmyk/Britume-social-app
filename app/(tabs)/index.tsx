@@ -694,26 +694,19 @@ function HomeScreen() {
     <View>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => router.push('/(tabs)/profile')}
-          style={styles.logoHolder}
-        >
-          <ClayLogo size={52} />
-        </Pressable>
-
-        <Pressable
-          style={styles.brandText}
+          accessibilityRole="button"
+          accessibilityLabel="Open your BRITUME profile"
+          style={styles.brandIdentity}
           onPress={() => router.push('/(tabs)/profile')}
         >
-          <Text style={styles.brandName}>BRITUME</Text>
-          <Text style={styles.tagline}>{t('tagline')}</Text>
-          <Text style={styles.byline}>by brilliant mere</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.topButton}
-          onPress={() => router.push('/(tabs)/discover')}
-        >
-          <Ionicons name="search" size={23} color={theme.cyan} />
+          <View style={styles.logoHolder}>
+            <ClayLogo size={52} />
+          </View>
+          <View style={styles.brandText}>
+            <Text style={styles.brandName}>BRITUME</Text>
+            <Text style={styles.tagline}>{t('tagline')}</Text>
+            <Text style={styles.byline}>by brilliant mere</Text>
+          </View>
         </Pressable>
 
         <Pressable
@@ -751,13 +744,6 @@ function HomeScreen() {
           returnKeyType="search"
         />
 
-        <Pressable onPress={() => router.push('/(tabs)/discover')}>
-          <Ionicons
-            name="options-outline"
-            size={23}
-            color={theme.purple}
-          />
-        </Pressable>
       </View>
 
       <View style={styles.sectionHeading}>
@@ -1178,7 +1164,7 @@ function HomeScreen() {
         >
           <Pressable
             style={styles.postMenuPanel}
-            onPress={() => {}}
+            onPress={event => event.stopPropagation()}
           >
             <View style={styles.postMenuHandle} />
 
@@ -1538,6 +1524,13 @@ function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 19,
+    },
+
+    brandIdentity: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
     },
 
     logoHolder: {

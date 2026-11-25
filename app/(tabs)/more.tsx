@@ -152,32 +152,6 @@ function MoreScreen() {
           color={theme.muted}
         />
       </Pressable>
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.settingsLink,
-          pressed && styles.rowPressed,
-        ]}
-        onPress={openSettings}
-        accessibilityRole="button"
-        accessibilityLabel={t('openSettings')}
-      >
-        <Ionicons
-          name="settings-outline"
-          size={20}
-          color={theme.cyan}
-        />
-
-        <Text style={styles.settingsLinkText}>
-          {t('openSettings')}
-        </Text>
-
-        <Ionicons
-          name="arrow-forward"
-          size={17}
-          color={theme.cyan}
-        />
-      </Pressable>
     </ScrollView>
   );
 }
@@ -371,31 +345,7 @@ function createStyles(
       letterSpacing: 1,
     },
 
-    settingsLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 9,
-      alignSelf: 'center',
-      marginTop: 16,
-      paddingHorizontal: 19,
-      paddingVertical: 13,
-      borderRadius: 17,
-      backgroundColor: theme.panel,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 3, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
-      elevation: 4,
-    },
 
-    settingsLinkText: {
-      color: theme.cyan,
-      fontSize: 14,
-      fontWeight: '800',
-    },
   });
 }
 

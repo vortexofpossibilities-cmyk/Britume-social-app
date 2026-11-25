@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  Text,
 } from 'react-native';
 
 import { useAppTheme } from '../../src/contexts/ThemeContext';
@@ -104,9 +105,10 @@ function IconBar() {
               >
                 <Ionicons
                   name="add"
-                  size={34}
+                  size={27}
                   color="#FFFFFF"
                 />
+                <Text style={styles.createLabel}>Create</Text>
               </Pressable>
             );
           }
@@ -126,10 +128,13 @@ function IconBar() {
               hitSlop={5}
             >
               <Ionicons
-                name={item.icon}
-                size={23}
-                color={active ? theme.cyan : theme.muted}
+                name={active ? item.icon.replace('-outline', '') as React.ComponentProps<typeof Ionicons>['name'] : item.icon}
+                size={21}
+                color={active ? theme.blueLight : theme.muted}
               />
+              <Text numberOfLines={1} style={[styles.iconLabel, active && styles.activeIconLabel]}>
+                {label}
+              </Text>
             </Pressable>
           );
         })}
@@ -172,39 +177,45 @@ function createStyles(
 ) {
   return StyleSheet.create({
     barContainer: {
-      backgroundColor: theme.bg,
-      paddingHorizontal: 9,
-      paddingTop: 7,
-      paddingBottom: Platform.OS === 'ios' ? 18 : 9,
+      backgroundColor: 'transparent',
+      paddingHorizontal: 10,
+      paddingTop: 5,
+      paddingBottom: Platform.OS === 'ios' ? 18 : 8,
     },
 
     bar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: theme.panel,
+      backgroundColor: theme.glass,
       borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 25,
-      paddingHorizontal: 5,
-      paddingTop: 7,
-      paddingBottom: 7,
-      gap: 2,
+      borderColor: theme.glassBorder,
+      borderRadius: 24,
+      paddingHorizontal: 3,
+      paddingTop: 6,
+      paddingBottom: 6,
+      gap: 1,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.22,
+      shadowRadius: 16,
+      elevation: 8,
     },
 
     iconButton: {
       flex: 1,
       minWidth: 0,
-      height: 46,
-      borderRadius: 14,
+      height: 51,
+      borderRadius: 17,
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 3,
     },
 
     activeIconButton: {
       backgroundColor: theme.panel2,
       borderWidth: 1,
-      borderColor: theme.borderStrong,
+      borderColor: theme.glassBorder,
       shadowColor: '#02050B',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.14,
@@ -217,25 +228,46 @@ function createStyles(
     },
 
     createButton: {
-      width: 43,
-      height: 53,
-      borderRadius: 17,
-      backgroundColor: theme.panel3,
+      width: 49,
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: theme.accent,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: -8,
-      borderWidth: 1.5,
-      borderColor: theme.cyan,
-      shadowColor: '#02050B',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.18,
-      shadowRadius: 2,
-      elevation: 0,
+      marginTop: -11,
+      borderWidth: 1,
+      borderColor: theme.blueLight,
+      shadowColor: theme.accent,
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.32,
+      shadowRadius: 12,
+      elevation: 7,
+      gap: 0,
     },
 
     pressedCreate: {
-      transform: [{ scale: 0.92 }],
+      transform: [{ scale: 0.94 }],
       elevation: 3,
+    },
+
+    iconLabel: {
+      color: theme.muted,
+      fontSize: 8,
+      fontWeight: '600',
+      letterSpacing: 0.1,
+      maxWidth: '100%',
+    },
+
+    activeIconLabel: {
+      color: theme.blueLight,
+      fontWeight: '800',
+    },
+
+    createLabel: {
+      color: '#FFFFFF',
+      fontSize: 8,
+      fontWeight: '800',
+      marginTop: -3,
     },
   });
 }

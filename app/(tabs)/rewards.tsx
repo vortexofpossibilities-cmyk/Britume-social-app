@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,14 +12,13 @@ import { useAppTheme } from '../../src/contexts/ThemeContext';
 
 import { withThemeBackground } from '../../src/components/ThemeScreen';
 
-type GameId = 'spin' | 'mystery' | 'daily' | 'challenges' | 'more';
+type GameId = 'spin' | 'mystery' | 'daily' | 'challenges' | 'games';
 
 type Game = {
   id: GameId;
   title: string;
   description: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  status: 'available' | 'coming';
   color: string;
 };
 
@@ -30,7 +28,6 @@ const games: Game[] = [
     title: 'Spin Wheel',
     description: 'Spin for a chance to win BRITUME points.',
     icon: 'sync-circle-outline',
-    status: 'available',
     color: '#E5A52E',
   },
   {
@@ -38,7 +35,6 @@ const games: Game[] = [
     title: 'Mystery Boxes',
     description: 'Open mysterious boxes and discover rewards.',
     icon: 'gift-outline',
-    status: 'available',
     color: '#A77AF5',
   },
   {
@@ -46,7 +42,6 @@ const games: Game[] = [
     title: 'Daily Rewards',
     description: 'Come back daily and collect rewards.',
     icon: 'calendar-outline',
-    status: 'available',
     color: '#36B9A0',
   },
   {
@@ -54,15 +49,13 @@ const games: Game[] = [
     title: 'Challenges',
     description: 'Complete challenges and earn points.',
     icon: 'trophy-outline',
-    status: 'available',
     color: '#E47B63',
   },
   {
-    id: 'more',
-    title: 'More Games',
-    description: 'New games and experiences are coming.',
+    id: 'games',
+    title: 'Games Arena',
+    description: 'Explore BRITUME games and challenges.',
     icon: 'game-controller-outline',
-    status: 'coming',
     color: '#4D9DE0',
   },
 ];
@@ -72,14 +65,6 @@ function RewardsScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const openGame = (game: Game) => {
-    if (game.status === 'coming') {
-      Alert.alert(
-        'Coming soon',
-        `${game.title} will be added to BRITUME Rewards Hub.`,
-      );
-      return;
-    }
-
     switch (game.id) {
       case 'spin':
         router.push('/rewards/spin' as never);
@@ -97,7 +82,8 @@ function RewardsScreen() {
         router.push('/rewards/challenges' as never);
         return;
 
-      case 'more':
+      case 'games':
+        router.push('/(tabs)/games' as never);
         return;
 
       default: {
@@ -197,20 +183,16 @@ function RewardsScreen() {
             <View
               style={[
                 styles.status,
-                game.status === 'available'
-                  ? styles.availableStatus
-                  : styles.comingStatus,
+                styles.availableStatus,
               ]}
             >
               <Text
                 style={[
                   styles.statusText,
-                  game.status === 'available'
-                    ? styles.availableText
-                    : styles.comingText,
+                  styles.availableText,
                 ]}
               >
-                {game.status === 'available' ? 'PLAY' : 'COMING SOON'}
+                OPEN
               </Text>
             </View>
 
@@ -391,18 +373,12 @@ function createStyles(
     availableStatus: {
       backgroundColor: '#DDF5E9',
     },
-    comingStatus: {
-      backgroundColor: theme.panel2,
-    },
     statusText: {
       fontSize: 9,
       fontWeight: '900',
     },
     availableText: {
       color: '#167A4B',
-    },
-    comingText: {
-      color: theme.muted,
     },
     notice: {
       flexDirection: 'row',

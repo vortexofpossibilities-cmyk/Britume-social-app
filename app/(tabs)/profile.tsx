@@ -94,9 +94,6 @@ function ProfileScreen() {
     visibilityFailed: isSt
       ? 'Ga go a kgonega go fetola ponalo ya profaele.'
       : 'Could not update profile visibility.',
-    studioMessage: isSt
-      ? 'BRITUME Studio e tla tloga e tla.'
-      : 'BRITUME Studio is coming soon. Creative tools will be available here.',
     dashboardDescription: isSt
       ? 'Bona tswelelopele ya gago le dipalopalo.'
       : 'View your activity, progress and statistics.',
@@ -528,10 +525,7 @@ function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.muted} />
           </Pressable>
 
-          <Pressable
-            style={styles.studioCard}
-            onPress={() => Alert.alert(words.studio, words.studioMessage)}
-          >
+          <View style={styles.studioCard}>
             <View style={styles.studioTop}>
               <View style={styles.studioIcon}>
                 <Ionicons name="color-palette-outline" size={30} color="#FFFFFF" />
@@ -563,7 +557,7 @@ function ProfileScreen() {
                 <Text style={styles.studioExampleText}>Animation</Text>
               </View>
             </View>
-          </Pressable>
+          </View>
 
           <View style={styles.postsHeading}>
             <View>
