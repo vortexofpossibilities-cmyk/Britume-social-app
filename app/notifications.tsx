@@ -829,18 +829,18 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   filterChip: {
+    ...theme.clayPressedStyle,
     backgroundColor: theme.panel,
     borderRadius: 15,
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: theme.border,
-    ...theme.clayPressedStyle,
   },
   filterChipActive: {
+    ...theme.clayRaised,
     backgroundColor: theme.clayBlue,
     borderColor: '#A9D5FF',
-    ...theme.clayRaised,
   },
   filterText: {
     color: theme.muted,
@@ -868,6 +868,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   notificationCard: {
+    ...theme.clayShadow,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
@@ -877,7 +878,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: theme.border,
-    ...theme.clayShadow,
   },
   unreadCard: {
     borderColor: '#A5D3FF',
@@ -942,13 +942,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   destinationBox: {
+    ...theme.clayPressedStyle,
     backgroundColor: theme.clayBlue,
     borderRadius: 15,
     padding: 11,
     marginTop: 11,
     borderWidth: 1,
     borderColor: '#D0E7FC',
-    ...theme.clayPressedStyle,
   },
   destinationHeading: {
     flexDirection: 'row',
