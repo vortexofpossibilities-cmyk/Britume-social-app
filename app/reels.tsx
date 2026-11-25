@@ -261,18 +261,6 @@ function VideosScreen() {
             <Ionicons name="chatbubble-ellipses-outline" size={27} color="#FFFFFF" />
             <Text style={styles.actionLabel}>Comment</Text>
           </Pressable>
-          <Pressable style={styles.actionItem} onPress={() => Alert.alert('Polls', 'Polls are not available on Reels yet.')} accessibilityLabel="Polls">
-            <Ionicons name="stats-chart-outline" size={27} color="#FFFFFF" />
-            <Text style={styles.actionLabel}>Poll</Text>
-          </Pressable>
-          <Pressable style={styles.actionItem} onPress={() => Alert.alert('Edit Reel', 'Editing an already published Reel is not available yet. You can share a new video using Add.')} accessibilityLabel="Edit Reel">
-            <Ionicons name="create-outline" size={27} color="#FFFFFF" />
-            <Text style={styles.actionLabel}>Edit</Text>
-          </Pressable>
-          <Pressable style={styles.actionItem} onPress={() => Alert.alert('Location', 'This Reel does not have a location attached.')} accessibilityLabel="Reel location">
-            <Ionicons name="location-outline" size={27} color="#FFFFFF" />
-            <Text style={styles.actionLabel}>Location</Text>
-          </Pressable>
         </View>
 
         <View pointerEvents="none" style={styles.captionArea}>
