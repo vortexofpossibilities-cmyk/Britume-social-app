@@ -31,7 +31,6 @@ import { withThemeBackground } from '../../src/components/ThemeScreen';
 
 type AppTheme = ReturnType<typeof useAppTheme>['theme'];
 type ActiveMedia = { uri: string; type: 'image' | 'video' } | null;
-type StoryIcon = { user_id: string; display_name: string; avatar_url: string | null };
 
 type Interaction = {
   liked: boolean;
@@ -112,7 +111,6 @@ function HomeScreen() {
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [storyIcons, setStoryIcons] = useState<StoryIcon[]>([]);
   const [search, setSearch] = useState('');
   const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
   const [blurredPostIds, setBlurredPostIds] = useState<string[]>([]);
@@ -130,6 +128,9 @@ function HomeScreen() {
   const [sendingComment, setSendingComment] = useState(false);
   const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const updatesCommunity = communities.find(community =>
+    /britume.*updates|updates.*britume/i.test(community.name)
+  );
 
   const loadPosts = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
@@ -164,45 +165,6 @@ function HomeScreen() {
 
       setPosts(homePosts);
 
-      try {
-        if (supabase && currentUserId) {
-          const { data: activeStories, error: storiesError } = await supabase
-            .from('stories')
-            .select('user_id')
-            .gt('expires_at', new Date().toISOString());
-          if (storiesError) throw storiesError;
-          const storyUserIds = [...new Set((activeStories || []).map(row => row.user_id))];
-          if (storyUserIds.length) {
-            const { data: storyProfiles, error: profilesError } = await supabase
-              .from('profiles')
-              .select('user_id,display_name,username,avatar_path')
-              .in('user_id', storyUserIds);
-            if (profilesError) throw profilesError;
-            const icons = await Promise.all((storyProfiles || []).map(async profile => {
-              let avatarUrl: string | null = null;
-              if (profile.avatar_path) {
-                const { data: signed } = await supabase!.storage
-                  .from('britume-media')
-                  .createSignedUrl(profile.avatar_path, 60 * 60);
-                avatarUrl = signed?.signedUrl || null;
-              }
-              return {
-                user_id: profile.user_id,
-                display_name: profile.display_name || profile.username || 'BRITUME member',
-                avatar_url: avatarUrl,
-              };
-            }));
-            setStoryIcons(icons);
-          } else {
-            setStoryIcons([]);
-          }
-        } else {
-          setStoryIcons([]);
-        }
-      } catch (storyError) {
-        console.warn('BRITUME story icons:', storyError);
-        setStoryIcons([]);
-      }
 
       try {
         const freshCommunities = await withTimeout(fetchCommunities());
@@ -736,6 +698,22 @@ function HomeScreen() {
 
         <Pressable
           style={styles.topButton}
+          accessibilityRole="button"
+          accessibilityLabel="Open Communities"
+          onPress={() => router.push('/communities')}
+        >
+          <Ionicons name="people-outline" size={21} color={theme.cyan} />
+        </Pressable>
+        <Pressable
+          style={styles.topButton}
+          accessibilityRole="button"
+          accessibilityLabel="Message BRITUME"
+          onPress={() => router.push('/messages')}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.cyan} />
+        </Pressable>
+        <Pressable
+          style={styles.topButton}
           onPress={() => router.push('/notifications')}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
@@ -752,58 +730,28 @@ function HomeScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>{t('stories')}</Text>
-        <Pressable
-          style={styles.seeAll}
-          onPress={() => router.push('/stories')}
-        >
-          <Text style={styles.seeAllText}>{t('seeAll')}</Text>
-          <Ionicons name="chevron-forward" size={16} color={theme.cyan} />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.storiesScroll}
-        contentContainerStyle={styles.storiesContent}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open the official BRITUME Updates community"
+        onPress={() => {
+          if (updatesCommunity) {
+            router.push({ pathname: '/community/[id]', params: { id: updatesCommunity.id, name: updatesCommunity.name } });
+          } else {
+            router.push('/communities');
+          }
+        }}
+        style={styles.updatesCard}
       >
-        <Pressable
-          style={styles.storyCircleItem}
-          onPress={() => router.push('/(tabs)/create')}
-        >
-          <View style={styles.storyCircleOuter}>
-            <View style={styles.storyCircleInner}>
-              <Ionicons name="person" size={23} color={theme.cyan} />
-            </View>
-            <View style={styles.storyAddBadge}>
-              <Ionicons name="add" size={15} color={theme.text} />
-            </View>
-          </View>
-          <Text style={styles.storyCircleLabel}>{t('yourStory')}</Text>
-        </Pressable>
-        {storyIcons.filter(story => story.user_id !== userId).map(story => (
-          <Pressable
-            key={story.user_id}
-            style={styles.storyCircleItem}
-            onPress={() => router.push('/stories')}
-            accessibilityRole="button"
-            accessibilityLabel={`View ${story.display_name}'s story`}
-          >
-            <View style={styles.storyCircleOuter}>
-              <View style={styles.storyCircleInner}>
-                {story.avatar_url ? (
-                  <Image source={{ uri: story.avatar_url }} style={styles.storyAvatarImage} />
-                ) : (
-                  <Ionicons name="person" size={23} color={theme.cyan} />
-                )}
-              </View>
-            </View>
-            <Text style={styles.storyCircleLabel} numberOfLines={1}>{story.display_name}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+        <View style={styles.updatesIcon}>
+          <Ionicons name="megaphone" size={19} color="#FFFFFF" />
+        </View>
+        <View style={styles.updatesCopy}>
+          <Text style={styles.updatesEyebrow}>{updatesCommunity ? 'OFFICIAL COMMUNITY' : 'COMMUNITY SHORTCUT'}</Text>
+          <Text style={styles.updatesTitle}>BRITUME Updates</Text>
+          <Text style={styles.updatesSubtitle}>{updatesCommunity ? 'News, announcements and what’s new' : 'Open Communities to find the updates group'}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={19} color={theme.cyan} />
+      </Pressable>
 
       <View style={styles.feedHeading}>
         <View>
@@ -1562,6 +1510,7 @@ function createStyles(theme: AppTheme) {
     },
 
     topButton: {
+      ...buttonShadow,
       width: 41,
       height: 41,
       borderRadius: 15,
@@ -1571,10 +1520,56 @@ function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       alignItems: 'center',
       marginLeft: 5,
-      ...buttonShadow,
+    },
+
+    updatesCard: {
+      alignSelf: 'center',
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      marginTop: 1,
+      marginBottom: 17,
+      borderRadius: 20,
+      backgroundColor: surface,
+      ...raisedShadow,
+      borderWidth: cardBorderWidth,
+      borderColor: border,
+    },
+    updatesIcon: {
+      width: 39,
+      height: 39,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+      marginRight: 11,
+    },
+    updatesCopy: { flex: 1, alignItems: 'center' },
+    updatesEyebrow: {
+      color: theme.cyan,
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+    },
+    updatesTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '900',
+      textAlign: 'center',
+      marginTop: 2,
+    },
+    updatesSubtitle: {
+      color: softText,
+      fontSize: 10,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginTop: 2,
     },
 
     searchBox: {
+      ...raisedShadow,
       flexDirection: 'row',
       alignItems: 'center',
       minHeight: 58,
@@ -1584,7 +1579,6 @@ function createStyles(theme: AppTheme) {
       borderColor: border,
       paddingHorizontal: 18,
       marginBottom: 18,
-      ...raisedShadow,
     },
 
     searchInput: {
@@ -1637,82 +1631,8 @@ function createStyles(theme: AppTheme) {
       fontWeight: '800',
     },
 
-    seeAll: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: surface,
-      borderRadius: 17,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderWidth: cardBorderWidth,
-      borderColor: border,
-      ...buttonShadow,
-    },
-
-    seeAllText: {
-      color: theme.cyan,
-      fontSize: 12,
-      fontWeight: '900',
-    },
-
-    storiesScroll: {
-      marginBottom: 13,
-    },
-
-    storiesContent: {
-      paddingRight: 8,
-    },
-
-    storyCircleItem: {
-      width: 70,
-      alignItems: 'center',
-      marginRight: 12,
-    },
-
-    storyCircleOuter: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      borderWidth: 2.5,
-      borderColor: border,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: surface,
-      ...raisedShadow,
-    },
-
-    storyAvatarImage: { width: 46, height: 46, borderRadius: 23 },
-    storyCircleInner: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: raised,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: border,
-    },
-
-    storyAddBadge: {
-      position: 'absolute',
-      right: -2,
-      bottom: -1,
-      width: 23,
-      height: 23,
-      borderRadius: 12,
-      backgroundColor: theme.gold ?? theme.cyan,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    storyCircleLabel: {
-      color: theme.text,
-      fontSize: 10,
-      fontWeight: '700',
-      marginTop: 6,
-    },
-
     postCard: {
+      ...raisedShadow,
       width: '100%',
       backgroundColor: surface,
       borderWidth: cardBorderWidth,
@@ -1720,7 +1640,6 @@ function createStyles(theme: AppTheme) {
       borderRadius: cardRadius,
       padding: 12,
       marginBottom: 18,
-      ...raisedShadow,
     },
 
     postHeader: {
@@ -1886,6 +1805,7 @@ function createStyles(theme: AppTheme) {
     },
 
     communityCard: {
+      ...raisedShadow,
       width: '100%',
       backgroundColor: surface,
       borderWidth: cardBorderWidth,
@@ -1893,7 +1813,6 @@ function createStyles(theme: AppTheme) {
       borderRadius: cardRadius,
       padding: 15,
       marginBottom: 18,
-      ...raisedShadow,
     },
 
     communityTop: {
@@ -1995,6 +1914,7 @@ function createStyles(theme: AppTheme) {
     },
 
     emptyBox: {
+      ...raisedShadow,
       backgroundColor: surface,
       borderWidth: cardBorderWidth,
       borderColor: border,
@@ -2002,7 +1922,6 @@ function createStyles(theme: AppTheme) {
       padding: 27,
       alignItems: 'center',
       marginBottom: 17,
-      ...raisedShadow,
     },
 
     emptyTitle: {
@@ -2050,6 +1969,7 @@ function createStyles(theme: AppTheme) {
     },
 
     postMenuPanel: {
+      ...raisedShadow,
       backgroundColor: surface,
       borderTopLeftRadius: cardRadius + 4,
       borderTopRightRadius: cardRadius + 4,
@@ -2059,7 +1979,6 @@ function createStyles(theme: AppTheme) {
       paddingTop: 12,
       paddingBottom: 30,
       maxHeight: '85%',
-      ...raisedShadow,
     },
 
     postMenuHandle: {
@@ -2166,6 +2085,7 @@ function createStyles(theme: AppTheme) {
     },
 
     commentsPanel: {
+      ...raisedShadow,
       height: '72%',
       backgroundColor: theme.bg,
       borderTopLeftRadius: cardRadius + 6,
@@ -2173,7 +2093,6 @@ function createStyles(theme: AppTheme) {
       borderTopWidth: 2,
       borderColor: border,
       padding: 17,
-      ...raisedShadow,
     },
 
     modalHeader: {
@@ -2205,6 +2124,7 @@ function createStyles(theme: AppTheme) {
     },
 
     commentCard: {
+      ...buttonShadow,
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 11,
@@ -2214,7 +2134,6 @@ function createStyles(theme: AppTheme) {
       padding: 13,
       borderRadius: cardRadius > 18 ? 17 : cardRadius,
       marginBottom: 11,
-      ...buttonShadow,
     },
 
     commentAuthor: {
@@ -2255,6 +2174,7 @@ function createStyles(theme: AppTheme) {
     },
 
     sendButton: {
+      ...buttonShadow,
       width: 49,
       height: 49,
       borderRadius: 18,
@@ -2263,7 +2183,6 @@ function createStyles(theme: AppTheme) {
       borderColor: border,
       alignItems: 'center',
       justifyContent: 'center',
-      ...buttonShadow,
     },
   });
 }
