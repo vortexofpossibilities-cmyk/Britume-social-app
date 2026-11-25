@@ -82,7 +82,7 @@ type ThemeSurfaceProps = {
 };
 
 export function ThemeSurface({
-  children, style, padding = 16, variant = 'card', radius,
+  children, style, padding = 18, variant = 'card', radius,
 }: ThemeSurfaceProps) {
   const { theme, radius: shapeRadius } = useThemeTokens();
   const backgroundColor = variant === 'glass'
@@ -97,19 +97,15 @@ export function ThemeSurface({
     <View style={[{
       padding,
       backgroundColor,
-      borderRadius: radius ?? shapeRadius,
-      borderWidth: variant === 'flat' ? 0 : theme.cardBorderWidth,
+      borderRadius: radius ?? Math.max(18, shapeRadius),
+      borderWidth: variant === 'flat' ? 0 : 1,
       borderColor: variant === 'glass' ? theme.glassBorder : theme.border,
       shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: Math.max(4, theme.depth + 3) },
-      shadowOpacity: Math.min(0.34, 0.14 + theme.depth * 0.025),
-      shadowRadius: Math.max(6, theme.depth * 2.2),
-      elevation: Math.max(3, Math.round(theme.depth + 1)),
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.16,
+      shadowRadius: 18,
+      elevation: 3,
     }, style]}>
-      <View pointerEvents="none" style={{
-        position: 'absolute', top: 0, left: 12, right: 12, height: 2,
-        borderRadius: 4, backgroundColor: theme.highlight, opacity: 0.45,
-      }} />
       {children}
     </View>
   );
@@ -124,39 +120,35 @@ type ThemeTileProps = {
 };
 
 export function ThemeTile({
-  children, style, onPress, padding = 14, selected = false,
+  children, style, onPress, padding = 16, selected = false,
 }: ThemeTileProps) {
   const { theme, radius } = useThemeTokens();
-  const tileRadius = theme.shape === 'square' ? 8
-    : theme.shape === 'pill' ? 26
+  const tileRadius = theme.shape === 'square' ? 12
+    : theme.shape === 'pill' ? 28
       : theme.shape === 'hexagon' ? 18
-        : radius;
+        : Math.max(18, radius);
 
   const content = (
     <View style={[{
-      minHeight: 72,
+      minHeight: 76,
       padding,
       justifyContent: 'center',
-      backgroundColor: theme.panel,
+      backgroundColor: selected ? theme.panel2 : theme.panel,
       borderRadius: tileRadius,
-      borderWidth: selected ? Math.max(2, theme.cardBorderWidth) : theme.cardBorderWidth,
+      borderWidth: selected ? 1.5 : 1,
       borderColor: selected ? theme.accent : theme.border,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: Math.max(4, theme.depth + 2) },
-      shadowOpacity: Math.min(0.32, 0.12 + theme.depth * 0.025),
-      shadowRadius: Math.max(6, theme.depth * 2),
-      elevation: Math.max(3, Math.round(theme.depth + 1)),
     }, style]}>
-      <View pointerEvents="none" style={{
-        position: 'absolute', top: 0, left: 8, right: 8, height: 2,
-        backgroundColor: theme.highlight, opacity: 0.55,
-      }} />
       {children}
     </View>
   );
 
   return onPress ? (
-    <Pressable onPress={onPress} accessibilityRole="button">{content}</Pressable>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}
+    >{content}</Pressable>
   ) : content;
 }
 
@@ -178,23 +170,19 @@ export function ThemeButton({
       disabled={disabled}
       accessibilityRole="button"
       style={({ pressed }) => [{
-        minHeight: 48,
-        paddingHorizontal: 20,
+        minHeight: 50,
+        paddingHorizontal: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: theme.shape === 'square' ? 8 : theme.shape === 'pill' ? 999 : radius,
+        borderRadius: theme.shape === 'square' ? 12 : theme.shape === 'pill' ? 999 : Math.max(16, radius),
         backgroundColor: disabled ? theme.panel2 : theme.accent,
-        borderWidth: theme.cardBorderWidth,
-        borderColor: theme.highlight,
-        opacity: disabled ? 0.55 : pressed ? 0.82 : 1,
-        shadowColor: theme.shadow,
-        shadowOffset: { width: 0, height: pressed ? 1 : Math.max(2, theme.depth) },
-        shadowOpacity: pressed ? 0.10 : 0.30,
-        shadowRadius: pressed ? 2 : Math.max(6, theme.depth * 1.8),
-        elevation: pressed ? 1 : Math.max(3, Math.round(theme.depth + 1)),
+        borderWidth: 1,
+        borderColor: disabled ? theme.border : theme.accent,
+        opacity: disabled ? 0.5 : pressed ? 0.88 : 1,
+        transform: [{ scale: pressed ? 0.985 : 1 }],
       }, style]}
     >
-      <Text style={[{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }, textStyle]}>
+      <Text style={[{ color: '#FFFFFF', fontWeight: '750', fontSize: 15, letterSpacing: 0.15 }, textStyle]}>
         {title}
       </Text>
     </Pressable>
